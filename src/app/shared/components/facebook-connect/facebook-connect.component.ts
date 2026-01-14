@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FacebookOAuthService } from '../../services/facebook-oauth.service';
+import { FacebookOAuthService } from '../../../features/facebook/services/facebook-oauth.service';
 
 @Component({
   selector: 'app-facebook-connect',

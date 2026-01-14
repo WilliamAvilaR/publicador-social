@@ -4,9 +4,9 @@ import { Router, RouterModule, RouterOutlet, NavigationEnd } from '@angular/rout
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { filter } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
-import { AuthService } from '../../../auth/services/auth.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { UserData } from '../../../auth/models/login.model';
-import { FacebookConnectComponent } from '../../../facebook/components/facebook-connect/facebook-connect.component';
+import { FacebookConnectComponent } from '../../../../shared/components/facebook-connect/facebook-connect.component';
 
 interface MenuItem {
   label: string;

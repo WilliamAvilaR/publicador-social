@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FacebookOAuthService } from '../../../facebook/services/facebook-oauth.service';
-import { FacebookConnectComponent } from '../../../facebook/components/facebook-connect/facebook-connect.component';
+import { FacebookConnectComponent } from '../../../../shared/components/facebook-connect/facebook-connect.component';
 import { FacebookPage } from '../../../facebook/models/facebook.model';
 
 @Component({
