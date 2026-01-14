@@ -7,6 +7,9 @@ import { take } from 'rxjs/operators';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
 import { LoginRequest } from '../../../core/models/auth.model';
+import { markFormGroupTouched, isFieldInvalid } from '../../../shared/utils/form.utils';
+import { extractErrorMessage } from '../../../shared/utils/error.utils';
+import { getFieldError } from '../../../shared/utils/validation.utils';
 
 @Component({
   selector: 'app-login',
@@ -75,7 +78,7 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   onSubmit() {
     if (this.loginForm.invalid) {
-      this.markFormGroupTouched(this.loginForm);
+      markFormGroupTouched(this.loginForm);
       return;
     }
 
@@ -99,70 +102,21 @@ export class LoginComponent implements OnInit, OnDestroy {
       },
       error: (error: HttpErrorResponse) => {
         this.isLoading = false;
-        this.errorMessage = this.extractErrorMessage(error);
+        this.errorMessage = extractErrorMessage(
+          error,
+          'Error al iniciar sesión. Por favor, intenta nuevamente.'
+        );
       }
     });
 
     this.subscriptions.add(loginSubscription);
   }
 
-  private extractErrorMessage(error: HttpErrorResponse): string {
-    if (!error.error) {
-      return error.message || 'Error al iniciar sesión. Por favor, intenta nuevamente.';
-    }
-
-    // Si errors es un array de objetos con detail
-    if (Array.isArray(error.error.errors) && error.error.errors.length > 0) {
-      const firstError = error.error.errors[0];
-      if (firstError.detail) {
-        return firstError.detail;
-      }
-      if (firstError.title) {
-        return firstError.title;
-      }
-    }
-
-    // Si hay detail directo en error.error
-    if (error.error.detail) {
-      return error.error.detail;
-    }
-
-    // Si hay title directo en error.error
-    if (error.error.title) {
-      return error.error.title;
-    }
-
-    // Si hay un mensaje de error general
-    if (error.error.message) {
-      return error.error.message;
-    }
-
-    // Último recurso: mensaje genérico
-    return 'Error al iniciar sesión. Por favor, intenta nuevamente.';
-  }
-
-  private markFormGroupTouched(formGroup: FormGroup) {
-    Object.keys(formGroup.controls).forEach(key => {
-      const control = formGroup.get(key);
-      control?.markAsTouched();
-    });
-  }
-
   getFieldError(fieldName: string): string {
-    const field = this.loginForm.get(fieldName);
-
-    if (field?.hasError('required')) {
-      return 'Este campo es obligatorio';
-    }
-    if (field?.hasError('email')) {
-      return 'Email inválido';
-    }
-
-    return '';
+    return getFieldError(this.loginForm, fieldName);
   }
 
   isFieldInvalid(fieldName: string): boolean {
-    const field = this.loginForm.get(fieldName);
-    return !!(field && field.invalid && field.touched);
+    return isFieldInvalid(this.loginForm, fieldName);
   }
 }

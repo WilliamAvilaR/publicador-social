@@ -6,6 +6,9 @@ import { Subscription } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
 import { RegisterRequest } from '../../../core/models/auth.model';
+import { markFormGroupTouched, isFieldInvalid } from '../../../shared/utils/form.utils';
+import { extractErrorMessage } from '../../../shared/utils/error.utils';
+import { getFieldError } from '../../../shared/utils/validation.utils';
 
 @Component({
   selector: 'app-register',
@@ -128,7 +131,7 @@ export class RegisterComponent implements OnInit, OnDestroy {
 
   onSubmit() {
     if (this.registerForm.invalid) {
-      this.markFormGroupTouched(this.registerForm);
+      markFormGroupTouched(this.registerForm);
       return;
     }
 
@@ -155,7 +158,10 @@ export class RegisterComponent implements OnInit, OnDestroy {
       },
       error: (error: HttpErrorResponse) => {
         this.isLoading = false;
-        this.errorMessage = this.extractErrorMessage(error);
+        this.errorMessage = extractErrorMessage(
+          error,
+          'Error al registrar usuario. Por favor, intenta nuevamente.'
+        );
       }
     });
 
@@ -166,85 +172,11 @@ export class RegisterComponent implements OnInit, OnDestroy {
     this.subscriptions.unsubscribe();
   }
 
-  private extractErrorMessage(error: HttpErrorResponse): string {
-    if (!error.error) {
-      return error.message || 'Error al registrar usuario. Por favor, intenta nuevamente.';
-    }
-
-    // Si errors es un array de objetos con detail
-    if (Array.isArray(error.error.errors) && error.error.errors.length > 0) {
-      const firstError = error.error.errors[0];
-      if (firstError.detail) {
-        return firstError.detail;
-      }
-      if (firstError.title) {
-        return firstError.title;
-      }
-    }
-
-    // Si errors es un objeto con campos (validación por campo)
-    if (error.error.errors && typeof error.error.errors === 'object' && !Array.isArray(error.error.errors)) {
-      const errorFields = Object.keys(error.error.errors);
-      if (errorFields.length > 0) {
-        const firstField = errorFields[0];
-        const firstError = error.error.errors[firstField];
-        if (Array.isArray(firstError) && firstError.length > 0) {
-          return firstError[0];
-        }
-        if (typeof firstError === 'string') {
-          return firstError;
-        }
-      }
-    }
-
-    // Si hay detail directo en error.error
-    if (error.error.detail) {
-      return error.error.detail;
-    }
-
-    // Si hay title directo en error.error
-    if (error.error.title) {
-      return error.error.title;
-    }
-
-    // Si hay un mensaje de error general
-    if (error.error.message) {
-      return error.error.message;
-    }
-
-    // Último recurso: mensaje genérico
-    return 'Error al registrar usuario. Por favor, intenta nuevamente.';
-  }
-
-  markFormGroupTouched(formGroup: FormGroup) {
-    Object.keys(formGroup.controls).forEach(key => {
-      const control = formGroup.get(key);
-      control?.markAsTouched();
-    });
-  }
-
   getFieldError(fieldName: string): string {
-    const field = this.registerForm.get(fieldName);
-
-    if (field?.hasError('required')) {
-      return 'Este campo es obligatorio';
-    }
-    if (field?.hasError('email')) {
-      return 'Email inválido';
-    }
-    if (field?.hasError('minlength')) {
-      const minLength = field.errors?.['minlength']?.requiredLength;
-      return `Mínimo ${minLength} caracteres`;
-    }
-    if (field?.hasError('passwordMismatch')) {
-      return 'Las contraseñas no coinciden';
-    }
-
-    return '';
+    return getFieldError(this.registerForm, fieldName);
   }
 
   isFieldInvalid(fieldName: string): boolean {
-    const field = this.registerForm.get(fieldName);
-    return !!(field && field.invalid && field.touched);
+    return isFieldInvalid(this.registerForm, fieldName);
   }
 }
