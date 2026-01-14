@@ -5,7 +5,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { filter } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
-import { UserData } from '../../../auth/models/login.model';
+import { UserData } from '../../../../core/models/auth.model';
 import { FacebookConnectComponent } from '../../../../shared/components/facebook-connect/facebook-connect.component';
 
 interface MenuItem {

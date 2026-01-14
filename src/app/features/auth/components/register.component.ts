@@ -5,7 +5,7 @@ import { Router, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
-import { RegisterRequest } from '../models/register.model';
+import { RegisterRequest } from '../../../core/models/auth.model';
 
 @Component({
   selector: 'app-register',

@@ -1,9 +1,8 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import { FacebookConnectResponse, FacebookPage, FacebookPagesResponse } from '../models/facebook.model';
-import { AuthService } from '../../../core/services/auth.service';
+import { FacebookConnectResponse, FacebookPage, FacebookPagesResponse } from '../../features/facebook/models/facebook.model';
 
 @Injectable({
   providedIn: 'root'
@@ -11,21 +10,16 @@ import { AuthService } from '../../../core/services/auth.service';
 export class FacebookOAuthService {
   private readonly apiUrl = '/api/Facebook';
 
-  constructor(
-    private http: HttpClient,
-    private authService: AuthService
-  ) {}
+  constructor(private http: HttpClient) {}
 
   /**
    * Inicia el flujo de conexión con Facebook.
    * Redirige al usuario a Facebook para autorización.
+   * El interceptor HTTP agregará automáticamente el token de autenticación.
    */
   connectFacebook(): void {
-    const headers = this.getAuthHeaders();
-
     this.http.get<FacebookConnectResponse>(
-      `${this.apiUrl}/connect`,
-      { headers }
+      `${this.apiUrl}/connect`
     ).pipe(
       catchError(this.handleError)
     ).subscribe({
@@ -40,13 +34,11 @@ export class FacebookOAuthService {
 
   /**
    * Obtiene las páginas de Facebook conectadas del usuario.
+   * El interceptor HTTP agregará automáticamente el token de autenticación.
    */
   getConnectedPages(): Observable<FacebookPage[]> {
-    const headers = this.getAuthHeaders();
-    
     return this.http.get<FacebookPagesResponse>(
-      `${this.apiUrl}/pages`,
-      { headers }
+      `${this.apiUrl}/pages`
     ).pipe(
       map(response => response.data),
       catchError(this.handleError)
@@ -55,27 +47,14 @@ export class FacebookOAuthService {
 
   /**
    * Obtiene las páginas de Facebook conectadas del usuario con metadatos de paginación.
+   * El interceptor HTTP agregará automáticamente el token de autenticación.
    */
   getConnectedPagesWithMeta(): Observable<FacebookPagesResponse> {
-    const headers = this.getAuthHeaders();
-    
     return this.http.get<FacebookPagesResponse>(
-      `${this.apiUrl}/pages`,
-      { headers }
+      `${this.apiUrl}/pages`
     ).pipe(
       catchError(this.handleError)
     );
-  }
-
-  private getAuthHeaders(): HttpHeaders {
-    const token = this.authService.getToken();
-    if (!token) {
-      throw new Error('No hay token de autenticación disponible');
-    }
-    return new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
   }
 
   private handleError = (error: HttpErrorResponse) => {
