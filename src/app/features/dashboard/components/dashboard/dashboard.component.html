@@ -1,0 +1,117 @@
+<div class="dashboard-container" [class.sidebar-collapsed]="sidebarCollapsed">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-container">
+        <img src="assets/logoSocial.png" alt="Social Automate" class="logo-icon" />
+        <span class="logo-text" *ngIf="!sidebarCollapsed">Social Automate</span>
+      </div>
+      <button class="toggle-sidebar-btn" (click)="toggleSidebar()" [attr.aria-label]="sidebarCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'">
+        <span *ngIf="!sidebarCollapsed">‹</span>
+        <span *ngIf="sidebarCollapsed">›</span>
+      </button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <ul class="menu-list">
+        <li *ngFor="let item of menuItems" class="menu-item">
+          <a 
+            [routerLink]="item.route" 
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{exact: item.route === '/dashboard'}"
+            class="menu-link"
+            [title]="sidebarCollapsed ? item.label : ''"
+          >
+            <span class="menu-icon-wrapper" *ngIf="item.icon" [innerHTML]="getIconHtml(item.icon)"></span>
+            <span class="menu-label">{{ item.label }}</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a routerLink="/dashboard/configuracion" class="menu-link footer-link" routerLinkActive="active">
+        <span class="menu-icon-wrapper" [innerHTML]="getConfigIcon()"></span>
+        <span class="menu-label">Configuración</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-wrapper">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <h1 class="section-title">{{ activeSection }}</h1>
+      </div>
+
+      <div class="top-bar-center">
+        <div class="search-container">
+          <input
+            type="text"
+            placeholder="Buscar posts, cuentas, campañas..."
+            class="search-input"
+          />
+        </div>
+      </div>
+
+      <div class="top-bar-right">
+        <button class="action-btn new-post-btn" title="Nueva publicación">
+          <span>+</span>
+          <span class="btn-label">Nueva publicación</span>
+        </button>
+
+        <button class="action-btn notifications-btn" (click)="toggleNotifications()" title="Notificaciones">
+          <span class="notification-icon-wrapper" [innerHTML]="getNotificationIcon()"></span>
+          <span class="notification-badge" *ngIf="!sidebarCollapsed">3</span>
+        </button>
+
+        <div class="user-menu">
+          <button class="user-btn" (click)="toggleUserDropdown()">
+            <div class="user-avatar">{{ getUserInitials() }}</div>
+            <span class="user-name" *ngIf="!sidebarCollapsed">{{ user?.fullName }}</span>
+            <span class="dropdown-arrow" *ngIf="!sidebarCollapsed">▼</span>
+          </button>
+
+          <div class="user-dropdown" *ngIf="showUserDropdown && !sidebarCollapsed">
+            <a class="dropdown-item" (click)="navigateTo('/dashboard/perfil')">Perfil</a>
+            <a class="dropdown-item" (click)="navigateTo('/dashboard/configuracion')">Configuración</a>
+            <a class="dropdown-item" (click)="navigateTo('/dashboard/plan')">Plan / Billing</a>
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item logout-item" (click)="logout()">Cerrar sesión</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <router-outlet></router-outlet>
+
+      <!-- Contenido por defecto cuando no hay ruta hija -->
+      <div *ngIf="currentRoute === '/dashboard'" class="default-content">
+        <div class="welcome-section">
+          <h2>Bienvenido, {{ user?.fullName || 'Usuario' }}</h2>
+          <p>Este es tu panel de control.</p>
+          
+          <div class="facebook-connect-section">
+            <h3>Conectar con Facebook</h3>
+            <p>Conecta tu cuenta de Facebook para comenzar a publicar.</p>
+            <app-facebook-connect></app-facebook-connect>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Notifications Dropdown -->
+  <div class="notifications-dropdown" *ngIf="showNotifications && !sidebarCollapsed">
+    <div class="notifications-header">
+      <h3>Notificaciones</h3>
+      <button class="close-notifications" (click)="toggleNotifications()">×</button>
+    </div>
+    <div class="notifications-content">
+      <p class="no-notifications">No hay notificaciones nuevas</p>
+    </div>
+  </div>
+</div>

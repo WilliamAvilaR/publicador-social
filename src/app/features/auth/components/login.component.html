@@ -1,0 +1,94 @@
+<div class="login-container">
+  <div class="login-panel">
+    <div class="logo-container">
+      <img src="assets/logoSocial.png" alt="Social Automate Logo" class="logo-icon" />
+      <h1 class="logo-text">Social Automate</h1>
+    </div>
+
+    <div class="separador-login"></div>
+
+    <h2 class="welcome-title">Iniciar Sesión</h2>
+    <p class="welcome-subtitle">Accede a tu cuenta</p>
+
+    <!-- Mensaje de éxito después del registro -->
+    <div *ngIf="showSuccessMessage" class="success-message">
+      <svg class="success-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="success-content">
+        <strong>¡Registro exitoso!</strong>
+        <p>Tu cuenta ha sido creada. Inicia sesión con tus credenciales.</p>
+      </div>
+      <button type="button" class="close-success" (click)="closeSuccessMessage()" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Mensaje de error -->
+    <div *ngIf="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      <div class="input-group">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M22 6L12 13L2 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <input 
+          type="email" 
+          formControlName="email"
+          placeholder="name@example.com" 
+          class="input-field"
+          [class.invalid]="isFieldInvalid('email')"
+        />
+        <div *ngIf="isFieldInvalid('email')" class="field-error">
+          {{ getFieldError('email') }}
+        </div>
+      </div>
+
+      <div class="input-group">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M7 11V7C7 5.67392 7.52678 4.40215 8.46447 3.46447C9.40215 2.52678 10.6739 2 12 2C13.3261 2 14.5979 2.52678 15.5355 3.46447C16.4732 4.40215 17 5.67392 17 7V11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <input 
+          [type]="showPassword ? 'text' : 'password'" 
+          formControlName="password"
+          placeholder="••••••••" 
+          class="input-field"
+          [class.invalid]="isFieldInvalid('password')"
+        />
+        <button type="button" class="toggle-password" (click)="togglePassword()">
+          <svg *ngIf="!showPassword" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1 12S5 4 12 4S23 12 23 12S19 20 12 20S1 12 1 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <svg *ngIf="showPassword" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C7 20 2.73 16.39 1 12C2.73 7.61 7 4 12 4C16.39 4 20.73 7.61 22 12C21.27 14.39 19.94 16.39 17.94 17.94Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M1 1L23 23" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9 9C9.53043 8.39993 10.2342 7.99995 11 7.99995C11.7658 7.99995 12.4696 8.39993 13 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M15 15C14.4696 15.6001 13.7658 16 13 16C12.2342 16 11.5304 15.6001 11 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div *ngIf="isFieldInvalid('password')" class="field-error">
+          {{ getFieldError('password') }}
+        </div>
+      </div>
+
+      <button type="submit" class="login-button" [disabled]="isLoading">
+        <span *ngIf="!isLoading">Iniciar Sesión</span>
+        <span *ngIf="isLoading">Iniciando sesión...</span>
+      </button>
+
+      <a href="#" class="forgot-password">¿Olvidaste tu contraseña?</a>
+    </form>
+
+    <div class="separador-login"></div>
+
+    <p class="signup-link">¿No tienes una cuenta? <a routerLink="/register">Registrarse</a></p>
+  </div>
+</div>

@@ -1,0 +1,76 @@
+<div class="cuentas-container">
+  <div class="header-section">
+    <h1>Cuentas Conectadas</h1>
+    <p>Gestiona tus cuentas de redes sociales conectadas</p>
+  </div>
+
+  <div class="connect-section">
+    <div class="connect-card">
+      <div class="connect-header">
+        <div class="platform-info">
+          <svg class="platform-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+          </svg>
+          <div>
+            <h2>Facebook</h2>
+            <p>Conecta tu cuenta de Facebook para publicar en tus páginas</p>
+          </div>
+        </div>
+        <app-facebook-connect></app-facebook-connect>
+      </div>
+    </div>
+  </div>
+
+  <div class="pages-section">
+    <h2>Páginas Conectadas</h2>
+    
+    <div *ngIf="loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Cargando páginas...</p>
+    </div>
+
+    <div *ngIf="!loading && error" class="error-state">
+      <p>{{ error }}</p>
+      <button (click)="loadConnectedPages()" class="retry-btn">Reintentar</button>
+    </div>
+
+    <div *ngIf="!loading && !error && pages.length === 0" class="empty-state">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+      </svg>
+      <p>No hay páginas conectadas</p>
+      <p class="empty-subtitle">Conecta tu cuenta de Facebook para ver tus páginas aquí</p>
+    </div>
+
+    <div *ngIf="!loading && !error && pages.length > 0" class="pages-grid">
+      <div *ngFor="let page of pages" class="page-card" [class.inactive]="!page.isActive">
+        <div class="page-header">
+          <div class="page-icon">
+            <img 
+              *ngIf="page.pictureUrl && !hasImageError(page.facebookPageId)" 
+              [src]="page.pictureUrl!" 
+              [alt]="page.name"
+              class="page-avatar"
+              (error)="onImageError(page.facebookPageId)">
+            <svg 
+              *ngIf="!page.pictureUrl || hasImageError(page.facebookPageId)"
+              viewBox="0 0 24 24" 
+              fill="currentColor"
+              class="page-icon-svg">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
+          </div>
+          <div class="page-info">
+            <h3>{{ page.name }}</h3>
+            <p class="page-id">ID: {{ page.facebookPageId }}</p>
+          </div>
+          <div class="page-status">
+            <span class="status-badge" [class.active]="page.isActive" [class.inactive]="!page.isActive">
+              {{ page.isActive ? 'Activa' : 'Inactiva' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
