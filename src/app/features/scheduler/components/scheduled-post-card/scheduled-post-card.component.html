@@ -1,0 +1,15 @@
+<div class="scheduled-post-card" [class]="getStatusClass()">
+  <div class="post-icon">
+    <span class="social-icon">{{ getSocialIcon() }}</span>
+  </div>
+  <div class="post-content">
+    <div class="post-time">{{ getFormattedTime() }}</div>
+    <div class="post-text">{{ getPreviewText() }}</div>
+    <div class="post-account">{{ getAccountName() }}</div>
+  </div>
+  <div class="post-status">
+    <span class="status-badge" [class]="getStatusClass()">
+      {{ getStatusLabel() }}
+    </span>
+  </div>
+</div>

@@ -1,0 +1,25 @@
+<div class="programador-container">
+  <!-- Header personalizado -->
+  <app-programador-header
+    [currentView]="currentView"
+    [currentDateDisplay]="currentDateDisplay"
+    (previous)="goToPrevious()"
+    (next)="goToNext()"
+    (today)="goToToday()"
+    (viewChange)="changeView($event)"
+    (newPost)="openNewPostModal()">
+  </app-programador-header>
+
+  <!-- Calendario -->
+  <div class="calendar-wrapper">
+    <div *ngIf="loading" class="loading-overlay">
+      <div class="spinner"></div>
+      <p>Cargando publicaciones...</p>
+    </div>
+
+    <full-calendar 
+      #calendar
+      [options]="calendarOptions">
+    </full-calendar>
+  </div>
+</div>

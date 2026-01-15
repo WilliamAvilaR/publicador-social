@@ -1,0 +1,59 @@
+<div class="programador-header">
+  <div class="header-left">
+    <h1 class="page-title">Programador</h1>
+  </div>
+  
+  <div class="header-center">
+    <div class="date-navigation">
+      <button 
+        class="nav-btn" 
+        (click)="onPrevious()" 
+        title="Anterior"
+        type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 18l-6-6 6-6"/>
+        </svg>
+      </button>
+      
+      <button 
+        class="nav-btn today-btn" 
+        (click)="onToday()"
+        type="button">
+        Hoy
+      </button>
+      
+      <button 
+        class="nav-btn" 
+        (click)="onNext()" 
+        title="Siguiente"
+        type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+      </button>
+      
+      <span class="current-date">{{ currentDateDisplay }}</span>
+    </div>
+  </div>
+  
+  <div class="header-right">
+    <button 
+      class="action-btn new-post-btn" 
+      (click)="onNewPost()"
+      type="button">
+      <span class="plus-icon">+</span>
+      <span class="btn-label">Nueva publicación</span>
+    </button>
+    
+    <div class="view-selector">
+      <button 
+        *ngFor="let view of views"
+        [class.active]="currentView === view.value"
+        (click)="onViewChange(view.value)"
+        class="view-btn"
+        type="button">
+        {{ view.label }}
+      </button>
+    </div>
+  </div>
+</div>

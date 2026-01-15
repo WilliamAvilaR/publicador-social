@@ -1,0 +1,181 @@
+Angular Component
+FullCalendar seamlessly integrates with the Angular 12 - 20. It provides a component that exactly matches the functionality of FullCalendar’s standard API.
+
+This component is built and maintained by irustm in partnership with the maintainers of FullCalendar. It is the official Angular connector, released under an MIT license, the same license the standard version of FullCalendar uses. Useful links:
+
+Browse the Github repo (please star it!)
+Bug report instructions
+Example projects: Angular 19 | 18 | 17 | 16 | 15 | 14 | 13 | 12
+This guide does not go into depth about initializing an Angular project. Please consult the aforementioned example/runnable projects for that.
+
+The first step is to install the FullCalendar-related dependencies. You’ll need FullCalendar core, the Angular adapter, and any plugins you plan to use:
+
+npm install --save \
+  @fullcalendar/core \
+  @fullcalendar/angular \
+  @fullcalendar/daygrid \
+  @fullcalendar/interaction
+In one of your app’s component files (app.component.ts), prepare an object of options along with any plugins:
+
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterOutlet } from '@angular/router';
+import { FullCalendarModule } from '@fullcalendar/angular';
+import { CalendarOptions } from '@fullcalendar/core'; // useful for typechecking
+import dayGridPlugin from '@fullcalendar/daygrid';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [CommonModule, RouterOutlet, FullCalendarModule],
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.scss']
+})
+export class AppComponent {
+  calendarOptions: CalendarOptions = {
+    initialView: 'dayGridMonth',
+    plugins: [dayGridPlugin]
+  };
+}
+Then, in your component’s template file (app.component.html), you have access to the tag. You must pass your options into this declaration!<full-calendar>
+
+<full-calendar [options]="calendarOptions"></full-calendar>
+Inputs and Emitted Events
+Angular has the concept of bound input data (written with ) versus outputs (written with ). For the FullCalendar connector, there is no distinction between inputs and outputs. Everything is passed into the master input as key-value pairs. Here is an example that demonstrates passing in an array and a handler:[brackets](parentheses)optionseventsdateClick
+
+import { Component } from '@angular/core';
+import { CalendarOptions } from '@fullcalendar/core';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.scss']
+})
+export class AppComponent {
+  calendarOptions: CalendarOptions = {
+    initialView: 'dayGridMonth',
+    plugins: [dayGridPlugin, interactionPlugin],
+    dateClick: (arg) => this.handleDateClick(arg),
+    events: [
+      { title: 'event 1', date: '2019-04-01' },
+      { title: 'event 2', date: '2019-04-02' }
+    ]
+  };
+
+  handleDateClick(arg) {
+    alert('date click! ' + arg.dateStr)
+  }
+}
+Template:
+
+<full-calendar [options]="calendarOptions"></full-calendar>
+Inputs for // (new in v6)eventseventSourcesresources
+Certain options are exposed as top-level component inputs for convenience. This works well with the async template helper, which accepts an or . The above example rewritten:ObservablePromise
+
+import { Component } from '@angular/core';
+import { CalendarOptions, EventInput } from '@fullcalendar/core';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.scss']
+})
+export class AppComponent {
+  calendarOptions: CalendarOptions = {
+    initialView: 'dayGridMonth',
+    dateClick: (arg) => this.handleDateClick(arg)
+  };
+  eventsPromise: Promise<EventInput[]>;
+
+  handleDateClick(arg) {
+    alert('date click! ' + arg.dateStr);
+  }
+}
+Template:
+
+<full-calendar
+  [options]="calendarOptions"
+  [events]="eventsPromise | async"
+></full-calendar>
+This technique is commonly used when working with NgRx. View a sample project »
+
+Modifying Properties
+You can modify FullCalendar’s options dynamically by reassigning them within the options object. This example toggles the option on and off:weekends
+
+import { Component } from '@angular/core';
+import { CalendarOptions } from '@fullcalendar/core';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.scss']
+})
+export class AppComponent {
+  calendarOptions: CalendarOptions = {
+    initialView: 'dayGridMonth',
+    weekends: false // initial value
+  };
+
+  toggleWeekends() {
+    this.calendarOptions.weekends = !this.calendarOptions.weekends // toggle the boolean!
+  }
+}
+and the template:
+
+<button (click)="toggleWeekends()">toggle weekends</button>
+<full-calendar [options]="calendarOptions"></full-calendar>
+If you want to modify options that are complex objects, like headerToolbar or events, you’ll need to make a copy of the object, make your change, and then reassign it. If you DO NOT want to do this, you can have the angular connector recursively search for changes within your objects, though this comes at a slight performance cost. Set the prop to :deepChangeDetection"true"
+
+<full-calendar
+  [options]="calendarOptions"
+  deepChangeDetection="true"
+></full-calendar>
+Nested Templates
+Use the tag to customize content-injection areas such as eventContent. Example:ng-template
+
+<full-calendar [options]="calendarOptions">
+  <ng-template #eventContent let-arg>
+    <b>{{ arg.event.title }}</b>
+  </ng-template>
+</full-calendar>
+Explanation:
+
+The template is named via the # syntax. It must be the name of a content-injection area.
+The template accepts a single implicit local variable which is named via the syntax. In the above example, names the variable “arg”.let-*let-arg
+The properties of the argument are documented alongside each content-injection area. For example see eventContent’s argument.
+For more complex situations, a TemplateRef can be directly passed to the options. This is useful for nested options like resourceAreaColumns’ ..cellContent
+
+Calendar API
+Hopefully you won’t need to do it often, but sometimes it’s useful to access the underlying object for raw data and methods.Calendar
+
+This is especially useful for controlling the current date. The initialDate prop will set the initial date of the calendar, but to change it after that, you’ll need to rely on the date navigation methods.
+
+To do something like this, you’ll need to get ahold of the ViewChild reference. In the template:
+
+<full-calendar #calendar [options]="calendarOptions"></full-calendar>
+Once you’ve explicitly marked your child component (), you can get the underlying object via the method:#calendarCalendargetApi
+
+import { Component, ViewChild } from '@angular/core';
+import { CalendarOptions } from '@fullcalendar/core';
+import { FullCalendarComponent } from '@fullcalendar/angular';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.scss']
+})
+export class AppComponent {
+  // references the #calendar in the template
+  @ViewChild('calendar') calendarComponent: FullCalendarComponent;
+
+  calendarOptions: CalendarOptions = {
+    initialView: 'dayGridMonth'
+  };
+
+  someMethod() {
+    let calendarApi = this.calendarComponent.getApi();
+    calendarApi.next();
+  }
+}

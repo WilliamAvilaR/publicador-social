@@ -1,0 +1,158 @@
+.programador-header {
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.header-left {
+  flex-shrink: 0;
+
+  .page-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: #111827;
+  }
+}
+
+.header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+
+  .date-navigation {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: white;
+      color: #374151;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 36px;
+      height: 36px;
+
+      &:hover {
+        background: #f9fafb;
+        border-color: #9ca3af;
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      &.today-btn {
+        font-weight: 600;
+        color: #3d79ee;
+
+        &:hover {
+          background: #eff6ff;
+          border-color: #3d79ee;
+        }
+      }
+    }
+
+    .current-date {
+      margin-left: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #111827;
+      min-width: 150px;
+      text-align: center;
+    }
+  }
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+
+  .new-post-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    background: #3d79ee;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #2563eb;
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+
+    .plus-icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .btn-label {
+      white-space: nowrap;
+    }
+  }
+
+  .view-selector {
+    display: flex;
+    gap: 4px;
+    background: #f3f4f6;
+    padding: 4px;
+    border-radius: 8px;
+
+    .view-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #6b7280;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+
+      &:hover {
+        color: #374151;
+        background: rgba(255, 255, 255, 0.5);
+      }
+
+      &.active {
+        background: white;
+        color: #3d79ee;
+        font-weight: 600;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+    }
+  }
+}

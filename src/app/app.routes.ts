@@ -23,6 +23,10 @@ export const routes: Routes = [
       {
         path: 'cuentas',
         loadComponent: () => import('./features/dashboard/components/cuentas-conectadas/cuentas-conectadas.component').then(m => m.CuentasConectadasComponent)
+      },
+      {
+        path: 'programador',
+        loadComponent: () => import('./features/scheduler/components/programador/programador.component').then(m => m.ProgramadorComponent)
       }
     ]
   },
