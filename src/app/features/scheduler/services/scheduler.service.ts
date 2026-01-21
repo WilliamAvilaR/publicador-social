@@ -68,6 +68,7 @@ export class SchedulerService {
       textColor: '#ffffff',
       extendedProps: {
         postId: post.id,
+        planId: post.planId, // Incluir planId si existe
         content: post.content,
         mediaUrl: post.mediaUrl,
         socialNetwork: post.socialNetwork,

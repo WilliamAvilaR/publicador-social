@@ -1,13 +1,18 @@
-import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
+import { HttpInterceptorFn, HttpErrorResponse, HttpRequest } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+import { BehaviorSubject, catchError, filter, switchMap, take, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+
+// Variables para manejar la renovación de token
+let isRefreshing = false;
+const refreshTokenSubject = new BehaviorSubject<string | null>(null);
 
 /**
  * Interceptor HTTP que:
  * 1. Agrega automáticamente el token de autenticación a las peticiones protegidas
- * 2. Maneja errores 401 (no autorizado) redirigiendo al login
+ * 2. Maneja errores 401 (no autorizado) intentando renovar el token automáticamente
+ * 3. Si la renovación falla, redirige al login
  * 
  * Excluye las rutas públicas como /api/Token/login y /api/Token/register
  */
@@ -45,17 +50,80 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       // Interceptar la respuesta para manejar errores 401
       return next(clonedRequest).pipe(
         catchError((error: HttpErrorResponse) => {
-          if (error.status === 401) {
-            // Token inválido o expirado - limpiar sesión y redirigir al login
-            authService.logout();
-            
-            // Solo redirigir si no estamos ya en la página de login
-            if (!router.url.includes('/login')) {
-              router.navigate(['/login'], {
-                queryParams: { returnUrl: router.url }
-              });
+          // Si es un error 401 y no estamos en una ruta pública
+          if (error.status === 401 && !isPublicRoute) {
+            // Si la petición que falló es el refresh token, no intentar renovar de nuevo
+            if (req.url.includes('/api/Token/refresh')) {
+              // El refresh token también falló, cerrar sesión y redirigir
+              authService.logout();
+              if (!router.url.includes('/login')) {
+                router.navigate(['/login'], {
+                  queryParams: { returnUrl: router.url }
+                });
+              }
+              return throwError(() => error);
+            }
+
+            // Si no estamos renovando, intentar renovar el token
+            if (!isRefreshing) {
+              isRefreshing = true;
+              refreshTokenSubject.next(null);
+
+              return authService.refreshToken().pipe(
+                switchMap((response) => {
+                  // Token renovado exitosamente
+                  isRefreshing = false;
+                  
+                  // Guardar el nuevo token y datos de usuario
+                  authService.setAuthData(response.data.token, response.data);
+                  
+                  // Notificar a las peticiones en espera que el token está listo
+                  const newToken = response.data.token;
+                  refreshTokenSubject.next(newToken);
+                  
+                  // Reintentar la petición original con el nuevo token
+                  const retryRequest = req.clone({
+                    setHeaders: {
+                      Authorization: `Bearer ${newToken}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+                  return next(retryRequest);
+                }),
+                catchError((refreshError) => {
+                  // Error al renovar el token, cerrar sesión y redirigir
+                  isRefreshing = false;
+                  refreshTokenSubject.next(null);
+                  authService.logout();
+                  
+                  if (!router.url.includes('/login')) {
+                    router.navigate(['/login'], {
+                      queryParams: { returnUrl: router.url }
+                    });
+                  }
+                  
+                  return throwError(() => refreshError);
+                })
+              );
+            } else {
+              // Ya estamos renovando, esperar a que el nuevo token esté disponible
+              return refreshTokenSubject.pipe(
+                filter(token => token !== null),
+                take(1),
+                switchMap((newToken) => {
+                  // Reintentar la petición original con el nuevo token
+                  const retryRequest = req.clone({
+                    setHeaders: {
+                      Authorization: `Bearer ${newToken}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+                  return next(retryRequest);
+                })
+              );
             }
           }
+          
           return throwError(() => error);
         })
       );

@@ -65,9 +65,18 @@
             <p class="page-id">ID: {{ page.facebookPageId }}</p>
           </div>
           <div class="page-status">
-            <span class="status-badge" [class.active]="page.isActive" [class.inactive]="!page.isActive">
-              {{ page.isActive ? 'Activa' : 'Inactiva' }}
-            </span>
+            <label class="status-toggle">
+              <input 
+                type="checkbox" 
+                [checked]="page.isActive"
+                [disabled]="isUpdatingStatus(page.facebookPageId)"
+                (change)="updatePageStatus(page, $any($event.target).checked)"
+                class="toggle-input">
+              <span class="toggle-slider" [class.updating]="isUpdatingStatus(page.facebookPageId)"></span>
+              <span class="status-label">
+                {{ isUpdatingStatus(page.facebookPageId) ? 'Actualizando...' : (page.isActive ? 'Activa' : 'Inactiva') }}
+              </span>
+            </label>
           </div>
         </div>
       </div>

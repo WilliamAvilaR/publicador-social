@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { LoginRequest, LoginResponse, UserData, RegisterRequest, RegisterResponse, ApiError } from '../models/auth.model';
+import { LoginRequest, LoginResponse, UserData, RegisterRequest, RegisterResponse, RefreshResponse, ApiError } from '../models/auth.model';
 
 @Injectable({
   providedIn: 'root'
@@ -20,6 +20,14 @@ export class AuthService {
 
   login(credentials: LoginRequest): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.apiUrl}/login`, credentials);
+  }
+
+  /**
+   * Renueva el token JWT del usuario autenticado sin requerir credenciales.
+   * El token actual debe estar presente en el header Authorization.
+   */
+  refreshToken(): Observable<RefreshResponse> {
+    return this.http.post<RefreshResponse>(`${this.apiUrl}/refresh`, {});
   }
 
   // Guardar token y datos de usuario en localStorage

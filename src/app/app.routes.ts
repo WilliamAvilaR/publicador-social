@@ -21,12 +21,20 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       {
+        path: '',
+        loadComponent: () => import('./features/dashboard/components/dashboard-overview/dashboard-overview.component').then(m => m.DashboardOverviewComponent)
+      },
+      {
         path: 'cuentas',
         loadComponent: () => import('./features/dashboard/components/cuentas-conectadas/cuentas-conectadas.component').then(m => m.CuentasConectadasComponent)
       },
       {
         path: 'programador',
         loadComponent: () => import('./features/scheduler/components/programador/programador.component').then(m => m.ProgramadorComponent)
+      },
+      {
+        path: 'analiticas',
+        loadComponent: () => import('./features/facebook/components/analytics/analytics.component').then(m => m.AnalyticsComponent)
       }
     ]
   },

@@ -87,20 +87,6 @@
     <!-- Main Content Area -->
     <main class="main-content">
       <router-outlet></router-outlet>
-
-      <!-- Contenido por defecto cuando no hay ruta hija -->
-      <div *ngIf="currentRoute === '/dashboard'" class="default-content">
-        <div class="welcome-section">
-          <h2>Bienvenido, {{ user?.fullName || 'Usuario' }}</h2>
-          <p>Este es tu panel de control.</p>
-          
-          <div class="facebook-connect-section">
-            <h3>Conectar con Facebook</h3>
-            <p>Conecta tu cuenta de Facebook para comenzar a publicar.</p>
-            <app-facebook-connect></app-facebook-connect>
-          </div>
-        </div>
-      </div>
     </main>
   </div>
 

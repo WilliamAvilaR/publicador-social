@@ -1,0 +1,158 @@
+<form [formGroup]="postPlanForm" (ngSubmit)="onSubmit()" class="post-plan-form">
+  <div class="form-section">
+    <h3 class="section-title">Fecha y Hora</h3>
+    
+    <div class="form-row">
+      <div class="form-group">
+        <label for="scheduledAt" class="form-label">
+          Fecha y Hora Programada <span class="required">*</span>
+        </label>
+        <input
+          type="datetime-local"
+          id="scheduledAt"
+          formControlName="scheduledAt"
+          class="form-input"
+          [class.invalid]="isFieldInvalid('scheduledAt')">
+        <span class="error-message" *ngIf="isFieldInvalid('scheduledAt')">
+          {{ getFieldError('scheduledAt') }}
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label for="timezone" class="form-label">
+          Zona Horaria <span class="required">*</span>
+        </label>
+        <select
+          id="timezone"
+          formControlName="timezone"
+          class="form-select"
+          [class.invalid]="isFieldInvalid('timezone')">
+          <option *ngFor="let tz of timezones" [value]="tz.value">{{ tz.label }}</option>
+        </select>
+        <span class="error-message" *ngIf="isFieldInvalid('timezone')">
+          {{ getFieldError('timezone') }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h3 class="section-title">Contenido</h3>
+    
+    <div class="form-group">
+      <label for="message" class="form-label">
+        Mensaje <span class="required">*</span>
+      </label>
+      <textarea
+        id="message"
+        formControlName="message"
+        rows="4"
+        class="form-textarea"
+        placeholder="Escribe el mensaje que quieres publicar..."
+        [class.invalid]="isFieldInvalid('message')"></textarea>
+      <div class="field-help">
+        <span class="char-count">{{ postPlanForm.get('message')?.value?.length || 0 }} / 5000</span>
+      </div>
+      <span class="error-message" *ngIf="isFieldInvalid('message')">
+        {{ getFieldError('message') }}
+      </span>
+    </div>
+
+    <div class="form-group">
+      <label for="linkUrl" class="form-label">
+        URL del Enlace (Opcional)
+      </label>
+      <input
+        type="url"
+        id="linkUrl"
+        formControlName="linkUrl"
+        class="form-input"
+        placeholder="https://example.com">
+      <span class="field-help">URL que se incluirá en la publicación</span>
+    </div>
+
+    <div class="form-group">
+      <label for="imageUrl" class="form-label">
+        URL de la Imagen (Opcional)
+      </label>
+      <input
+        type="url"
+        id="imageUrl"
+        formControlName="imageUrl"
+        class="form-input"
+        placeholder="https://example.com/image.jpg">
+      <span class="field-help">URL de la imagen que se incluirá en la publicación</span>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h3 class="section-title">Páginas de Facebook</h3>
+    
+    <div *ngIf="loadingPages" class="loading-pages">
+      <div class="spinner-small"></div>
+      <span>Cargando páginas...</span>
+    </div>
+
+    <div *ngIf="!loadingPages && pages.length === 0" class="no-pages">
+      <p>No hay páginas disponibles para publicar.</p>
+      <p class="help-text">Asegúrate de tener páginas conectadas y activas.</p>
+    </div>
+
+    <div *ngIf="!loadingPages && pages.length > 0" class="pages-selection">
+      <div class="pages-actions">
+        <button type="button" class="link-button" (click)="selectAllPages()">Seleccionar todas</button>
+        <span class="separator">|</span>
+        <button type="button" class="link-button" (click)="deselectAllPages()">Deseleccionar todas</button>
+        <span class="help-text">
+          Si no seleccionas ninguna, se publicará en todas las páginas disponibles
+        </span>
+      </div>
+
+      <div class="pages-list">
+        <label *ngFor="let page of pages" class="page-checkbox">
+          <input
+            type="checkbox"
+            [checked]="isPageSelected(page.facebookPageId)"
+            (change)="togglePageSelection(page.facebookPageId)">
+          <span class="checkbox-label">
+            <strong>{{ page.name }}</strong>
+            <span class="page-id">ID: {{ page.facebookPageId }}</span>
+          </span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h3 class="section-title">Opciones Avanzadas</h3>
+    
+    <div class="form-group">
+      <label for="dedupeKey" class="form-label">
+        Clave de Deduplicación (Opcional)
+      </label>
+      <input
+        type="text"
+        id="dedupeKey"
+        formControlName="dedupeKey"
+        class="form-input"
+        placeholder="unique-key-123">
+      <span class="field-help">Clave única para prevenir publicaciones duplicadas</span>
+    </div>
+  </div>
+
+  <div class="error-message-container" *ngIf="errorMessage">
+    <div class="error-alert">
+      {{ errorMessage }}
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="button" class="btn btn-secondary" (click)="onCancel()" [disabled]="isLoading">
+      Cancelar
+    </button>
+    <button type="submit" class="btn btn-primary" [disabled]="isLoading || postPlanForm.invalid">
+      <span *ngIf="isLoading" class="spinner-small"></span>
+      {{ isLoading ? 'Creando...' : 'Crear Plan de Publicación' }}
+    </button>
+  </div>
+</form>

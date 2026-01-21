@@ -22,4 +22,29 @@
       [options]="calendarOptions">
     </full-calendar>
   </div>
+
+  <!-- Modal para crear plan de publicación -->
+  <app-modal
+    title="Crear Plan de Publicación"
+    [show]="showCreatePlanModal"
+    size="large"
+    (close)="closeCreatePlanModal()">
+    <app-create-post-plan-form
+      [initialDate]="selectedDate"
+      (success)="onPlanCreated()"
+      (cancel)="closeCreatePlanModal()">
+    </app-create-post-plan-form>
+  </app-modal>
+
+  <!-- Modal para ver detalles del plan -->
+  <app-modal
+    title="Detalles del Plan de Publicación"
+    [show]="showPlanDetailsModal"
+    size="large"
+    (close)="closePlanDetailsModal()">
+    <app-post-plan-details
+      *ngIf="selectedPlanId"
+      [planId]="selectedPlanId">
+    </app-post-plan-details>
+  </app-modal>
 </div>

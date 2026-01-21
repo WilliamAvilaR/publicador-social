@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import { FacebookConnectResponse, FacebookPage, FacebookPagesResponse } from '../../features/facebook/models/facebook.model';
+import { FacebookConnectResponse, FacebookPage, FacebookPagesResponse, UpdatePageStatusRequest, UpdatePageStatusResponse } from '../../features/facebook/models/facebook.model';
 
 @Injectable({
   providedIn: 'root'
@@ -52,6 +52,22 @@ export class FacebookOAuthService {
   getConnectedPagesWithMeta(): Observable<FacebookPagesResponse> {
     return this.http.get<FacebookPagesResponse>(
       `${this.apiUrl}/pages`
+    ).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Actualiza el estado (isActive) de una página de Facebook.
+   * El interceptor HTTP agregará automáticamente el token de autenticación.
+   * @param facebookPageId ID de la página en Facebook
+   * @param isActive Nuevo estado de la página
+   */
+  updatePageStatus(facebookPageId: string, isActive: boolean): Observable<UpdatePageStatusResponse> {
+    const requestBody: UpdatePageStatusRequest = { isActive };
+    return this.http.patch<UpdatePageStatusResponse>(
+      `${this.apiUrl}/pages/${facebookPageId}/status`,
+      requestBody
     ).pipe(
       catchError(this.handleError)
     );

@@ -11,6 +11,7 @@ export interface ScheduledPost {
   pageId?: string;
   pageName?: string;
   status: 'scheduled' | 'published' | 'failed';
+  planId?: number; // ID del plan de publicación asociado
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -26,6 +27,7 @@ export interface ScheduledPostEvent {
   textColor?: string;
   extendedProps: {
     postId: string;
+    planId?: number; // ID del plan de publicación asociado
     content: string;
     mediaUrl?: string;
     socialNetwork: 'facebook' | 'instagram' | 'twitter';

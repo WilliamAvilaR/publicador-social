@@ -1,0 +1,164 @@
+<div class="analytics-container">
+  <!-- Header -->
+  <div class="analytics-header">
+    <div>
+      <h1>Analíticas de Facebook</h1>
+      <p class="subtitle">Visualiza y analiza las métricas de tus páginas</p>
+    </div>
+    <button 
+      class="sync-btn" 
+      [class.syncing]="syncing"
+      [disabled]="syncing || !selectedPage"
+      (click)="syncPageMetrics()">
+      <span class="sync-icon" *ngIf="!syncing">🔄</span>
+      <span class="spinner" *ngIf="syncing"></span>
+      <span>{{ syncing ? 'Sincronizando...' : 'Sincronizar' }}</span>
+    </button>
+  </div>
+
+  <!-- Mensaje de progreso -->
+  <div *ngIf="syncProgress" class="sync-progress" [class.error]="syncProgress.includes('Error')">
+    {{ syncProgress }}
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <div class="spinner-large"></div>
+    <p>Cargando páginas...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="!loading && error" class="error-state">
+    <p>{{ error }}</p>
+    <button (click)="loadPages()" class="retry-btn">Reintentar</button>
+  </div>
+
+  <!-- Contenido Principal -->
+  <div *ngIf="!loading && !error" class="analytics-content">
+    <!-- Selector de Páginas -->
+    <div class="pages-selector" *ngIf="pages.length > 0">
+      <h3>Selecciona una página</h3>
+      <div class="pages-list">
+        <button
+          *ngFor="let page of pages"
+          class="page-btn"
+          [class.active]="page.selected"
+          (click)="selectPage(page)">
+          <img 
+            *ngIf="page.pictureUrl" 
+            [src]="page.pictureUrl" 
+            [alt]="page.name"
+            class="page-thumb">
+          <div *ngIf="!page.pictureUrl" class="page-thumb-placeholder">
+            {{ page.name.charAt(0).toUpperCase() }}
+          </div>
+          <span class="page-name">{{ page.name }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Controles y Gráfico -->
+    <div *ngIf="selectedPage" class="metrics-section">
+      <!-- Controles de Fecha -->
+      <div class="controls-card">
+        <div class="control-group">
+          <label>Rango de fechas</label>
+          <div class="date-inputs">
+            <input
+              type="date"
+              [(ngModel)]="fromDate"
+              (change)="onDateRangeChange()"
+              class="date-input">
+            <span>a</span>
+            <input
+              type="date"
+              [(ngModel)]="toDate"
+              (change)="onDateRangeChange()"
+              class="date-input">
+          </div>
+        </div>
+
+        <!-- Selector de Métricas -->
+        <div class="control-group">
+          <label>Métricas a mostrar</label>
+          <div class="metrics-checkboxes">
+            <label *ngFor="let metric of availableMetrics" class="metric-checkbox">
+              <input
+                type="checkbox"
+                [value]="metric.key"
+                [checked]="selectedMetricKeys.includes(metric.key)"
+                (change)="onMetricSelectionChange()"
+                (click)="toggleMetric(metric.key, $event)">
+              <span class="checkmark" [style.background-color]="metric.color + '20'" [style.border-color]="metric.color"></span>
+              <span>{{ metric.label }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gráfico -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>Evolución de Métricas</h3>
+          <span class="page-name-badge">{{ selectedPage.name }}</span>
+        </div>
+        
+        <div *ngIf="selectedPage.loadingMetrics" class="chart-loading">
+          <div class="spinner-medium"></div>
+          <p>Cargando métricas...</p>
+        </div>
+
+        <div *ngIf="!selectedPage.loadingMetrics && selectedPage.metrics && selectedPage.metrics.length > 0" class="chart-container">
+          <div echarts [options]="chartOptions" class="echarts-chart"></div>
+        </div>
+
+        <div *ngIf="!selectedPage.loadingMetrics && (!selectedPage.metrics || selectedPage.metrics.length === 0)" class="no-metrics">
+          <p>No hay métricas disponibles para este rango de fechas</p>
+          <button class="sync-page-btn" (click)="syncPageMetrics()">
+            Sincronizar métricas
+          </button>
+        </div>
+      </div>
+
+      <!-- Resumen de Métricas -->
+      <div *ngIf="selectedPage.metrics && selectedPage.metrics.length > 0" class="metrics-summary">
+        <h3>Resumen</h3>
+        <div class="summary-grid">
+          <div *ngFor="let metric of selectedPage.metrics" class="summary-card">
+            <div class="summary-header">
+              <span class="metric-label">{{ getMetricLabel(metric.metricKey) }}</span>
+              <span class="metric-color" [style.background-color]="getMetricColor(metric.metricKey)"></span>
+            </div>
+            <div class="summary-values">
+              <div class="summary-item">
+                <span class="summary-label">Total</span>
+                <span class="summary-value">{{ formatNumber(metric.total) }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Promedio</span>
+                <span class="summary-value">{{ formatNumber(getRoundedAverage(metric.average)) }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Máximo</span>
+                <span class="summary-value">{{ formatNumber(metric.max) }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Mínimo</span>
+                <span class="summary-value">{{ formatNumber(metric.min) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="pages.length === 0" class="empty-state">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+      <p>No hay páginas activas</p>
+      <p class="empty-subtitle">Activa al menos una página para ver sus métricas</p>
+    </div>
+  </div>
+</div>

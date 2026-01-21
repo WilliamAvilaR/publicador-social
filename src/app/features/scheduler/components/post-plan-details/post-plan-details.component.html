@@ -1,0 +1,142 @@
+<div class="post-plan-details">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Cargando detalles del plan...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-state">
+    <div class="error-icon">⚠️</div>
+    <h3>Error al cargar</h3>
+    <p>{{ error }}</p>
+    <button class="btn btn-primary" (click)="loadPlanDetails()">Reintentar</button>
+  </div>
+
+  <!-- Plan Details -->
+  <div *ngIf="planDetails && !loading" class="details-content">
+    <!-- Plan Information Section -->
+    <div class="section plan-info-section">
+      <h3 class="section-title">📋 Información del Plan</h3>
+      
+      <div class="info-grid">
+        <div class="info-item">
+          <label>ID del Plan</label>
+          <span class="value">#{{ planDetails.id }}</span>
+        </div>
+        
+        <div class="info-item">
+          <label>Fecha Programada</label>
+          <span class="value">{{ formatDate(planDetails.scheduledAt) }}</span>
+        </div>
+        
+        <div class="info-item">
+          <label>Zona Horaria</label>
+          <span class="value">{{ planDetails.timezone }}</span>
+        </div>
+        
+        <div class="info-item">
+          <label>Creado</label>
+          <span class="value">{{ formatDate(planDetails.createdAt) }}</span>
+        </div>
+      </div>
+
+      <div class="message-section">
+        <label>Mensaje</label>
+        <div class="message-content">{{ planDetails.message }}</div>
+      </div>
+
+      <div class="urls-section" *ngIf="planDetails.linkUrl || planDetails.imageUrl">
+        <div class="url-item" *ngIf="planDetails.linkUrl">
+          <label>Enlace</label>
+          <a [href]="planDetails.linkUrl" target="_blank" rel="noopener noreferrer" class="url-link">
+            {{ planDetails.linkUrl }}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </a>
+        </div>
+        
+        <div class="url-item" *ngIf="planDetails.imageUrl">
+          <label>Imagen</label>
+          <a [href]="planDetails.imageUrl" target="_blank" rel="noopener noreferrer" class="url-link">
+            {{ planDetails.imageUrl }}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Targets Section -->
+    <div class="section targets-section">
+      <h3 class="section-title">
+        🎯 Targets ({{ getTotalTargets() }})
+      </h3>
+
+      <div *ngIf="planDetails.targets.length === 0" class="empty-targets">
+        <p>No hay targets asociados a este plan.</p>
+      </div>
+
+      <div *ngIf="planDetails.targets.length > 0" class="targets-list">
+        <div *ngFor="let target of planDetails.targets" class="target-card" [class]="getStatusClass(target.status)">
+          <div class="target-header">
+            <span class="target-icon">{{ getStatusIcon(target.status) }}</span>
+            <div class="target-info">
+              <h4 class="target-name">{{ target.name }}</h4>
+              <span class="target-id">ID: {{ target.facebookPageId }}</span>
+            </div>
+            <span class="target-status-badge" [class]="getStatusClass(target.status)">
+              {{ getStatusLabel(target.status) }}
+            </span>
+          </div>
+
+          <div class="target-details">
+            <div class="detail-row">
+              <span class="detail-label">Intentos:</span>
+              <span class="detail-value">{{ target.attemptCount }}</span>
+            </div>
+            
+            <div class="detail-row" *ngIf="target.lastAttemptAt">
+              <span class="detail-label">Último intento:</span>
+              <span class="detail-value">{{ formatDate(target.lastAttemptAt) }}</span>
+            </div>
+          </div>
+
+          <div *ngIf="target.lastError" class="target-error">
+            <div class="error-header">
+              <span class="error-icon">⚠️</span>
+              <strong>Error:</strong>
+            </div>
+            <div class="error-message">{{ target.lastError }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="targets-summary" *ngIf="planDetails.targets.length > 0">
+        <div class="summary-item">
+          <span class="summary-label">Publicados:</span>
+          <span class="summary-value published">{{ getTargetsByStatus(PostTargetStatus.Published).length }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Pendientes:</span>
+          <span class="summary-value pending">{{ getTargetsByStatus(PostTargetStatus.Pending).length }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Fallidos:</span>
+          <span class="summary-value failed">{{ getTargetsByStatus(PostTargetStatus.Failed).length }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Omitidos:</span>
+          <span class="summary-value skipped">{{ getTargetsByStatus(PostTargetStatus.Skipped).length }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

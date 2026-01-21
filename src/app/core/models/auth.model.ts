@@ -28,6 +28,26 @@ export interface LoginResponse {
 // Tipo auxiliar para los datos del usuario
 export type UserData = LoginResponse['data'];
 
+export interface RefreshResponse {
+  data: {
+    token: string;
+    idUsuario: number;
+    email: string;
+    rol: string;
+    fullName: string;
+  };
+  meta: {
+    totalCount: number;
+    pageSize: number;
+    currentPage: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviusPage: boolean;
+    nextPageUrl: string;
+    previusPageUrl: string;
+  };
+}
+
 export interface RegisterRequest {
   firstName: string;
   lastName: string;

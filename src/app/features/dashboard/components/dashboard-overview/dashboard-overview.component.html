@@ -1,0 +1,123 @@
+<div class="dashboard-overview">
+  <!-- Header con botón de sincronización -->
+  <div class="overview-header">
+    <div>
+      <h1>Resumen del Dashboard</h1>
+      <p class="subtitle">Vista general de tus páginas y métricas</p>
+    </div>
+    <button 
+      class="sync-btn" 
+      [class.syncing]="syncing"
+      [disabled]="syncing"
+      (click)="syncAnalytics()">
+      <span class="sync-icon" *ngIf="!syncing">🔄</span>
+      <span class="spinner" *ngIf="syncing"></span>
+      <span>{{ syncing ? 'Sincronizando...' : 'Sincronizar Métricas' }}</span>
+    </button>
+  </div>
+
+  <!-- Mensaje de progreso de sincronización -->
+  <div *ngIf="syncProgress" class="sync-progress" [class.error]="syncProgress.includes('Error')">
+    {{ syncProgress }}
+  </div>
+
+  <!-- Estado de última sincronización -->
+  <div class="sync-status-card" *ngIf="lastSyncLog">
+    <div class="status-info">
+      <span class="status-label">Última sincronización:</span>
+      <span class="status-value" [ngClass]="getSyncStatusClass()">
+        {{ getSyncStatusText() }}
+      </span>
+    </div>
+    <div class="status-details" *ngIf="lastSyncLog.status === 'Completed'">
+      <span class="detail-item">✅ {{ lastSyncLog.pagesOk }} exitosas</span>
+      <span class="detail-item" *ngIf="lastSyncLog.pagesFailed > 0">
+        ⚠️ {{ lastSyncLog.pagesFailed }} fallidas
+      </span>
+      <span class="detail-item" *ngIf="lastSyncLog.durationSeconds">
+        ⏱️ {{ lastSyncLog.durationSeconds }}s
+      </span>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <div class="spinner-large"></div>
+    <p>Cargando datos del dashboard...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="!loading && error" class="error-state">
+    <p>{{ error }}</p>
+    <button (click)="loadDashboardData()" class="retry-btn">Reintentar</button>
+  </div>
+
+  <!-- Páginas con Snapshots -->
+  <div *ngIf="!loading && !error" class="pages-grid">
+    <div *ngFor="let page of pages" class="page-card" [class.inactive]="!page.isActive">
+      <div class="page-header">
+        <div class="page-avatar">
+          <img 
+            *ngIf="page.pictureUrl" 
+            [src]="page.pictureUrl" 
+            [alt]="page.name"
+            class="avatar-img">
+          <div *ngIf="!page.pictureUrl" class="avatar-placeholder">
+            {{ page.name.charAt(0).toUpperCase() }}
+          </div>
+        </div>
+        <div class="page-info">
+          <h3>{{ page.name }}</h3>
+          <p class="page-id">ID: {{ page.facebookPageId }}</p>
+          <span class="page-status-badge" [class.active]="page.isActive">
+            {{ page.isActive ? 'Activa' : 'Inactiva' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Snapshot Data -->
+      <div class="snapshot-section" *ngIf="page.isActive">
+        <div *ngIf="page.loadingSnapshot" class="snapshot-loading">
+          <div class="spinner-small"></div>
+          <span>Cargando métricas...</span>
+        </div>
+
+        <div *ngIf="!page.loadingSnapshot && page.snapshot" class="snapshot-data">
+          <div class="metric-item">
+            <span class="metric-label">👥 Fans</span>
+            <span class="metric-value">{{ page.snapshot.fanCount | number }}</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">👤 Seguidores</span>
+            <span class="metric-value">{{ page.snapshot.followersCount | number }}</span>
+          </div>
+          <div class="metric-meta">
+            <span class="meta-text">
+              Actualizado: {{ getTimeAgo(page.snapshot.snapshotAt) }}
+            </span>
+          </div>
+        </div>
+
+        <div *ngIf="!page.loadingSnapshot && !page.snapshot" class="no-snapshot">
+          <p>No hay datos disponibles</p>
+          <button class="sync-page-btn" (click)="syncAnalytics()">
+            Sincronizar ahora
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="!page.isActive" class="inactive-message">
+        <p>Esta página está inactiva</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!loading && !error && pages.length === 0" class="empty-state">
+    <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+    </svg>
+    <p>No hay páginas conectadas</p>
+    <p class="empty-subtitle">Conecta tu cuenta de Facebook para ver tus páginas aquí</p>
+  </div>
+</div>
