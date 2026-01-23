@@ -7,6 +7,7 @@ import {
   SyncAnalyticsResponse,
   PageSnapshotResponse,
   PageMetricsResponse,
+  PageChartMetricsResponse,
   SyncLogsResponse
 } from '../models/facebook.model';
 
@@ -157,6 +158,66 @@ export class FacebookAnalyticsService {
       `${this.apiUrl}/pages/${facebookPageId}/metrics`,
       { params }
     ).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Obtiene métricas optimizadas para gráficos de una página.
+   * 
+   * Este endpoint devuelve los datos en un formato listo para usar en gráficos,
+   * con labels y values alineados, colores sugeridos y estadísticas. Es más
+   * eficiente que el endpoint /metrics para visualización.
+   * 
+   * El interceptor HTTP agregará automáticamente el token de autenticación.
+   * 
+   * @param facebookPageId ID de la página en Facebook (clave natural)
+   * @param fromDate Fecha de inicio en formato yyyy-MM-dd
+   * @param toDate Fecha de fin en formato yyyy-MM-dd
+   * @param metricKeys Opcional: Claves de métricas específicas separadas por coma.
+   *                   Si no se envía, devuelve todas las métricas disponibles.
+   *                   Ejemplo: 'page_fans,page_reach,page_impressions'
+   * @returns Observable con las métricas optimizadas para gráficos
+   * 
+   * @example
+   * ```typescript
+   * // Obtener todas las métricas
+   * this.analyticsService.getPageChartMetrics('123456789', '2024-01-01', '2024-01-31')
+   *   .subscribe(response => {
+   *     console.log('Labels:', response.data.labels);
+   *     response.data.series.forEach(series => {
+   *       console.log(`${series.label}:`, series.values);
+   *     });
+   *   });
+   * 
+   * // Obtener métricas específicas
+   * this.analyticsService.getPageChartMetrics(
+   *   '123456789',
+   *   '2024-01-01',
+   *   '2024-01-31',
+   *   'page_fans,page_reach'
+   * ).subscribe(...);
+   * ```
+   */
+  getPageChartMetrics(
+    facebookPageId: string,
+    fromDate: string,
+    toDate: string,
+    metricKeys?: string
+  ): Observable<PageChartMetricsResponse> {
+    let params = new HttpParams()
+      .set('fromDate', fromDate)
+      .set('toDate', toDate);
+
+    if (metricKeys) {
+      params = params.set('metricKeys', metricKeys);
+    }
+
+    const url = `${this.apiUrl}/pages/${facebookPageId}/chart`;
+    console.log('Llamando al endpoint:', url);
+    console.log('Parámetros:', { fromDate, toDate, metricKeys });
+
+    return this.http.get<PageChartMetricsResponse>(url, { params }).pipe(
       catchError(this.handleError)
     );
   }

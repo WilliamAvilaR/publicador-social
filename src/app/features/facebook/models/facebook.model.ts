@@ -130,6 +130,36 @@ export interface PageMetricsResponse {
 }
 
 /**
+ * Serie de métrica optimizada para gráficos (endpoint /chart)
+ */
+export interface ChartMetricSeries {
+  metricKey: string;
+  label: string;
+  values: (number | null)[];
+  color: string;
+  statistics: {
+    total: number;
+    average: number;
+    max: number;
+    min: number;
+  };
+}
+
+/**
+ * Response optimizado para gráficos (endpoint /chart)
+ */
+export interface PageChartMetricsResponse {
+  data: {
+    facebookPageId: string;
+    pageName: string;
+    fromDate: string;
+    toDate: string;
+    labels: string[]; // Fechas en formato yyyy-MM-dd
+    series: ChartMetricSeries[];
+  };
+}
+
+/**
  * Estado de una sincronización
  */
 export type SyncStatus = 'Running' | 'Completed' | 'Failed' | 'Cancelled';

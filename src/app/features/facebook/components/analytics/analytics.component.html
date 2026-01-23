@@ -108,11 +108,11 @@
           <p>Cargando métricas...</p>
         </div>
 
-        <div *ngIf="!selectedPage.loadingMetrics && selectedPage.metrics && selectedPage.metrics.length > 0" class="chart-container">
+        <div *ngIf="!selectedPage.loadingMetrics && selectedPage.chartData && selectedPage.chartData.series.length > 0" class="chart-container">
           <div echarts [options]="chartOptions" class="echarts-chart"></div>
         </div>
 
-        <div *ngIf="!selectedPage.loadingMetrics && (!selectedPage.metrics || selectedPage.metrics.length === 0)" class="no-metrics">
+        <div *ngIf="!selectedPage.loadingMetrics && (!selectedPage.chartData || selectedPage.chartData.series.length === 0)" class="no-metrics">
           <p>No hay métricas disponibles para este rango de fechas</p>
           <button class="sync-page-btn" (click)="syncPageMetrics()">
             Sincronizar métricas
@@ -121,30 +121,30 @@
       </div>
 
       <!-- Resumen de Métricas -->
-      <div *ngIf="selectedPage.metrics && selectedPage.metrics.length > 0" class="metrics-summary">
+      <div *ngIf="selectedPage.chartData && selectedPage.chartData.series.length > 0" class="metrics-summary">
         <h3>Resumen</h3>
         <div class="summary-grid">
-          <div *ngFor="let metric of selectedPage.metrics" class="summary-card">
+          <div *ngFor="let metricSeries of selectedPage.chartData.series" class="summary-card">
             <div class="summary-header">
-              <span class="metric-label">{{ getMetricLabel(metric.metricKey) }}</span>
-              <span class="metric-color" [style.background-color]="getMetricColor(metric.metricKey)"></span>
+              <span class="metric-label">{{ metricSeries.label }}</span>
+              <span class="metric-color" [style.background-color]="metricSeries.color"></span>
             </div>
             <div class="summary-values">
               <div class="summary-item">
                 <span class="summary-label">Total</span>
-                <span class="summary-value">{{ formatNumber(metric.total) }}</span>
+                <span class="summary-value">{{ formatNumber(metricSeries.statistics.total) }}</span>
               </div>
               <div class="summary-item">
                 <span class="summary-label">Promedio</span>
-                <span class="summary-value">{{ formatNumber(getRoundedAverage(metric.average)) }}</span>
+                <span class="summary-value">{{ formatNumber(getRoundedAverage(metricSeries.statistics.average)) }}</span>
               </div>
               <div class="summary-item">
                 <span class="summary-label">Máximo</span>
-                <span class="summary-value">{{ formatNumber(metric.max) }}</span>
+                <span class="summary-value">{{ formatNumber(metricSeries.statistics.max) }}</span>
               </div>
               <div class="summary-item">
                 <span class="summary-label">Mínimo</span>
-                <span class="summary-value">{{ formatNumber(metric.min) }}</span>
+                <span class="summary-value">{{ formatNumber(metricSeries.statistics.min) }}</span>
               </div>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -6,10 +6,13 @@ import { NgxEchartsModule } from 'ngx-echarts';
 import * as echarts from 'echarts';
 import { FacebookOAuthService } from '../../../../core/services/facebook-oauth.service';
 import { FacebookAnalyticsService } from '../../services/facebook-analytics.service';
-import { FacebookPage, PageMetric } from '../../models/facebook.model';
+import { FacebookPage, ChartMetricSeries, PageMetricsResponse } from '../../models/facebook.model';
 
 interface PageWithMetrics extends FacebookPage {
-  metrics?: PageMetric[];
+  chartData?: {
+    labels: string[];
+    series: ChartMetricSeries[];
+  };
   loadingMetrics?: boolean;
   selected?: boolean;
 }
@@ -40,19 +43,22 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
   availableMetrics = [
     { key: 'page_fans', label: 'Fans', color: '#3d79ee' },
     { key: 'page_followers', label: 'Seguidores', color: '#10b981' },
+    { key: 'page_follows', label: 'Nuevos Seguidores', color: '#10b981' },
     { key: 'page_reach', label: 'Alcance', color: '#f59e0b' },
     { key: 'page_impressions', label: 'Impresiones', color: '#ef4444' },
+    { key: 'page_impressions_unique', label: 'Alcance Único', color: '#ef4444' },
     { key: 'page_engaged_users', label: 'Usuarios que interactuaron', color: '#8b5cf6' },
     { key: 'page_post_engagements', label: 'Engagement total', color: '#ec4899' }
   ];
 
-  selectedMetricKeys: string[] = ['page_fans', 'page_reach', 'page_impressions'];
+  selectedMetricKeys: string[] = ['page_impressions_unique', 'page_follows', 'page_post_engagements'];
 
   private subscriptions = new Subscription();
 
   constructor(
     private facebookService: FacebookOAuthService,
-    private analyticsService: FacebookAnalyticsService
+    private analyticsService: FacebookAnalyticsService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -128,6 +134,7 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
 
     const metricKeysParam = this.selectedMetricKeys.join(',');
 
+    // Usar directamente el endpoint /metrics que es el que existe según la documentación
     const metricsSubscription = this.analyticsService.getPageMetrics(
       page.facebookPageId,
       this.fromDate,
@@ -135,15 +142,20 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
       metricKeysParam
     ).subscribe({
       next: (response) => {
-        page.metrics = response.data.metrics;
-        this.updateChart(page.metrics);
+        if (response.data?.metrics?.length > 0) {
+          const chartData = this.transformMetricsToChartFormat(response.data);
+          page.chartData = chartData;
+          this.updateChart(chartData);
+        } else {
+          page.chartData = undefined;
+          this.updateChart(null);
+        }
         page.loadingMetrics = false;
       },
       error: (error) => {
-        console.error(`Error al cargar métricas para ${page.name}:`, error);
-        page.metrics = [];
+        page.chartData = undefined;
         page.loadingMetrics = false;
-        this.updateChart([]);
+        this.updateChart(null);
       }
     });
 
@@ -151,10 +163,57 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Transforma los datos del endpoint /metrics al formato de /chart
+   */
+  private transformMetricsToChartFormat(data: PageMetricsResponse['data']): { labels: string[]; series: ChartMetricSeries[] } {
+    // Obtener todas las fechas únicas
+    // Las fechas vienen en formato ISO (2026-01-23T02:34:44.663Z), extraer solo la parte de fecha
+    const allDates = new Set<string>();
+
+    data.metrics.forEach(metric => {
+      metric.dailyValues?.forEach(dv => {
+        const dateStr = typeof dv.date === 'string' ? dv.date.split('T')[0] : dv.date;
+        allDates.add(dateStr);
+      });
+    });
+
+    const sortedDates = Array.from(allDates).sort();
+
+    // Crear series para cada métrica
+    const series: ChartMetricSeries[] = data.metrics.map(metric => {
+      const metricConfig = this.availableMetrics.find(m => m.key === metric.metricKey);
+
+      // Crear array de valores alineados con las fechas
+      const values = sortedDates.map(date => {
+        const dailyValue = metric.dailyValues?.find(dv => {
+          const dvDate = typeof dv.date === 'string' ? dv.date.split('T')[0] : dv.date;
+          return dvDate === date;
+        });
+        return dailyValue?.value ?? null;
+      });
+
+      return {
+        metricKey: metric.metricKey,
+        label: metricConfig?.label || metric.metricKey,
+        values: values,
+        color: metricConfig?.color || '#3d79ee',
+        statistics: {
+          total: metric.total ?? 0,
+          average: metric.average ?? 0,
+          max: metric.max ?? 0,
+          min: metric.min ?? 0
+        }
+      };
+    });
+
+    return { labels: sortedDates, series };
+  }
+
+  /**
    * Actualiza el gráfico con las métricas seleccionadas usando ECharts
    */
-  updateChart(metrics: PageMetric[]): void {
-    if (!metrics || metrics.length === 0) {
+  updateChart(chartData: { labels: string[]; series: ChartMetricSeries[] } | null): void {
+    if (!chartData?.series?.length) {
       this.chartOptions = {
         title: {
           text: 'No hay datos disponibles',
@@ -169,44 +228,32 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Obtener todas las fechas únicas de todas las métricas
-    const allDates = new Set<string>();
-    metrics.forEach(metric => {
-      metric.dailyValues.forEach(dv => allDates.add(dv.date));
-    });
-
-    const sortedDates = Array.from(allDates).sort();
-
-    // Formatear fechas para mostrar en el gráfico
-    const formattedLabels = sortedDates.map(date => {
-      const d = new Date(date);
+    // Formatear fechas para mostrar en el gráfico (las labels vienen en formato yyyy-MM-dd)
+    const formattedLabels = chartData.labels.map(dateStr => {
+      const d = new Date(dateStr);
       return `${d.getDate()}/${d.getMonth() + 1}`;
     });
 
-    // Crear series para cada métrica seleccionada
-    const series: echarts.LineSeriesOption[] = metrics.map(metric => {
-      const metricConfig = this.availableMetrics.find(m => m.key === metric.metricKey);
-      const color = metricConfig?.color || '#3d79ee';
-
-      // Crear array de valores para cada fecha
-      const values = sortedDates.map(date => {
-        const dailyValue = metric.dailyValues.find(dv => dv.date === date);
-        return dailyValue ? dailyValue.value : null;
-      });
+    // Crear series para cada métrica
+    const series: echarts.LineSeriesOption[] = chartData.series.map(metricSeries => {
+      // Convertir valores a números, mantener null para valores faltantes
+      const cleanValues = metricSeries.values.map(v => v === null || v === undefined ? null : Number(v));
 
       return {
-        name: metricConfig?.label || metric.metricKey,
+        name: metricSeries.label,
         type: 'line' as const,
-        data: values,
+        data: cleanValues,
         smooth: true,
         symbol: 'circle',
         symbolSize: 6,
+        showSymbol: true,
+        connectNulls: false, // No conectar puntos nulos
         lineStyle: {
-          color: color,
+          color: metricSeries.color,
           width: 2
         },
         itemStyle: {
-          color: color
+          color: metricSeries.color
         },
         areaStyle: {
           color: {
@@ -216,8 +263,8 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
             x2: 0,
             y2: 1,
             colorStops: [
-              { offset: 0, color: color + '80' },
-              { offset: 1, color: color + '10' }
+              { offset: 0, color: metricSeries.color + '80' },
+              { offset: 1, color: metricSeries.color + '10' }
             ]
           }
         }
@@ -240,13 +287,17 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
         axisPointer: {
           type: 'cross'
         },
-        formatter: (params: any) => {
-          let result = `<div style="margin-bottom: 4px; font-weight: 600;">${params[0].axisValue}</div>`;
-          params.forEach((param: any) => {
-            result += `<div style="margin: 4px 0;">
-              <span style="display: inline-block; width: 10px; height: 10px; background: ${param.color}; border-radius: 50%; margin-right: 8px;"></span>
-              ${param.seriesName}: <strong>${this.formatNumber(param.value)}</strong>
-            </div>`;
+        formatter: (params: unknown) => {
+          const paramsArray = Array.isArray(params) ? params : [params];
+          let result = `<div style="margin-bottom: 4px; font-weight: 600;">${(paramsArray[0] as { axisValue: string })?.axisValue}</div>`;
+          paramsArray.forEach((param: unknown) => {
+            const p = param as { color: string; seriesName: string; value: number };
+            if (p?.value != null) {
+              result += `<div style="margin: 4px 0;">
+                <span style="display: inline-block; width: 10px; height: 10px; background: ${p.color}; border-radius: 50%; margin-right: 8px;"></span>
+                ${p.seriesName}: <strong>${this.formatNumber(p.value)}</strong>
+              </div>`;
+            }
           });
           return result;
         }
@@ -280,6 +331,7 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
       },
       yAxis: {
         type: 'value',
+        scale: false, // No usar escala automática para mejor visualización
         axisLabel: {
           color: '#6b7280',
           formatter: (value: number) => {
@@ -305,8 +357,12 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
       },
       series: series,
       animation: true,
-      animationDuration: 750
+      animationDuration: 750,
+      animationEasing: 'cubicOut'
     };
+
+    // Forzar detección de cambios para actualizar el gráfico
+    this.cdr.detectChanges();
   }
 
   /**
