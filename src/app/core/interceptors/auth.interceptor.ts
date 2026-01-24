@@ -13,7 +13,7 @@ const refreshTokenSubject = new BehaviorSubject<string | null>(null);
  * 1. Agrega automáticamente el token de autenticación a las peticiones protegidas
  * 2. Maneja errores 401 (no autorizado) intentando renovar el token automáticamente
  * 3. Si la renovación falla, redirige al login
- * 
+ *
  * Excluye las rutas públicas como /api/Token/login y /api/Token/register
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
@@ -39,12 +39,19 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     const token = authService.getToken();
 
     if (token) {
+      // Para FormData, no establecer Content-Type (el navegador lo hace automáticamente con boundary)
+      const isFormData = req.body instanceof FormData;
+      const headers: { [key: string]: string } = {
+        Authorization: `Bearer ${token}`
+      };
+
+      if (!isFormData) {
+        headers['Content-Type'] = 'application/json';
+      }
+
       // Clonar la petición y agregar el header de autorización
       const clonedRequest = req.clone({
-        setHeaders: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        setHeaders: headers
       });
 
       // Interceptar la respuesta para manejar errores 401
@@ -73,20 +80,24 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
                 switchMap((response) => {
                   // Token renovado exitosamente
                   isRefreshing = false;
-                  
+
                   // Guardar el nuevo token y datos de usuario
                   authService.setAuthData(response.data.token, response.data);
-                  
+
                   // Notificar a las peticiones en espera que el token está listo
                   const newToken = response.data.token;
                   refreshTokenSubject.next(newToken);
-                  
+
                   // Reintentar la petición original con el nuevo token
+                  const isFormDataRetry = req.body instanceof FormData;
+                  const retryHeaders: { [key: string]: string } = {
+                    Authorization: `Bearer ${newToken}`
+                  };
+                  if (!isFormDataRetry) {
+                    retryHeaders['Content-Type'] = 'application/json';
+                  }
                   const retryRequest = req.clone({
-                    setHeaders: {
-                      Authorization: `Bearer ${newToken}`,
-                      'Content-Type': 'application/json'
-                    }
+                    setHeaders: retryHeaders
                   });
                   return next(retryRequest);
                 }),
@@ -95,13 +106,13 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
                   isRefreshing = false;
                   refreshTokenSubject.next(null);
                   authService.logout();
-                  
+
                   if (!router.url.includes('/login')) {
                     router.navigate(['/login'], {
                       queryParams: { returnUrl: router.url }
                     });
                   }
-                  
+
                   return throwError(() => refreshError);
                 })
               );
@@ -112,18 +123,22 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
                 take(1),
                 switchMap((newToken) => {
                   // Reintentar la petición original con el nuevo token
+                  const isFormDataRetry = req.body instanceof FormData;
+                  const retryHeaders: { [key: string]: string } = {
+                    Authorization: `Bearer ${newToken}`
+                  };
+                  if (!isFormDataRetry) {
+                    retryHeaders['Content-Type'] = 'application/json';
+                  }
                   const retryRequest = req.clone({
-                    setHeaders: {
-                      Authorization: `Bearer ${newToken}`,
-                      'Content-Type': 'application/json'
-                    }
+                    setHeaders: retryHeaders
                   });
                   return next(retryRequest);
                 })
               );
             }
           }
-          
+
           return throwError(() => error);
         })
       );

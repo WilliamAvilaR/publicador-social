@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { LoginRequest, LoginResponse, UserData, RegisterRequest, RegisterResponse, RefreshResponse, ApiError, ChangePasswordRequest, ChangePasswordResponse, UpdateProfileRequest, UpdateProfileResponse, UserProfileData } from '../models/auth.model';
+import { LoginRequest, LoginResponse, UserData, RegisterRequest, RegisterResponse, RefreshResponse, ApiError, ChangePasswordRequest, ChangePasswordResponse, UpdateProfileRequest, UpdateProfileResponse, UserProfileData, UploadAvatarResponse, DeleteAvatarResponse } from '../models/auth.model';
 
 @Injectable({
   providedIn: 'root'
@@ -44,6 +44,24 @@ export class AuthService {
    */
   updateProfile(request: UpdateProfileRequest): Observable<UpdateProfileResponse> {
     return this.http.put<UpdateProfileResponse>('/api/me', request);
+  }
+
+  /**
+   * Sube o actualiza el avatar del usuario autenticado actual.
+   * Acepta archivos de imagen (JPG, PNG, GIF, WEBP) con un tamaño máximo de 5MB.
+   */
+  uploadAvatar(file: File): Observable<UploadAvatarResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return this.http.post<UploadAvatarResponse>('/api/me/avatar', formData);
+  }
+
+  /**
+   * Elimina el avatar del usuario autenticado actual.
+   */
+  deleteAvatar(): Observable<DeleteAvatarResponse> {
+    return this.http.delete<DeleteAvatarResponse>('/api/me/avatar');
   }
 
   // Guardar token y datos de usuario en localStorage

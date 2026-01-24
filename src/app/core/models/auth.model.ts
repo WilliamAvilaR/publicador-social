@@ -151,3 +151,31 @@ export interface UserProfileData {
   isActive?: boolean;
   avatarUrl?: string;
 }
+
+export interface UploadAvatarResponse {
+  data: string;
+  meta: {
+    totalCount: number;
+    pageSize: number;
+    currentPage: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviusPage: boolean;
+    nextPageUrl: string;
+    previusPageUrl: string;
+  };
+}
+
+export interface DeleteAvatarResponse {
+  data: string;
+  meta: {
+    totalCount: number;
+    pageSize: number;
+    currentPage: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviusPage: boolean;
+    nextPageUrl: string;
+    previusPageUrl: string;
+  };
+}
