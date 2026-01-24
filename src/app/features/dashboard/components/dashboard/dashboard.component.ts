@@ -5,7 +5,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { filter } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
-import { UserData } from '../../../../core/models/auth.model';
+import { UserData, UserProfileData } from '../../../../core/models/auth.model';
 import { FacebookConnectComponent } from '../../../../shared/components/facebook-connect/facebook-connect.component';
 
 interface MenuItem {
@@ -22,7 +22,7 @@ interface MenuItem {
   styleUrl: './dashboard.component.scss'
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  user: UserData | null = null;
+  user: UserData | UserProfileData | null = null;
   sidebarCollapsed = false;
   showUserDropdown = false;
   showNotifications = false;

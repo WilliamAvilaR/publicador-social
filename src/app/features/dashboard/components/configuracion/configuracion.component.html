@@ -58,21 +58,7 @@
       <div *ngIf="activeSection === 'perfil'" class="configuracion-section">
         <h2 class="section-title">Información del Perfil</h2>
         <div class="section-content">
-          <div class="info-card">
-            <div class="info-row">
-              <span class="info-label">Nombre completo:</span>
-              <span class="info-value">{{ user?.fullName || 'No disponible' }}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Email:</span>
-              <span class="info-value">{{ user?.email || 'No disponible' }}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Rol:</span>
-              <span class="info-value">{{ user?.rol || 'No disponible' }}</span>
-            </div>
-          </div>
-          <p class="section-note">La información del perfil se actualizará próximamente.</p>
+          <app-edit-profile [embedded]="true" (profileUpdated)="onProfileUpdated()"></app-edit-profile>
         </div>
       </div>
 

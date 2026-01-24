@@ -104,3 +104,50 @@ export interface ChangePasswordResponse {
     previusPageUrl: string;
   };
 }
+
+export interface UpdateProfileRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  telephone: string;
+  dateBird: string; // Formato: YYYY-MM-DD
+}
+
+export interface UpdateProfileResponse {
+  data: {
+    idUsuario: number;
+    email: string;
+    rol: string;
+    fullName: string;
+    firstName: string;
+    lastName: string;
+    telephone: string;
+    dateBird: string;
+    isActive: boolean;
+    avatarUrl: string;
+  };
+  meta: {
+    totalCount: number;
+    pageSize: number;
+    currentPage: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviusPage: boolean;
+    nextPageUrl: string;
+    previusPageUrl: string;
+  };
+}
+
+// Tipo extendido para UserData con todos los campos del perfil
+export interface UserProfileData {
+  idUsuario: number;
+  email: string;
+  rol: string;
+  fullName: string;
+  firstName?: string;
+  lastName?: string;
+  telephone?: string;
+  dateBird?: string;
+  isActive?: boolean;
+  avatarUrl?: string;
+}

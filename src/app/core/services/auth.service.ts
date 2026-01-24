@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { LoginRequest, LoginResponse, UserData, RegisterRequest, RegisterResponse, RefreshResponse, ApiError, ChangePasswordRequest, ChangePasswordResponse } from '../models/auth.model';
+import { LoginRequest, LoginResponse, UserData, RegisterRequest, RegisterResponse, RefreshResponse, ApiError, ChangePasswordRequest, ChangePasswordResponse, UpdateProfileRequest, UpdateProfileResponse, UserProfileData } from '../models/auth.model';
 
 @Injectable({
   providedIn: 'root'
@@ -38,6 +38,14 @@ export class AuthService {
     return this.http.post<ChangePasswordResponse>('/api/Account/change-password', request);
   }
 
+  /**
+   * Actualiza el perfil del usuario autenticado actual.
+   * Permite actualizar: nombres, apellidos, email, teléfono y fecha de nacimiento.
+   */
+  updateProfile(request: UpdateProfileRequest): Observable<UpdateProfileResponse> {
+    return this.http.put<UpdateProfileResponse>('/api/me', request);
+  }
+
   // Guardar token y datos de usuario en localStorage
   setAuthData(token: string, user: UserData): void {
     if (!token || !user) {
@@ -55,6 +63,15 @@ export class AuthService {
     localStorage.setItem(this.USER_KEY, JSON.stringify(userData));
   }
 
+  // Actualizar datos del usuario en localStorage (después de actualizar perfil)
+  updateUserData(user: UserProfileData): void {
+    if (!user) {
+      console.error('Usuario inválido');
+      return;
+    }
+    localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+  }
+
   // Obtener token del localStorage
   getToken(): string | null {
     const token = localStorage.getItem(this.TOKEN_KEY);
@@ -66,7 +83,7 @@ export class AuthService {
   }
 
   // Obtener datos del usuario del localStorage
-  getUser(): UserData | null {
+  getUser(): UserData | UserProfileData | null {
     try {
       const userData = localStorage.getItem(this.USER_KEY);
 
@@ -87,7 +104,7 @@ export class AuthService {
         return null;
       }
 
-      return parsed;
+      return parsed as UserData | UserProfileData;
     } catch (error) {
       console.error('Error al parsear datos de usuario:', error);
       // Limpiar datos corruptos
