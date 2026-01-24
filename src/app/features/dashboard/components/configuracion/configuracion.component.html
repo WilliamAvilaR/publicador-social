@@ -1,0 +1,104 @@
+<div class="configuracion-container">
+  <div class="configuracion-header">
+    <h1 class="configuracion-title">Configuración</h1>
+    <p class="configuracion-subtitle">Administra tu cuenta y preferencias</p>
+  </div>
+
+  <div class="configuracion-content">
+    <!-- Sidebar de navegación -->
+    <aside class="configuracion-sidebar">
+      <nav class="configuracion-nav">
+        <button 
+          class="nav-item" 
+          [class.active]="activeSection === 'perfil'"
+          (click)="setActiveSection('perfil')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12h4m-2 2v-4M4 18v-1a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Zm8-10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+          </svg>
+          <span>Perfil</span>
+        </button>
+
+        <button 
+          class="nav-item" 
+          [class.active]="activeSection === 'seguridad'"
+          (click)="setActiveSection('seguridad')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M7 11V7C7 5.67392 7.52678 4.40215 8.46447 3.46447C9.40215 2.52678 10.6739 2 12 2C13.3261 2 14.5979 2.52678 15.5355 3.46447C16.4732 4.40215 17 5.67392 17 7V11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Seguridad</span>
+        </button>
+
+        <button 
+          class="nav-item" 
+          [class.active]="activeSection === 'notificaciones'"
+          (click)="setActiveSection('notificaciones')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5.464V3.099m0 2.365a5.338 5.338 0 0 1 5.133 5.368v1.8c0 2.386 1.867 2.982 1.867 4.175C19 17.4 19 18 18.462 18H5.538C5 18 5 17.4 5 16.807c0-1.193 1.867-1.789 1.867-4.175v-1.8A5.338 5.338 0 0 1 12 5.464ZM6 5 5 4M4 9H3m15-4 1-1m1 5h1M8.54 18a3.48 3.48 0 0 0 6.92 0H8.54Z"/>
+          </svg>
+          <span>Notificaciones</span>
+        </button>
+
+        <button 
+          class="nav-item" 
+          [class.active]="activeSection === 'preferencias'"
+          (click)="setActiveSection('preferencias')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13v-2a1 1 0 0 0-1-1h-.757l-.707-1.707.535-.536a1 1 0 0 0 0-1.414l-1.414-1.414a1 1 0 0 0-1.414 0l-.536.535L14 4.757V4a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v.757l-1.707.707-.536-.535a1 1 0 0 0-1.414 0L4.929 6.343a1 1 0 0 0 0 1.414l.536.536L4.757 10H4a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h.757l.707 1.707-.535.536a1 1 0 0 0 0 1.414l1.414 1.414a1 1 0 0 0 1.414 0l.536-.535 1.707.707V20a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-.757l1.707-.708.536.536a1 1 0 0 0 1.414 0l1.414-1.414a1 1 0 0 0 0-1.414l-.535-.536.707-1.707H20a1 1 0 0 0 1-1Z"/>
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+          </svg>
+          <span>Preferencias</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- Contenido principal -->
+    <main class="configuracion-main">
+      <!-- Sección: Perfil -->
+      <div *ngIf="activeSection === 'perfil'" class="configuracion-section">
+        <h2 class="section-title">Información del Perfil</h2>
+        <div class="section-content">
+          <div class="info-card">
+            <div class="info-row">
+              <span class="info-label">Nombre completo:</span>
+              <span class="info-value">{{ user?.fullName || 'No disponible' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Email:</span>
+              <span class="info-value">{{ user?.email || 'No disponible' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Rol:</span>
+              <span class="info-value">{{ user?.rol || 'No disponible' }}</span>
+            </div>
+          </div>
+          <p class="section-note">La información del perfil se actualizará próximamente.</p>
+        </div>
+      </div>
+
+      <!-- Sección: Seguridad (Cambio de contraseña) -->
+      <div *ngIf="activeSection === 'seguridad'" class="configuracion-section">
+        <h2 class="section-title">Seguridad</h2>
+        <div class="section-content">
+          <app-change-password [embedded]="true" (passwordChanged)="onPasswordChanged()"></app-change-password>
+        </div>
+      </div>
+
+      <!-- Sección: Notificaciones -->
+      <div *ngIf="activeSection === 'notificaciones'" class="configuracion-section">
+        <h2 class="section-title">Notificaciones</h2>
+        <div class="section-content">
+          <p class="section-note">Las preferencias de notificaciones estarán disponibles próximamente.</p>
+        </div>
+      </div>
+
+      <!-- Sección: Preferencias -->
+      <div *ngIf="activeSection === 'preferencias'" class="configuracion-section">
+        <h2 class="section-title">Preferencias</h2>
+        <div class="section-content">
+          <p class="section-note">Las preferencias de usuario estarán disponibles próximamente.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>

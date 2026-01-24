@@ -84,3 +84,23 @@ export interface ApiError {
   instance: string;
   [key: string]: string | number;
 }
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
+}
+
+export interface ChangePasswordResponse {
+  data: string;
+  meta: {
+    totalCount: number;
+    pageSize: number;
+    currentPage: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviusPage: boolean;
+    nextPageUrl: string;
+    previusPageUrl: string;
+  };
+}

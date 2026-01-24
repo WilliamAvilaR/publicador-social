@@ -35,6 +35,10 @@ export const routes: Routes = [
       {
         path: 'analiticas',
         loadComponent: () => import('./features/facebook/components/analytics/analytics.component').then(m => m.AnalyticsComponent)
+      },
+      {
+        path: 'configuracion',
+        loadComponent: () => import('./features/dashboard/components/configuracion/configuracion.component').then(m => m.ConfiguracionComponent)
       }
     ]
   },

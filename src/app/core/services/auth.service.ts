@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { LoginRequest, LoginResponse, UserData, RegisterRequest, RegisterResponse, RefreshResponse, ApiError } from '../models/auth.model';
+import { LoginRequest, LoginResponse, UserData, RegisterRequest, RegisterResponse, RefreshResponse, ApiError, ChangePasswordRequest, ChangePasswordResponse } from '../models/auth.model';
 
 @Injectable({
   providedIn: 'root'
@@ -28,6 +28,14 @@ export class AuthService {
    */
   refreshToken(): Observable<RefreshResponse> {
     return this.http.post<RefreshResponse>(`${this.apiUrl}/refresh`, {});
+  }
+
+  /**
+   * Cambia la contraseña del usuario autenticado actual.
+   * Requiere validar la contraseña actual antes de establecer una nueva.
+   */
+  changePassword(request: ChangePasswordRequest): Observable<ChangePasswordResponse> {
+    return this.http.post<ChangePasswordResponse>('/api/Account/change-password', request);
   }
 
   // Guardar token y datos de usuario en localStorage
