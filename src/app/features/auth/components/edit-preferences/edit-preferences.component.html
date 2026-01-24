@@ -1,0 +1,116 @@
+<div class="edit-preferences-wrapper" [class.embedded]="embedded">
+  <div class="edit-preferences-panel" [class.embedded-panel]="embedded">
+    <div class="header" *ngIf="!embedded">
+      <h2 class="title">Editar Preferencias</h2>
+      <p class="subtitle">Personaliza tu experiencia</p>
+    </div>
+
+    <!-- Mensaje de éxito -->
+    <div *ngIf="successMessage" class="success-message">
+      <svg class="success-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="success-content">
+        <strong>¡Éxito!</strong>
+        <p>{{ successMessage }}</p>
+      </div>
+    </div>
+
+    <!-- Mensaje de error -->
+    <div *ngIf="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
+
+    <!-- Loading de preferencias -->
+    <div *ngIf="loadingSettings" class="loading-message">
+      Cargando preferencias...
+    </div>
+
+    <form [formGroup]="preferencesForm" (ngSubmit)="onSubmit()" class="edit-preferences-form" *ngIf="!loadingSettings">
+      <!-- Idioma -->
+      <div class="input-group">
+        <label class="input-label">Idioma</label>
+        <select 
+          formControlName="language"
+          class="select-field"
+          [class.invalid]="isFieldInvalid('language')">
+          <option value="">Seleccionar idioma</option>
+          <option *ngFor="let lang of languages" [value]="lang.value">{{ lang.label }}</option>
+        </select>
+        <div *ngIf="isFieldInvalid('language')" class="field-error">
+          {{ getFieldError('language') }}
+        </div>
+      </div>
+
+      <!-- Zona Horaria -->
+      <div class="input-group">
+        <label class="input-label">Zona Horaria</label>
+        <select 
+          formControlName="timezone"
+          class="select-field"
+          [class.invalid]="isFieldInvalid('timezone')">
+          <option value="">Seleccionar zona horaria</option>
+          <option *ngFor="let tz of timezones" [value]="tz.value">{{ tz.label }}</option>
+        </select>
+        <div *ngIf="isFieldInvalid('timezone')" class="field-error">
+          {{ getFieldError('timezone') }}
+        </div>
+      </div>
+
+      <!-- Formato de Fecha -->
+      <div class="input-group">
+        <label class="input-label">Formato de Fecha</label>
+        <select 
+          formControlName="dateFormat"
+          class="select-field"
+          [class.invalid]="isFieldInvalid('dateFormat')">
+          <option value="">Seleccionar formato</option>
+          <option *ngFor="let format of dateFormats" [value]="format.value">{{ format.label }}</option>
+        </select>
+        <div *ngIf="isFieldInvalid('dateFormat')" class="field-error">
+          {{ getFieldError('dateFormat') }}
+        </div>
+      </div>
+
+      <!-- Primer Día de la Semana -->
+      <div class="input-group">
+        <label class="input-label">Primer Día de la Semana</label>
+        <select 
+          formControlName="firstDayOfWeek"
+          class="select-field"
+          [class.invalid]="isFieldInvalid('firstDayOfWeek')">
+          <option *ngFor="let option of firstDayOfWeekOptions" [value]="option.value">{{ option.label }}</option>
+        </select>
+        <div *ngIf="isFieldInvalid('firstDayOfWeek')" class="field-error">
+          {{ getFieldError('firstDayOfWeek') }}
+        </div>
+      </div>
+
+      <!-- Tema -->
+      <div class="input-group">
+        <label class="input-label">Tema</label>
+        <select 
+          formControlName="theme"
+          class="select-field"
+          [class.invalid]="isFieldInvalid('theme')">
+          <option value="">Seleccionar tema</option>
+          <option *ngFor="let theme of themes" [value]="theme.value">{{ theme.label }}</option>
+        </select>
+        <div *ngIf="isFieldInvalid('theme')" class="field-error">
+          {{ getFieldError('theme') }}
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button *ngIf="!embedded" type="button" class="cancel-button" (click)="onCancel()" [disabled]="isLoading">
+          Cancelar
+        </button>
+        <button type="submit" class="submit-button" [disabled]="isLoading">
+          <span *ngIf="!isLoading">Guardar Preferencias</span>
+          <span *ngIf="isLoading">Guardando...</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

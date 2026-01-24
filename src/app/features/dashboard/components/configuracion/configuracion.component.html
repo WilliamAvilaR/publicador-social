@@ -82,7 +82,7 @@
       <div *ngIf="activeSection === 'preferencias'" class="configuracion-section">
         <h2 class="section-title">Preferencias</h2>
         <div class="section-content">
-          <p class="section-note">Las preferencias de usuario estarán disponibles próximamente.</p>
+          <app-edit-preferences [embedded]="true" (preferencesUpdated)="onPreferencesUpdated()"></app-edit-preferences>
         </div>
       </div>
     </main>

@@ -5,13 +5,14 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { UserData, UserProfileData } from '../../../../core/models/auth.model';
 import { ChangePasswordComponent } from '../../../auth/components/change-password/change-password.component';
 import { EditProfileComponent } from '../../../auth/components/edit-profile/edit-profile.component';
+import { EditPreferencesComponent } from '../../../auth/components/edit-preferences/edit-preferences.component';
 
 type ConfigSection = 'perfil' | 'seguridad' | 'notificaciones' | 'preferencias';
 
 @Component({
   selector: 'app-configuracion',
   standalone: true,
-  imports: [CommonModule, ChangePasswordComponent, EditProfileComponent],
+  imports: [CommonModule, ChangePasswordComponent, EditProfileComponent, EditPreferencesComponent],
   templateUrl: './configuracion.component.html',
   styleUrl: './configuracion.component.scss'
 })
@@ -46,5 +47,10 @@ export class ConfiguracionComponent implements OnInit {
   onProfileUpdated() {
     // Recargar datos del usuario después de actualizar el perfil
     this.user = this.authService.getUser();
+  }
+
+  onPreferencesUpdated() {
+    // Las preferencias se actualizaron exitosamente
+    // Aquí podríamos aplicar los cambios en tiempo real si es necesario
   }
 }
