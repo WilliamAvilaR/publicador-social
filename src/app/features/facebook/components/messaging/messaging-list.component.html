@@ -1,0 +1,114 @@
+<div class="messaging-container">
+  <div class="header-section">
+    <h1>Mensajes de Messenger</h1>
+    <p>Gestiona las conversaciones de tus páginas de Facebook</p>
+  </div>
+
+  <!-- Selector de página -->
+  <div class="page-selector-section" *ngIf="pages.length > 0">
+    <label for="page-select" class="selector-label">Seleccionar página:</label>
+    <select 
+      id="page-select"
+      [(ngModel)]="selectedPageId" 
+      (change)="onPageChange($any($event.target).value)"
+      class="page-select"
+      [disabled]="loading || syncing">
+      <option *ngFor="let page of pages" [value]="page.facebookPageId">
+        {{ page.name }}
+      </option>
+    </select>
+  </div>
+
+  <!-- Estados de carga y error -->
+  <div *ngIf="loading && conversations.length === 0" class="loading-state">
+    <div class="spinner"></div>
+    <p>Cargando conversaciones...</p>
+  </div>
+
+  <div *ngIf="error && conversations.length === 0" class="error-state">
+    <p>{{ error }}</p>
+    <button (click)="loadConversations()" class="retry-btn">Reintentar</button>
+  </div>
+
+  <!-- Contenido principal -->
+  <div *ngIf="!loading || conversations.length > 0" class="conversations-section">
+    <!-- Barra de acciones -->
+    <div class="actions-bar">
+      <div class="actions-left">
+        <button 
+          class="sync-btn" 
+          (click)="syncConversations()"
+          [disabled]="syncing || !selectedPageId">
+          <span *ngIf="!syncing">🔄</span>
+          <span *ngIf="syncing" class="spinner-small"></span>
+          <span>{{ syncing ? 'Sincronizando...' : 'Sincronizar' }}</span>
+        </button>
+        <button 
+          class="filter-btn" 
+          [class.active]="showArchived"
+          (click)="toggleArchived()">
+          {{ showArchived ? 'Mostrar activas' : 'Mostrar archivadas' }}
+        </button>
+      </div>
+      <div class="actions-right">
+        <span class="conversation-count" *ngIf="totalCount > 0">
+          {{ totalCount }} conversación{{ totalCount !== 1 ? 'es' : '' }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Lista de conversaciones -->
+    <div *ngIf="conversations.length === 0 && !loading" class="empty-state">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+      </svg>
+      <p>No hay conversaciones {{ showArchived ? 'archivadas' : 'activas' }}</p>
+      <p class="empty-subtitle" *ngIf="!showArchived">
+        Haz clic en "Sincronizar" para obtener las conversaciones desde Facebook
+      </p>
+    </div>
+
+    <div *ngIf="conversations.length > 0" class="conversations-list">
+      <div 
+        *ngFor="let conversation of conversations" 
+        class="conversation-card"
+        [class.unread]="conversation.unreadCount > 0"
+        [class.archived]="conversation.isArchived"
+        (click)="openConversation(conversation)">
+        <div class="conversation-avatar">
+          <img 
+            *ngIf="conversation.participantPictureUrl" 
+            [src]="conversation.participantPictureUrl" 
+            [alt]="conversation.participantName || 'Usuario'"
+            class="avatar-img">
+          <div 
+            *ngIf="!conversation.participantPictureUrl"
+            class="avatar-placeholder">
+            {{ (conversation.participantName || 'U')[0].toUpperCase() }}
+          </div>
+          <span *ngIf="conversation.unreadCount > 0" class="unread-badge">
+            {{ conversation.unreadCount > 99 ? '99+' : conversation.unreadCount }}
+          </span>
+        </div>
+        <div class="conversation-content">
+          <div class="conversation-header">
+            <h3 class="participant-name">
+              {{ conversation.participantName || 'Usuario sin nombre' }}
+            </h3>
+            <span class="conversation-time">
+              {{ formatDate(conversation.lastMessageAt) }}
+            </span>
+          </div>
+          <p class="conversation-preview">
+            {{ conversation.lastMessagePreview || 'Sin mensajes' }}
+          </p>
+        </div>
+        <div class="conversation-actions">
+          <svg class="arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

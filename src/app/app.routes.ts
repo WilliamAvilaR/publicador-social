@@ -39,6 +39,14 @@ export const routes: Routes = [
       {
         path: 'configuracion',
         loadComponent: () => import('./features/dashboard/components/configuracion/configuracion.component').then(m => m.ConfiguracionComponent)
+      },
+      {
+        path: 'mensajes',
+        loadComponent: () => import('./features/facebook/components/messaging/messaging-list.component').then(m => m.MessagingListComponent)
+      },
+      {
+        path: 'mensajes/:pageId/:conversationId',
+        loadComponent: () => import('./features/facebook/components/messaging/messaging-conversation.component').then(m => m.MessagingConversationComponent)
       }
     ]
   },
