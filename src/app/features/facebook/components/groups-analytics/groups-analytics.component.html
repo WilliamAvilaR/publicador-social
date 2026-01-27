@@ -1,0 +1,148 @@
+<div class="analytics-container">
+  <!-- Header -->
+  <div class="analytics-header">
+    <div>
+      <h1>Analíticas de Grupos</h1>
+      <p class="subtitle">Visualiza y analiza las métricas de tus grupos de Facebook</p>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <div class="spinner-large"></div>
+    <p>Cargando grupos...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="!loading && error" class="error-state">
+    <p>{{ error }}</p>
+    <button (click)="loadGroups()" class="retry-btn">Reintentar</button>
+  </div>
+
+  <!-- Contenido Principal -->
+  <div *ngIf="!loading && !error" class="analytics-content">
+    <!-- Selector de Grupos -->
+    <div class="pages-selector" *ngIf="groups.length > 0">
+      <h3>Selecciona un grupo</h3>
+      <div class="pages-list">
+        <button
+          *ngFor="let group of groups"
+          class="page-btn"
+          [class.active]="group.selected"
+          (click)="selectGroup(group)">
+          <img 
+            *ngIf="group.pictureUrl" 
+            [src]="group.pictureUrl" 
+            [alt]="group.name"
+            class="page-thumb">
+          <div *ngIf="!group.pictureUrl" class="page-thumb-placeholder">
+            {{ group.name.charAt(0).toUpperCase() }}
+          </div>
+          <span class="page-name">{{ group.name }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Controles y Gráfico -->
+    <div *ngIf="selectedGroup" class="metrics-section">
+      <!-- Controles de Fecha -->
+      <div class="controls-card">
+        <div class="control-group">
+          <label>Rango de fechas</label>
+          <div class="date-inputs">
+            <input
+              type="date"
+              [(ngModel)]="fromDate"
+              (change)="onDateRangeChange()"
+              class="date-input">
+            <span>a</span>
+            <input
+              type="date"
+              [(ngModel)]="toDate"
+              (change)="onDateRangeChange()"
+              class="date-input">
+          </div>
+        </div>
+
+        <!-- Selector de Métricas -->
+        <div class="control-group">
+          <label>Métricas a mostrar</label>
+          <div class="metrics-checkboxes">
+            <label *ngFor="let metric of availableMetrics" class="metric-checkbox">
+              <input
+                type="checkbox"
+                [value]="metric.key"
+                [checked]="selectedMetricKeys.includes(metric.key)"
+                (change)="onMetricSelectionChange()"
+                (click)="toggleMetric(metric.key, $event)">
+              <span class="checkmark" [style.background-color]="metric.color + '20'" [style.border-color]="metric.color"></span>
+              <span>{{ metric.label }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gráfico -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>Evolución de Métricas</h3>
+          <span class="page-name-badge">{{ selectedGroup.name }}</span>
+        </div>
+        
+        <div *ngIf="selectedGroup.loadingMetrics" class="chart-loading">
+          <div class="spinner-medium"></div>
+          <p>Cargando métricas...</p>
+        </div>
+
+        <div *ngIf="!selectedGroup.loadingMetrics && selectedGroup.chartData && selectedGroup.chartData.series.length > 0" class="chart-container">
+          <div echarts [options]="chartOptions" class="echarts-chart"></div>
+        </div>
+
+        <div *ngIf="!selectedGroup.loadingMetrics && (!selectedGroup.chartData || selectedGroup.chartData.series.length === 0)" class="no-metrics">
+          <p>No hay métricas disponibles para este rango de fechas</p>
+          <p class="no-metrics-hint">Los datos se sincronizan automáticamente cuando el grupo está activo</p>
+        </div>
+      </div>
+
+      <!-- Resumen de Métricas -->
+      <div *ngIf="selectedGroup.chartData && selectedGroup.chartData.series.length > 0" class="metrics-summary">
+        <h3>Resumen</h3>
+        <div class="summary-grid">
+          <div *ngFor="let metricSeries of selectedGroup.chartData.series" class="summary-card">
+            <div class="summary-header">
+              <span class="metric-label">{{ metricSeries.label }}</span>
+              <span class="metric-color" [style.background-color]="metricSeries.color"></span>
+            </div>
+            <div class="summary-values">
+              <div class="summary-item">
+                <span class="summary-label">Total</span>
+                <span class="summary-value">{{ formatNumber(metricSeries.statistics.total) }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Promedio</span>
+                <span class="summary-value">{{ formatNumber(getRoundedAverage(metricSeries.statistics.average)) }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Máximo</span>
+                <span class="summary-value">{{ formatNumber(metricSeries.statistics.max) }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Mínimo</span>
+                <span class="summary-value">{{ formatNumber(metricSeries.statistics.min) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="groups.length === 0" class="empty-state">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+      </svg>
+      <p>No hay grupos activos</p>
+      <p class="empty-subtitle">Activa al menos un grupo para ver sus métricas</p>
+    </div>
+  </div>
+</div>

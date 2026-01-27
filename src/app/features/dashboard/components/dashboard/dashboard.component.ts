@@ -10,8 +10,10 @@ import { FacebookConnectComponent } from '../../../../shared/components/facebook
 
 interface MenuItem {
   label: string;
-  route: string;
+  route?: string; // Opcional si tiene submenú
   icon?: string; // SVG como string opcional
+  hasSubmenu?: boolean; // Flag para identificar si tiene submenú
+  children?: MenuItem[]; // Submenú
 }
 
 @Component({
@@ -27,6 +29,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showUserDropdown = false;
   showNotifications = false;
   activeSection = 'Dashboard';
+  expandedMenuItems: Set<string> = new Set(); // Para trackear qué items están expandidos
   private subscriptions = new Subscription();
 
   menuItems: MenuItem[] = [
@@ -56,7 +59,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
       route: '/dashboard/analiticas',
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18.5A2.493 2.493 0 0 1 7.51 20H7.5a2.468 2.468 0 0 1-2.4-3.154 2.98 2.98 0 0 1-.85-5.274 2.468 2.468 0 0 1 .92-3.182 2.477 2.477 0 0 1 1.876-3.344 2.5 2.5 0 0 1 3.41-1.856A2.5 2.5 0 0 1 12 5.5m0 13v-13m0 13a2.493 2.493 0 0 0 4.49 1.5h.01a2.468 2.468 0 0 0 2.403-3.154 2.98 2.98 0 0 0 .847-5.274 2.468 2.468 0 0 0-.921-3.182 2.477 2.477 0 0 0-1.875-3.344A2.5 2.5 0 0 0 14.5 3 2.5 2.5 0 0 0 12 5.5m-8 5a2.5 2.5 0 0 1 3.48-2.3m-.28 8.551a3 3 0 0 1-2.953-5.185M20 10.5a2.5 2.5 0 0 0-3.481-2.3m.28 8.551a3 3 0 0 0 2.954-5.185"/>
-      </svg>`
+      </svg>`,
+      hasSubmenu: true,
+      children: [
+        {
+          label: 'Páginas',
+          route: '/dashboard/analiticas',
+          icon: `<svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+          </svg>`
+        },
+        {
+          label: 'Grupos',
+          route: '/dashboard/analiticas',
+          icon: `<svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>`
+        }
+      ]
     },
     { 
       label: 'Mensajes', 
@@ -116,9 +136,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe(() => {
         this.updateActiveSection();
+        // Auto-expandir submenú de Analíticas si estamos en esa ruta
+        const analyticsItem = this.menuItems.find(item => item.label === 'Analíticas');
+        if (analyticsItem && this.router.url.startsWith('/dashboard/analiticas')) {
+          if (!this.expandedMenuItems.has('Analíticas')) {
+            this.expandedMenuItems.add('Analíticas');
+          }
+        }
       });
 
     this.subscriptions.add(navigationSubscription);
+    
+    // Auto-expandir submenú de Analíticas si estamos en esa ruta al iniciar
+    if (this.router.url.startsWith('/dashboard/analiticas')) {
+      const analyticsItem = this.menuItems.find(item => item.label === 'Analíticas');
+      if (analyticsItem) {
+        this.expandedMenuItems.add('Analíticas');
+      }
+    }
 
     // Cerrar dropdowns al hacer click fuera (mejora UX)
     this.handleDocumentClick = this.handleDocumentClick.bind(this);
@@ -146,16 +181,75 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   updateActiveSection() {
     const currentRoute = this.router.url;
-    const activeItem = this.menuItems.find(item =>
-      currentRoute === item.route || currentRoute.startsWith(item.route + '/')
-    );
-    if (activeItem) {
-      this.activeSection = activeItem.label;
-    } else if (currentRoute === '/dashboard' || currentRoute.startsWith('/dashboard')) {
+    const urlTree = this.router.parseUrl(currentRoute);
+    const queryParams = urlTree.queryParams;
+    
+    // Buscar en items principales y submenús
+    for (const item of this.menuItems) {
+      if (item.hasSubmenu && item.children) {
+        // Verificar si alguna subopción está activa (por ruta o query params)
+        const activeChild = item.children.find(child => {
+          const baseMatch = currentRoute === child.route || currentRoute.startsWith(child.route + '/');
+          // También verificar por query params
+          const categoryMatch = child.label === 'Páginas' && queryParams['category'] === 'pages' ||
+                               child.label === 'Grupos' && queryParams['category'] === 'groups';
+          return baseMatch && (categoryMatch || !queryParams['category']);
+        });
+        
+        if (activeChild || (currentRoute.startsWith('/dashboard/analiticas') && queryParams['category'])) {
+          this.activeSection = activeChild ? `${item.label} - ${activeChild.label}` : item.label;
+          // Auto-expandir el submenú si está activo
+          if (!this.expandedMenuItems.has(item.label)) {
+            this.expandedMenuItems.add(item.label);
+          }
+          return;
+        }
+      } else if (item.route && (currentRoute === item.route || currentRoute.startsWith(item.route + '/'))) {
+        this.activeSection = item.label;
+        return;
+      }
+    }
+    
+    if (currentRoute === '/dashboard' || currentRoute.startsWith('/dashboard')) {
       this.activeSection = 'Dashboard';
     } else {
       this.activeSection = 'Dashboard';
     }
+  }
+
+  /**
+   * Toggle del submenú expandible
+   */
+  toggleSubmenu(itemLabel: string, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (this.expandedMenuItems.has(itemLabel)) {
+      this.expandedMenuItems.delete(itemLabel);
+    } else {
+      this.expandedMenuItems.add(itemLabel);
+    }
+  }
+
+  /**
+   * Verifica si un item del menú está expandido
+   */
+  isSubmenuExpanded(itemLabel: string): boolean {
+    return this.expandedMenuItems.has(itemLabel);
+  }
+
+  /**
+   * Verifica si un submenú está activo basado en la ruta y query params
+   */
+  isSubmenuActive(childRoute: string, expectedCategory: string): boolean {
+    const currentRoute = this.router.url;
+    const urlTree = this.router.parseUrl(currentRoute);
+    const queryParams = urlTree.queryParams;
+    
+    const routeMatch = currentRoute === childRoute || currentRoute.startsWith(childRoute + '/');
+    const categoryMatch = queryParams['category'] === expectedCategory;
+    
+    return routeMatch && categoryMatch;
   }
 
   get currentRoute(): string {

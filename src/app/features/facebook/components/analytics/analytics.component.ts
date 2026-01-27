@@ -5,9 +5,15 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { NgxEchartsModule } from 'ngx-echarts';
 import * as echarts from 'echarts';
+import { AgGridAngular } from 'ag-grid-angular';
+import { ColDef, GridOptions, GridReadyEvent, ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
+
+// Registrar módulos de AG Grid
+ModuleRegistry.registerModules([AllCommunityModule]);
 import { FacebookOAuthService } from '../../../../core/services/facebook-oauth.service';
 import { FacebookAnalyticsService } from '../../services/facebook-analytics.service';
 import { FacebookGroupsService } from '../../services/facebook-groups.service';
+import { AgGridService } from '../../services/ag-grid.service';
 import { FacebookPage, FacebookGroup, ChartMetricSeries, PageMetricsResponse, GroupMetricsResponse, PageSnapshot, GroupSnapshot } from '../../models/facebook.model';
 
 interface PageWithMetrics extends FacebookPage {
@@ -38,7 +44,7 @@ type ViewType = 'overview' | 'detailed';
 @Component({
   selector: 'app-analytics',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgxEchartsModule],
+  imports: [CommonModule, FormsModule, NgxEchartsModule, AgGridAngular],
   templateUrl: './analytics.component.html',
   styleUrl: './analytics.component.scss'
 })
@@ -95,14 +101,23 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
 
   private subscriptions = new Subscription();
 
+  // AG Grid
+  gridOptions: GridOptions = {};
+  columnDefs: ColDef[] = [];
+  rowData: any[] = [];
+  loadingGrid = false;
+
   constructor(
     private facebookService: FacebookOAuthService,
     private analyticsService: FacebookAnalyticsService,
     private groupsService: FacebookGroupsService,
+    private agGridService: AgGridService,
     private route: ActivatedRoute,
     private router: Router,
     private cdr: ChangeDetectorRef
-  ) {}
+  ) {
+    this.setupGridOptions();
+  }
 
   /**
    * Obtiene las métricas disponibles según la categoría activa
@@ -131,32 +146,29 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
       const category = params['category'];
       if (category === 'groups') {
         this.activeCategory = 'groups';
-        if (this.groups.length === 0) {
-          this.loadGroups();
-        }
-        // Si hay grupos y estamos en vista detallada y no hay seleccionado, seleccionar el primero
-        if (this.groups.length > 0 && this.activeView === 'detailed' && !this.selectedGroup) {
-          this.selectedGroup = this.groups[0];
-          this.selectedGroup.selected = true;
-          this.loadMetricsForGroup(this.selectedGroup);
-        }
       } else {
+        // Por defecto, mostrar páginas si no hay category o si es 'pages'
         this.activeCategory = 'pages';
-        if (this.pages.length === 0) {
-          this.loadPages();
-        }
-        // Si hay páginas y estamos en vista detallada y no hay seleccionada, seleccionar la primera
-        if (this.pages.length > 0 && this.activeView === 'detailed' && !this.selectedPage) {
-          this.selectedPage = this.pages[0];
-          this.selectedPage.selected = true;
-          this.loadMetricsForPage(this.selectedPage);
-        }
       }
     });
 
     // Cargar ambos para tener los contadores disponibles (pero solo mostrar el activo)
-    this.loadPages();
-    this.loadGroups();
+    // Asegurarse de que se carguen incluso si no hay query params todavía
+    if (this.pages.length === 0) {
+      this.loadPages();
+    }
+    if (this.groups.length === 0) {
+      this.loadGroups();
+    }
+
+    // Si estamos en vista general, cargar datos para AG Grid
+    if (this.activeView === 'overview') {
+      if (this.activeCategory === 'pages') {
+        this.loadPagesForGrid();
+      } else {
+        this.loadGroupsForGrid();
+      }
+    }
   }
 
   /**
@@ -728,6 +740,15 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
   switchView(view: ViewType): void {
     this.activeView = view;
 
+    // Si cambiamos a vista general, cargar datos para AG Grid
+    if (view === 'overview') {
+      if (this.activeCategory === 'pages') {
+        this.loadPagesForGrid();
+      } else {
+        this.loadGroupsForGrid();
+      }
+    }
+
     // Si cambiamos a vista detallada y no hay página/grupo seleccionado, seleccionar el primero
     if (view === 'detailed') {
       if (this.activeCategory === 'pages' && this.pages.length > 0 && !this.selectedPage) {
@@ -736,6 +757,342 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
         this.selectGroup(this.groups[0]);
       }
     }
+  }
+
+  /**
+   * Configura las opciones del grid
+   */
+  private setupGridOptions(): void {
+    this.gridOptions = {
+      defaultColDef: {
+        sortable: true,
+        filter: true,
+        resizable: true,
+        flex: 1,
+        minWidth: 100
+      },
+      pagination: true,
+      paginationPageSize: 20,
+      paginationPageSizeSelector: [10, 20, 50, 100],
+      rowSelection: 'single',
+      animateRows: true,
+      localeText: {
+        // Personalizar textos en español
+        page: 'Página',
+        more: 'Más',
+        to: 'a',
+        of: 'de',
+        next: 'Siguiente',
+        last: 'Última',
+        first: 'Primera',
+        previous: 'Anterior',
+        loadingOoo: 'Cargando...',
+        noRowsToShow: 'No hay datos para mostrar',
+        filterOoo: 'Filtrar...',
+        equals: 'Igual a',
+        notEqual: 'Diferente de',
+        lessThan: 'Menor que',
+        greaterThan: 'Mayor que',
+        lessThanOrEqual: 'Menor o igual que',
+        greaterThanOrEqual: 'Mayor o igual que',
+        inRange: 'En rango',
+        contains: 'Contiene',
+        notContains: 'No contiene',
+        startsWith: 'Comienza con',
+        endsWith: 'Termina con',
+        andCondition: 'Y',
+        orCondition: 'O',
+        applyFilter: 'Aplicar',
+        resetFilter: 'Limpiar',
+        clearFilter: 'Limpiar',
+        searchOoo: 'Buscar...',
+        blanks: 'En blanco',
+        selectAll: 'Seleccionar todo',
+        selectBlanks: 'Seleccionar en blanco',
+        noBlanks: 'No en blanco'
+      }
+    };
+  }
+
+  /**
+   * Configura las columnas para páginas
+   */
+  private setupPageColumns(): void {
+    this.columnDefs = [
+      {
+        field: 'pictureUrl',
+        headerName: '',
+        width: 60,
+        sortable: false,
+        filter: false,
+        cellRenderer: (params: any) => {
+          if (params.value) {
+            return `<img src="${params.value}" alt="${params.data?.name || ''}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;" />`;
+          }
+          return `<div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #3d79ee, #7c3aed); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600;">${params.data?.name?.charAt(0)?.toUpperCase() || ''}</div>`;
+        }
+      },
+      {
+        field: 'name',
+        headerName: 'Nombre de la Página',
+        flex: 1,
+        minWidth: 200,
+        filter: 'agTextColumnFilter'
+      },
+      {
+        field: 'facebookPageId',
+        headerName: 'ID de Facebook',
+        width: 150,
+        filter: 'agTextColumnFilter'
+      },
+      {
+        field: 'fanCount',
+        headerName: 'Fans',
+        width: 120,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: (params: any) => {
+          return params.value ? params.value.toLocaleString('es-ES') : 'N/A';
+        },
+        cellStyle: { textAlign: 'right' }
+      },
+      {
+        field: 'followersCount',
+        headerName: 'Seguidores',
+        width: 120,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: (params: any) => {
+          return params.value ? params.value.toLocaleString('es-ES') : 'N/A';
+        },
+        cellStyle: { textAlign: 'right' }
+      },
+      {
+        field: 'isActive',
+        headerName: 'Estado',
+        width: 100,
+        filter: 'agSetColumnFilter',
+        cellRenderer: (params: any) => {
+          const isActive = params.value;
+          const color = isActive ? '#10b981' : '#ef4444';
+          const text = isActive ? 'Activa' : 'Inactiva';
+          return `<span style="color: ${color}; font-weight: 600;">${text}</span>`;
+        }
+      },
+      {
+        field: 'snapshotAt',
+        headerName: 'Última Actualización',
+        width: 180,
+        filter: 'agDateColumnFilter',
+        valueFormatter: (params: any) => {
+          if (!params.value) return 'Nunca';
+          const date = new Date(params.value);
+          return date.toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        }
+      },
+      {
+        field: 'actions',
+        headerName: 'Acciones',
+        width: 120,
+        sortable: false,
+        filter: false,
+        cellRenderer: (params: any) => {
+          return `<button class="ag-grid-action-btn" data-page-id="${params.data?.facebookPageId}">Ver Detalles</button>`;
+        }
+      }
+    ];
+  }
+
+  /**
+   * Configura las columnas para grupos
+   */
+  private setupGroupColumns(): void {
+    this.columnDefs = [
+      {
+        field: 'pictureUrl',
+        headerName: '',
+        width: 60,
+        sortable: false,
+        filter: false,
+        cellRenderer: (params: any) => {
+          if (params.value) {
+            return `<img src="${params.value}" alt="${params.data?.name || ''}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;" />`;
+          }
+          return `<div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #3d79ee, #7c3aed); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600;">${params.data?.name?.charAt(0)?.toUpperCase() || ''}</div>`;
+        }
+      },
+      {
+        field: 'name',
+        headerName: 'Nombre del Grupo',
+        flex: 1,
+        minWidth: 200,
+        filter: 'agTextColumnFilter'
+      },
+      {
+        field: 'facebookGroupId',
+        headerName: 'ID de Facebook',
+        width: 150,
+        filter: 'agTextColumnFilter'
+      },
+      {
+        field: 'memberCount',
+        headerName: 'Miembros',
+        width: 120,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: (params: any) => {
+          return params.value ? params.value.toLocaleString('es-ES') : 'N/A';
+        },
+        cellStyle: { textAlign: 'right' }
+      },
+      {
+        field: 'postCount',
+        headerName: 'Publicaciones',
+        width: 120,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: (params: any) => {
+          return params.value ? params.value.toLocaleString('es-ES') : 'N/A';
+        },
+        cellStyle: { textAlign: 'right' }
+      },
+      {
+        field: 'isActive',
+        headerName: 'Estado',
+        width: 100,
+        filter: 'agSetColumnFilter',
+        cellRenderer: (params: any) => {
+          const isActive = params.value;
+          const color = isActive ? '#10b981' : '#ef4444';
+          const text = isActive ? 'Activo' : 'Inactivo';
+          return `<span style="color: ${color}; font-weight: 600;">${text}</span>`;
+        }
+      },
+      {
+        field: 'snapshotAt',
+        headerName: 'Última Actualización',
+        width: 180,
+        filter: 'agDateColumnFilter',
+        valueFormatter: (params: any) => {
+          if (!params.value) return 'Nunca';
+          const date = new Date(params.value);
+          return date.toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        }
+      },
+      {
+        field: 'actions',
+        headerName: 'Acciones',
+        width: 120,
+        sortable: false,
+        filter: false,
+        cellRenderer: (params: any) => {
+          return `<button class="ag-grid-action-btn" data-group-id="${params.data?.facebookGroupId}">Ver Detalles</button>`;
+        }
+      }
+    ];
+  }
+
+  /**
+   * Carga páginas para AG Grid
+   */
+  loadPagesForGrid(): void {
+    this.loadingGrid = true;
+    this.setupPageColumns();
+
+    // Usar el endpoint de page-summaries que incluye información básica y métricas más recientes
+    this.agGridService.getPageSummaries().subscribe({
+      next: (response) => {
+        this.rowData = response.data;
+        this.loadingGrid = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error al cargar resumen de páginas para grid:', error);
+        // Fallback: usar endpoint de páginas básicas
+        this.agGridService.getPages().subscribe({
+          next: (response) => {
+            this.rowData = response.data;
+            this.loadingGrid = false;
+            this.cdr.detectChanges();
+          },
+          error: (err) => {
+            console.error('Error al cargar páginas:', err);
+            this.loadingGrid = false;
+            this.rowData = [];
+            this.cdr.detectChanges();
+          }
+        });
+      }
+    });
+  }
+
+  /**
+   * Carga grupos para AG Grid
+   */
+  loadGroupsForGrid(): void {
+    this.loadingGrid = true;
+    this.setupGroupColumns();
+
+    // Usar el endpoint de group-summaries que incluye información básica y métricas más recientes
+    this.agGridService.getGroupSummaries().subscribe({
+      next: (response) => {
+        this.rowData = response.data;
+        this.loadingGrid = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error al cargar resumen de grupos para grid:', error);
+        // Fallback: usar endpoint de grupos básicos
+        this.agGridService.getGroups().subscribe({
+          next: (response) => {
+            this.rowData = response.data;
+            this.loadingGrid = false;
+            this.cdr.detectChanges();
+          },
+          error: (err) => {
+            console.error('Error al cargar grupos:', err);
+            this.loadingGrid = false;
+            this.rowData = [];
+            this.cdr.detectChanges();
+          }
+        });
+      }
+    });
+  }
+
+  /**
+   * Callback cuando el grid está listo
+   */
+  onGridReady(event: GridReadyEvent): void {
+    // Agregar listener para botones de acción
+    event.api.addEventListener('cellClicked', (e: any) => {
+      if (e.event.target.classList.contains('ag-grid-action-btn')) {
+        const pageId = e.event.target.getAttribute('data-page-id');
+        const groupId = e.event.target.getAttribute('data-group-id');
+
+        if (pageId) {
+          this.switchView('detailed');
+          const page = this.pages.find(p => p.facebookPageId === pageId);
+          if (page) {
+            this.selectPage(page);
+          }
+        } else if (groupId) {
+          this.switchView('detailed');
+          const group = this.groups.find(g => g.facebookGroupId === groupId);
+          if (group) {
+            this.selectGroup(group);
+          }
+        }
+      }
+    });
   }
 
   /**

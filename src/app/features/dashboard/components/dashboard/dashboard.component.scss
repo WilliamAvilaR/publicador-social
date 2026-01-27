@@ -160,6 +160,40 @@
 .menu-item {
   margin: 0;
   padding: 0;
+
+  &.has-submenu {
+    .menu-link-with-submenu {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+
+      &:hover {
+        background: #f9fafb;
+        color: #374151;
+      }
+
+      .submenu-arrow {
+        margin-left: auto;
+        transition: transform 0.2s ease;
+        display: flex;
+        align-items: center;
+        color: #9ca3af;
+        flex-shrink: 0;
+
+        &.expanded {
+          transform: rotate(90deg);
+        }
+      }
+    }
+
+    &.expanded {
+      .menu-link-with-submenu {
+        background: #f3f4f6;
+        color: #374151;
+        font-weight: 600;
+      }
+    }
+  }
 }
 
 .menu-link {
@@ -234,6 +268,97 @@
       width: 0;
       overflow: hidden;
     }
+  }
+}
+
+.submenu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: #f9fafb;
+  border-left: 2px solid #e5e7eb;
+  margin-left: 20px;
+  animation: slideDown 0.2s ease;
+  overflow: hidden;
+}
+
+.submenu-item {
+  margin: 0;
+  padding: 0;
+}
+
+.submenu-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px 10px 40px;
+  color: #6b7280;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  position: relative;
+
+  &:hover {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  &.active {
+    background: #eff6ff;
+    color: #3d79ee;
+    font-weight: 600;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #3d79ee;
+    }
+  }
+
+  .submenu-icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+
+    svg {
+      width: 16px;
+      height: 16px;
+      color: currentColor;
+    }
+  }
+
+  .submenu-label {
+    white-space: nowrap;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 200px;
+  }
+}
+
+// Cuando el sidebar está colapsado, ocultar submenús
+.dashboard-container.sidebar-collapsed {
+  .submenu-list {
+    display: none;
+  }
+  
+  .submenu-arrow {
+    display: none;
   }
 }
 

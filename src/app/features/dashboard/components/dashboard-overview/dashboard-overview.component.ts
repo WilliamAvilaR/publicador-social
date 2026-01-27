@@ -4,10 +4,16 @@ import { Subscription, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { FacebookOAuthService } from '../../../../core/services/facebook-oauth.service';
 import { FacebookAnalyticsService } from '../../../facebook/services/facebook-analytics.service';
-import { FacebookPage, PageSnapshot, SyncLog } from '../../../facebook/models/facebook.model';
+import { FacebookGroupsService } from '../../../facebook/services/facebook-groups.service';
+import { FacebookPage, PageSnapshot, SyncLog, FacebookGroup, GroupSnapshot } from '../../../facebook/models/facebook.model';
 
 interface PageWithSnapshot extends FacebookPage {
   snapshot?: PageSnapshot;
+  loadingSnapshot?: boolean;
+}
+
+interface GroupWithSnapshot extends FacebookGroup {
+  snapshot?: GroupSnapshot;
   loadingSnapshot?: boolean;
 }
 
@@ -20,6 +26,7 @@ interface PageWithSnapshot extends FacebookPage {
 })
 export class DashboardOverviewComponent implements OnInit, OnDestroy {
   pages: PageWithSnapshot[] = [];
+  groups: GroupWithSnapshot[] = [];
   lastSyncLog: SyncLog | null = null;
   loading = true;
   error: string | null = null;
@@ -29,7 +36,8 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
 
   constructor(
     private facebookService: FacebookOAuthService,
-    private analyticsService: FacebookAnalyticsService
+    private analyticsService: FacebookAnalyticsService,
+    private groupsService: FacebookGroupsService
   ) {}
 
   ngOnInit(): void {
@@ -62,16 +70,26 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
       })
     );
 
+    const groupsObservable = this.groupsService.getGroups().pipe(
+      catchError(error => {
+        console.error('Error al cargar grupos:', error);
+        return of({ data: [], meta: { totalCount: 0, pageSize: 0, currentPage: 0, totalPages: 0, hasNextPage: false, hasPreviusPage: false, nextPageUrl: '', previusPageUrl: '' } });
+      })
+    );
+
     const combinedSubscription = forkJoin({
       pages: pagesObservable,
-      syncLogs: syncLogsObservable
+      syncLogs: syncLogsObservable,
+      groups: groupsObservable
     }).subscribe({
-      next: ({ pages, syncLogs }) => {
+      next: ({ pages, syncLogs, groups }) => {
         this.pages = pages.map(page => ({ ...page, loadingSnapshot: true }));
+        this.groups = groups.data.map(group => ({ ...group, loadingSnapshot: true }));
         this.lastSyncLog = syncLogs.data.length > 0 ? syncLogs.data[0] : null;
 
-        // Cargar snapshots para cada página activa
+        // Cargar snapshots para cada página y grupo activo
         this.loadSnapshotsForPages();
+        this.loadSnapshotsForGroups();
         this.loading = false;
       },
       error: (error) => {
@@ -114,6 +132,42 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
           console.error(`Error al cargar snapshot para ${page.name}:`, error);
         }
         this.pages[index].loadingSnapshot = false;
+      }
+    });
+
+    this.subscriptions.add(snapshotSubscription);
+  }
+
+  /**
+   * Carga los snapshots para todos los grupos activos
+   */
+  private loadSnapshotsForGroups(): void {
+    this.groups.forEach((group, index) => {
+      if (group.isActive) {
+        this.loadGroupSnapshot(group, index);
+      } else {
+        group.loadingSnapshot = false;
+      }
+    });
+  }
+
+  /**
+   * Carga el snapshot de un grupo específico
+   */
+  private loadGroupSnapshot(group: GroupWithSnapshot, index: number): void {
+    const snapshotSubscription = this.groupsService.getGroupSnapshot(group.facebookGroupId).subscribe({
+      next: (response) => {
+        this.groups[index].snapshot = response.data;
+        this.groups[index].loadingSnapshot = false;
+      },
+      error: (error) => {
+        // Si no hay snapshot (404), no es un error crítico
+        if (error.message.includes('404') || error.message.includes('No se encontraron')) {
+          this.groups[index].snapshot = undefined;
+        } else {
+          console.error(`Error al cargar snapshot para ${group.name}:`, error);
+        }
+        this.groups[index].loadingSnapshot = false;
       }
     });
 

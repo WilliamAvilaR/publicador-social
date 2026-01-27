@@ -82,4 +82,117 @@
       </div>
     </div>
   </div>
+
+  <!-- Sección de Grupos de Facebook -->
+  <div class="groups-section">
+    <div class="groups-header">
+      <h2>Grupos de Facebook</h2>
+      <button 
+        class="add-group-btn"
+        (click)="toggleAddGroupForm()"
+        [class.active]="showAddGroupForm">
+        <span *ngIf="!showAddGroupForm">+</span>
+        <span *ngIf="showAddGroupForm">×</span>
+        {{ showAddGroupForm ? 'Cancelar' : 'Agregar Grupo' }}
+      </button>
+    </div>
+
+    <!-- Formulario para agregar grupo -->
+    <div *ngIf="showAddGroupForm" class="add-group-form">
+      <div class="form-group">
+        <label for="groupUrl">URL del Grupo de Facebook</label>
+        <input 
+          type="text" 
+          id="groupUrl"
+          [(ngModel)]="groupUrl"
+          placeholder="https://www.facebook.com/groups/123456789"
+          class="group-url-input"
+          [disabled]="addingGroup">
+        <p class="form-help">Ingresa la URL completa del grupo de Facebook que deseas agregar</p>
+      </div>
+      <div class="form-actions">
+        <button 
+          class="btn-primary"
+          (click)="addGroup()"
+          [disabled]="addingGroup || !groupUrl.trim()">
+          <span *ngIf="addingGroup" class="spinner-small"></span>
+          {{ addingGroup ? 'Agregando...' : 'Agregar Grupo' }}
+        </button>
+        <button 
+          class="btn-secondary"
+          (click)="toggleAddGroupForm()"
+          [disabled]="addingGroup">
+          Cancelar
+        </button>
+      </div>
+    </div>
+    
+    <div *ngIf="loadingGroups" class="loading-state">
+      <div class="spinner"></div>
+      <p>Cargando grupos...</p>
+    </div>
+
+    <div *ngIf="!loadingGroups && groupsError" class="error-state">
+      <p>{{ groupsError }}</p>
+      <button (click)="loadGroups()" class="retry-btn">Reintentar</button>
+    </div>
+
+    <div *ngIf="!loadingGroups && !groupsError && groups.length === 0" class="empty-state">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+      </svg>
+      <p>No hay grupos conectados</p>
+      <p class="empty-subtitle">Agrega grupos de Facebook usando el botón de arriba</p>
+    </div>
+
+    <div *ngIf="!loadingGroups && !groupsError && groups.length > 0" class="groups-grid">
+      <div *ngFor="let group of groups" class="group-card" [class.inactive]="!group.isActive">
+        <div class="group-header">
+          <div class="group-icon">
+            <img 
+              *ngIf="group.pictureUrl && !hasGroupImageError(group.id)" 
+              [src]="group.pictureUrl" 
+              [alt]="group.name"
+              class="group-avatar"
+              (error)="onGroupImageError(group.id)">
+            <svg 
+              *ngIf="!group.pictureUrl || hasGroupImageError(group.id)"
+              viewBox="0 0 24 24" 
+              fill="currentColor"
+              class="group-icon-svg">
+              <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+          </div>
+          <div class="group-info">
+            <h3>{{ group.name }}</h3>
+            <p class="group-id">ID: {{ group.facebookGroupId }}</p>
+            <p class="group-url" *ngIf="group.originalUrl">
+              <a [href]="group.originalUrl" target="_blank" rel="noopener noreferrer">
+                Ver en Facebook
+              </a>
+            </p>
+          </div>
+          <div class="group-status">
+            <label class="status-toggle">
+              <input 
+                type="checkbox" 
+                [checked]="group.isActive"
+                [disabled]="isUpdatingGroupStatus(group.facebookGroupId)"
+                (change)="updateGroupStatus(group, $any($event.target).checked)"
+                class="toggle-input">
+              <span class="toggle-slider" [class.updating]="isUpdatingGroupStatus(group.facebookGroupId)"></span>
+              <span class="status-label">
+                {{ isUpdatingGroupStatus(group.facebookGroupId) ? 'Actualizando...' : (group.isActive ? 'Activo' : 'Inactivo') }}
+              </span>
+            </label>
+          </div>
+        </div>
+        <div class="group-meta" *ngIf="group.lastSyncedAt">
+          <p class="meta-text">
+            Última sincronización: {{ getTimeAgo(group.lastSyncedAt) }}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

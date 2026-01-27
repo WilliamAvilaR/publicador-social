@@ -14,17 +14,44 @@
 
     <nav class="sidebar-nav">
       <ul class="menu-list">
-        <li *ngFor="let item of menuItems" class="menu-item">
+        <li *ngFor="let item of menuItems" class="menu-item" [class.has-submenu]="item.hasSubmenu" [class.expanded]="isSubmenuExpanded(item.label)">
+          <!-- Item sin submenú -->
           <a 
+            *ngIf="!item.hasSubmenu && item.route"
             [routerLink]="item.route" 
             routerLinkActive="active"
             [routerLinkActiveOptions]="{exact: item.route === '/dashboard'}"
             class="menu-link"
-            [title]="sidebarCollapsed ? item.label : ''"
-          >
+            [title]="sidebarCollapsed ? item.label : ''">
             <span class="menu-icon-wrapper" *ngIf="item.icon" [innerHTML]="getIconHtml(item.icon)"></span>
             <span class="menu-label">{{ item.label }}</span>
           </a>
+
+          <!-- Item con submenú -->
+          <div *ngIf="item.hasSubmenu" class="menu-link menu-link-with-submenu" (click)="toggleSubmenu(item.label, $event)" [title]="sidebarCollapsed ? item.label : ''">
+            <span class="menu-icon-wrapper" *ngIf="item.icon" [innerHTML]="getIconHtml(item.icon)"></span>
+            <span class="menu-label">{{ item.label }}</span>
+            <span class="submenu-arrow" [class.expanded]="isSubmenuExpanded(item.label)" *ngIf="!sidebarCollapsed">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 3L7.5 6L4.5 9"/>
+              </svg>
+            </span>
+          </div>
+
+          <!-- Submenú -->
+          <ul *ngIf="item.hasSubmenu && item.children && isSubmenuExpanded(item.label) && !sidebarCollapsed" class="submenu-list">
+            <li *ngFor="let child of item.children" class="submenu-item">
+              <a 
+                [routerLink]="child.route" 
+                [class.active]="isSubmenuActive(child.route!, child.label === 'Páginas' ? 'pages' : 'groups')"
+                [queryParams]="child.label === 'Páginas' ? {category: 'pages'} : {category: 'groups'}"
+                [queryParamsHandling]="'merge'"
+                class="submenu-link">
+                <span class="submenu-icon-wrapper" *ngIf="child.icon" [innerHTML]="getIconHtml(child.icon)"></span>
+                <span class="submenu-label">{{ child.label }}</span>
+              </a>
+            </li>
+          </ul>
         </li>
       </ul>
     </nav>
