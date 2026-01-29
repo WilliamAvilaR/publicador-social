@@ -141,19 +141,15 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Leer parámetro de categoría desde query params
-    this.route.queryParams.subscribe(params => {
-      const category = params['category'];
-      if (category === 'groups') {
-        this.activeCategory = 'groups';
-      } else {
-        // Por defecto, mostrar páginas si no hay category o si es 'pages'
-        this.activeCategory = 'pages';
-      }
-    });
+    // Leer valor inicial de query params
+    const initialCategory = this.route.snapshot.queryParams['category'];
+    if (initialCategory === 'groups') {
+      this.activeCategory = 'groups';
+    } else {
+      this.activeCategory = 'pages';
+    }
 
     // Cargar ambos para tener los contadores disponibles (pero solo mostrar el activo)
-    // Asegurarse de que se carguen incluso si no hay query params todavía
     if (this.pages.length === 0) {
       this.loadPages();
     }
@@ -161,7 +157,7 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
       this.loadGroups();
     }
 
-    // Si estamos en vista general, cargar datos para AG Grid
+    // Cargar tabla inicial según la categoría activa
     if (this.activeView === 'overview') {
       if (this.activeCategory === 'pages') {
         this.loadPagesForGrid();
@@ -169,6 +165,26 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
         this.loadGroupsForGrid();
       }
     }
+
+    // Suscribirse a cambios en query params
+    this.route.queryParams.subscribe(params => {
+      const category = params['category'];
+      const newCategory: CategoryType = category === 'groups' ? 'groups' : 'pages';
+
+      // Solo cambiar si es diferente para evitar recargas innecesarias
+      if (this.activeCategory !== newCategory) {
+        this.activeCategory = newCategory;
+
+        // Si estamos en vista overview, cargar la tabla correspondiente
+        if (this.activeView === 'overview') {
+          if (newCategory === 'pages') {
+            this.loadPagesForGrid();
+          } else {
+            this.loadGroupsForGrid();
+          }
+        }
+      }
+    });
   }
 
   /**
@@ -188,21 +204,30 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
       queryParamsHandling: 'merge'
     });
 
+    // Si estamos en vista overview, cargar la tabla correspondiente
+    if (this.activeView === 'overview') {
+      if (category === 'pages') {
+        this.loadPagesForGrid();
+      } else {
+        this.loadGroupsForGrid();
+      }
+    }
+
     // Resetear métricas seleccionadas según la categoría
     if (category === 'pages') {
       this.selectedMetricKeys = ['page_impressions_unique', 'page_follows', 'page_post_engagements'];
-      if (this.selectedPage) {
+      if (this.selectedPage && this.activeView === 'detailed') {
         this.loadMetricsForPage(this.selectedPage);
-      } else if (this.pages.length > 0) {
+      } else if (this.pages.length > 0 && this.activeView === 'detailed') {
         this.selectedPage = this.pages[0];
         this.selectedPage.selected = true;
         this.loadMetricsForPage(this.selectedPage);
       }
     } else {
       this.selectedMetricKeys = ['member_count', 'post_count'];
-      if (this.selectedGroup) {
+      if (this.selectedGroup && this.activeView === 'detailed') {
         this.loadMetricsForGroup(this.selectedGroup);
-      } else if (this.groups.length > 0) {
+      } else if (this.groups.length > 0 && this.activeView === 'detailed') {
         this.selectedGroup = this.groups[0];
         this.selectedGroup.selected = true;
         this.loadMetricsForGroup(this.selectedGroup);
@@ -774,7 +799,6 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
       pagination: true,
       paginationPageSize: 20,
       paginationPageSizeSelector: [10, 20, 50, 100],
-      rowSelection: 'single',
       animateRows: true,
       localeText: {
         // Personalizar textos en español
@@ -820,48 +844,89 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
   private setupPageColumns(): void {
     this.columnDefs = [
       {
-        field: 'pictureUrl',
-        headerName: '',
-        width: 60,
-        sortable: false,
-        filter: false,
-        cellRenderer: (params: any) => {
-          if (params.value) {
-            return `<img src="${params.value}" alt="${params.data?.name || ''}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;" />`;
-          }
-          return `<div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #3d79ee, #7c3aed); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600;">${params.data?.name?.charAt(0)?.toUpperCase() || ''}</div>`;
-        }
-      },
-      {
-        field: 'name',
-        headerName: 'Nombre de la Página',
+        field: 'pageName',
+        headerName: 'Página',
         flex: 1,
         minWidth: 200,
-        filter: 'agTextColumnFilter'
-      },
-      {
-        field: 'facebookPageId',
-        headerName: 'ID de Facebook',
-        width: 150,
-        filter: 'agTextColumnFilter'
-      },
-      {
-        field: 'fanCount',
-        headerName: 'Fans',
-        width: 120,
-        filter: 'agNumberColumnFilter',
-        valueFormatter: (params: any) => {
-          return params.value ? params.value.toLocaleString('es-ES') : 'N/A';
-        },
-        cellStyle: { textAlign: 'right' }
+        filter: 'agTextColumnFilter',
+        cellRenderer: (params: any) => {
+          const name = params.data?.pageName || params.value || '';
+          const pictureUrl = params.data?.pictureUrl;
+          let imageHtml = '';
+
+          if (pictureUrl) {
+            imageHtml = `<img src="${pictureUrl}" alt="${name}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; margin-right: 8px; vertical-align: middle;" />`;
+          } else {
+            const initial = name.charAt(0)?.toUpperCase() || '';
+            imageHtml = `<div style="width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #3d79ee, #7c3aed); color: white; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; margin-right: 8px; vertical-align: middle;">${initial}</div>`;
+          }
+
+          return `<div style="display: flex; align-items: center;">${imageHtml}<span style="vertical-align: middle;">${name}</span></div>`;
+        }
       },
       {
         field: 'followersCount',
         headerName: 'Seguidores',
-        width: 120,
+        width: 130,
         filter: 'agNumberColumnFilter',
         valueFormatter: (params: any) => {
-          return params.value ? params.value.toLocaleString('es-ES') : 'N/A';
+          return params.value !== null && params.value !== undefined ? params.value.toLocaleString('es-ES') : 'N/A';
+        },
+        cellStyle: { textAlign: 'right' }
+      },
+      {
+        field: 'postsPerWeek',
+        headerName: 'Posts / semana',
+        width: 140,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: (params: any) => {
+          return params.value !== null && params.value !== undefined ? params.value.toLocaleString('es-ES') : 'N/A';
+        },
+        cellStyle: { textAlign: 'right' }
+      },
+      {
+        field: 'averageReachPerPost',
+        headerName: '⭐ Alcance promedio por post',
+        width: 220,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: (params: any) => {
+          if (params.value === null || params.value === undefined) return 'N/A';
+          return params.value.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        },
+        cellStyle: { textAlign: 'right' }
+      },
+      {
+        field: 'engagementRate',
+        headerName: '⭐ Engagement por post',
+        width: 200,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: (params: any) => {
+          if (params.value === null || params.value === undefined) return 'N/A';
+          // Si es un porcentaje (0-100), mostrar con %
+          if (params.value < 1) {
+            return `${(params.value * 100).toFixed(2)}%`;
+          }
+          return `${params.value.toFixed(2)}%`;
+        },
+        cellStyle: { textAlign: 'right' }
+      },
+      {
+        field: 'growth30Days',
+        headerName: '📈 Crecimiento 30d',
+        width: 180,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: (params: any) => {
+          if (params.value === null || params.value === undefined) return 'N/A';
+          const value = typeof params.value === 'number' ? params.value : parseFloat(params.value);
+          const sign = value >= 0 ? '+' : '';
+          return `${sign}${value.toFixed(2)}%`;
+        },
+        cellRenderer: (params: any) => {
+          if (params.value === null || params.value === undefined) return 'N/A';
+          const value = typeof params.value === 'number' ? params.value : parseFloat(params.value);
+          const color = value >= 0 ? '#10b981' : '#ef4444';
+          const sign = value >= 0 ? '+' : '';
+          return `<span style="color: ${color}; font-weight: 600;">${sign}${value.toFixed(2)}%</span>`;
         },
         cellStyle: { textAlign: 'right' }
       },
@@ -869,29 +934,12 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
         field: 'isActive',
         headerName: 'Estado',
         width: 100,
-        filter: 'agSetColumnFilter',
+        filter: 'agTextColumnFilter',
         cellRenderer: (params: any) => {
           const isActive = params.value;
           const color = isActive ? '#10b981' : '#ef4444';
           const text = isActive ? 'Activa' : 'Inactiva';
           return `<span style="color: ${color}; font-weight: 600;">${text}</span>`;
-        }
-      },
-      {
-        field: 'snapshotAt',
-        headerName: 'Última Actualización',
-        width: 180,
-        filter: 'agDateColumnFilter',
-        valueFormatter: (params: any) => {
-          if (!params.value) return 'Nunca';
-          const date = new Date(params.value);
-          return date.toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
         }
       },
       {
@@ -901,7 +949,7 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
         sortable: false,
         filter: false,
         cellRenderer: (params: any) => {
-          return `<button class="ag-grid-action-btn" data-page-id="${params.data?.facebookPageId}">Ver Detalles</button>`;
+          return `<button class="ag-grid-action-btn" data-page-id="${params.data?.id}">Ver Detalles</button>`;
         }
       }
     ];
@@ -913,29 +961,18 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
   private setupGroupColumns(): void {
     this.columnDefs = [
       {
-        field: 'pictureUrl',
-        headerName: '',
-        width: 60,
-        sortable: false,
-        filter: false,
-        cellRenderer: (params: any) => {
-          if (params.value) {
-            return `<img src="${params.value}" alt="${params.data?.name || ''}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;" />`;
-          }
-          return `<div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #3d79ee, #7c3aed); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600;">${params.data?.name?.charAt(0)?.toUpperCase() || ''}</div>`;
-        }
+        field: 'id',
+        headerName: 'ID',
+        width: 30,
+        minWidth: 30,
+        filter: 'agNumberColumnFilter',
+        cellStyle: { textAlign: 'right' }
       },
       {
-        field: 'name',
+        field: 'groupName',
         headerName: 'Nombre del Grupo',
         flex: 1,
-        minWidth: 200,
-        filter: 'agTextColumnFilter'
-      },
-      {
-        field: 'facebookGroupId',
-        headerName: 'ID de Facebook',
-        width: 150,
+        minWidth: 400,
         filter: 'agTextColumnFilter'
       },
       {
@@ -944,17 +981,47 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
         width: 120,
         filter: 'agNumberColumnFilter',
         valueFormatter: (params: any) => {
-          return params.value ? params.value.toLocaleString('es-ES') : 'N/A';
+          return params.value !== null && params.value !== undefined ? params.value.toLocaleString('es-ES') : 'N/A';
         },
         cellStyle: { textAlign: 'right' }
       },
       {
-        field: 'postCount',
-        headerName: 'Publicaciones',
+        field: 'postsToday',
+        headerName: 'Publicaciones Hoy',
         width: 120,
         filter: 'agNumberColumnFilter',
         valueFormatter: (params: any) => {
-          return params.value ? params.value.toLocaleString('es-ES') : 'N/A';
+          return params.value !== null && params.value !== undefined ? params.value.toLocaleString('es-ES') : 'N/A';
+        },
+        cellStyle: { textAlign: 'right' }
+      },
+      {
+        field: 'activityIndex',
+        headerName: 'Índice de Actividad',
+        width: 140,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: (params: any) => {
+          return params.value !== null && params.value !== undefined ? params.value.toFixed(2) : 'N/A';
+        },
+        cellStyle: { textAlign: 'right' }
+      },
+      {
+        field: 'growth30Days',
+        headerName: 'Crecimiento 30 Días',
+        width: 150,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: (params: any) => {
+          return params.value !== null && params.value !== undefined ? `${params.value.toFixed(2)}%` : 'N/A';
+        },
+        cellStyle: { textAlign: 'right' }
+      },
+      {
+        field: 'growthVelocity30Days',
+        headerName: 'Velocidad Crecimiento 30 Días',
+        width: 200,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: (params: any) => {
+          return params.value !== null && params.value !== undefined ? `${params.value.toFixed(2)}%` : 'N/A';
         },
         cellStyle: { textAlign: 'right' }
       },
@@ -962,7 +1029,7 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
         field: 'isActive',
         headerName: 'Estado',
         width: 100,
-        filter: 'agSetColumnFilter',
+        filter: 'agTextColumnFilter',
         cellRenderer: (params: any) => {
           const isActive = params.value;
           const color = isActive ? '#10b981' : '#ef4444';
@@ -971,8 +1038,8 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
         }
       },
       {
-        field: 'snapshotAt',
-        headerName: 'Última Actualización',
+        field: 'latestMetricDate',
+        headerName: 'Última Métrica',
         width: 180,
         filter: 'agDateColumnFilter',
         valueFormatter: (params: any) => {
@@ -1080,7 +1147,10 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
 
         if (pageId) {
           this.switchView('detailed');
-          const page = this.pages.find(p => p.facebookPageId === pageId);
+          // Buscar por facebookPageId del objeto del grid o usar el id si coincide
+          const rowData = e.data;
+          const facebookPageId = rowData?.facebookPageId || pageId;
+          const page = this.pages.find(p => p.facebookPageId === facebookPageId);
           if (page) {
             this.selectPage(page);
           }
