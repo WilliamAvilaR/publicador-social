@@ -384,3 +384,154 @@
   font-size: 12px;
   margin: 0;
 }
+
+// ========== Estilos de Modal de Crop ==========
+.crop-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.crop-modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.crop-modal-header {
+  padding: 20px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    line-height: 1;
+
+    &:hover {
+      background: #f3f4f6;
+      color: #111827;
+    }
+  }
+}
+
+.crop-modal-body {
+  padding: 20px;
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+
+  image-cropper {
+    width: 100%;
+    max-width: 500px;
+
+    // Aplicar escala de grises y transparencia al área fuera del círculo
+    // Usando las clases reales de ngx-image-cropper
+    ::ng-deep {
+      // Contenedor principal
+      > div {
+        position: relative;
+      }
+
+      // Los estilos de escala de grises se aplican dinámicamente desde el componente TypeScript
+      // Aquí solo mantenemos los estilos del overlay y el borde del círculo
+
+      // Overlay más opaco (área oscura fuera del círculo)
+      .ngx-ic-overlay {
+        background-color: rgba(0, 0, 0, 0.5) !important;
+        opacity: 0.6 !important;
+        z-index: 2;
+      }
+
+      // El cropper circular debe tener borde más visible
+      .ngx-ic-cropper {
+        outline: 3px solid rgba(255, 255, 255, 1) !important;
+        outline-offset: -3px !important;
+        box-shadow: 0 0 0 2px rgba(61, 121, 238, 0.8), 0 0 0 4px rgba(255, 255, 255, 0.9) !important;
+        position: relative;
+        z-index: 3;
+      }
+    }
+  }
+}
+
+.crop-modal-footer {
+  padding: 20px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+
+  .cancel-btn,
+  .apply-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .cancel-btn {
+    background: #f3f4f6;
+    color: #374151;
+
+    &:hover:not(:disabled) {
+      background: #e5e7eb;
+    }
+  }
+
+  .apply-btn {
+    background: #3d79ee;
+    color: white;
+
+    &:hover:not(:disabled) {
+      background: #2d69dd;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(61, 121, 238, 0.3);
+    }
+  }
+}
