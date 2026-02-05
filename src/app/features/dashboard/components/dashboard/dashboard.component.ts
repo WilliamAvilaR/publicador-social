@@ -4,9 +4,11 @@ import { Router, RouterModule, RouterOutlet, NavigationEnd } from '@angular/rout
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { filter } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserData, UserProfileData } from '../../../../core/models/auth.model';
 import { FacebookConnectComponent } from '../../../../shared/components/facebook-connect/facebook-connect.component';
+import { validateAvatarUrl } from '../../../../shared/utils/validation.utils';
 
 interface MenuItem {
   label: string;
@@ -30,32 +32,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showNotifications = false;
   activeSection = 'Dashboard';
   expandedMenuItems: Set<string> = new Set(); // Para trackear qué items están expandidos
+  avatarUrlWithCache: string | null = null;
   private subscriptions = new Subscription();
 
   menuItems: MenuItem[] = [
-    { 
-      label: 'Dashboard', 
+    {
+      label: 'Dashboard',
       route: '/dashboard',
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m4 12 8-8 8 8M6 10.5V19a1 1 0 0 0 1 1h3v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h3a1 1 0 0 0 1-1v-8.5"/>
       </svg>`
     },
-    { 
-      label: 'Publicaciones', 
+    {
+      label: 'Publicaciones',
       route: '/dashboard/publicaciones',
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 18-7 3 7-18 7 18-7-3Zm0 0v-5"/>
       </svg>`
     },
-    { 
-      label: 'Programador', 
+    {
+      label: 'Programador',
       route: '/dashboard/programador',
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
       </svg>`
     },
-    { 
-      label: 'Analíticas', 
+    {
+      label: 'Analíticas',
       route: '/dashboard/analiticas',
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18.5A2.493 2.493 0 0 1 7.51 20H7.5a2.468 2.468 0 0 1-2.4-3.154 2.98 2.98 0 0 1-.85-5.274 2.468 2.468 0 0 1 .92-3.182 2.477 2.477 0 0 1 1.876-3.344 2.5 2.5 0 0 1 3.41-1.856A2.5 2.5 0 0 1 12 5.5m0 13v-13m0 13a2.493 2.493 0 0 0 4.49 1.5h.01a2.468 2.468 0 0 0 2.403-3.154 2.98 2.98 0 0 0 .847-5.274 2.468 2.468 0 0 0-.921-3.182 2.477 2.477 0 0 0-1.875-3.344A2.5 2.5 0 0 0 14.5 3 2.5 2.5 0 0 0 12 5.5m-8 5a2.5 2.5 0 0 1 3.48-2.3m-.28 8.551a3 3 0 0 1-2.953-5.185M20 10.5a2.5 2.5 0 0 0-3.481-2.3m.28 8.551a3 3 0 0 0 2.954-5.185"/>
@@ -78,29 +81,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
       ]
     },
-    { 
-      label: 'Mensajes', 
+    {
+      label: 'Mensajes',
       route: '/dashboard/mensajes',
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
       </svg>`
     },
-    { 
-      label: 'Cuentas conectadas', 
+    {
+      label: 'Cuentas conectadas',
       route: '/dashboard/cuentas',
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12h4m-2 2v-4M4 18v-1a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Zm8-10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
       </svg>`
     },
-    { 
-      label: 'Automatizaciones', 
+    {
+      label: 'Automatizaciones',
       route: '/dashboard/automatizaciones',
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 6c0 1.657-3.134 3-7 3S5 7.657 5 6m14 0c0-1.657-3.134-3-7-3S5 4.343 5 6m14 0v6M5 6v6m0 0c0 1.657 3.134 3 7 3s7-1.343 7-3M5 12v6c0 1.657 3.134 3 7 3s7-1.343 7-3v-6"/>
       </svg>`
     },
-    { 
-      label: 'Integraciones', 
+    {
+      label: 'Integraciones',
       route: '/dashboard/integraciones',
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5v14m8-7h-2m0 0h-2m2 0v2m0-2v-2M3 11h6m-6 4h6m11 4H4c-.55228 0-1-.4477-1-1V6c0-.55228.44772-1 1-1h16c.5523 0 1 .44772 1 1v12c0 .5523-.4477 1-1 1Z"/>
@@ -130,6 +133,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Inicializar avatar URL
+    this.updateAvatarUrl();
+
+    // Si el usuario no tiene avatarUrl, obtener perfil completo del servidor
+    const userProfile = this.user as UserProfileData;
+    if (!userProfile.avatarUrl) {
+      const profileSubscription = this.authService.getProfile().subscribe({
+        next: (response) => {
+          const profileData = response.data;
+          // Actualizar datos del usuario con el perfil completo
+          this.authService.updateUserData(profileData);
+          this.user = profileData;
+          this.updateAvatarUrl(true); // Forzar actualización del avatar
+        },
+        error: (error: HttpErrorResponse) => {
+          console.error('Error al obtener perfil completo:', error);
+          // Continuar con los datos básicos si falla
+        }
+      });
+      this.subscriptions.add(profileSubscription);
+    }
+
     // Detectar sección activa desde la ruta
     this.updateActiveSection();
     const navigationSubscription = this.router.events
@@ -143,10 +168,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this.expandedMenuItems.add('Analíticas');
           }
         }
+
+        // Recargar datos del usuario cuando se vuelve al dashboard (por si cambió el perfil)
+        if (this.router.url === '/dashboard' || this.router.url.startsWith('/dashboard/')) {
+          this.refreshUserData();
+        }
       });
 
     this.subscriptions.add(navigationSubscription);
-    
+
     // Auto-expandir submenú de Analíticas si estamos en esa ruta al iniciar
     if (this.router.url.startsWith('/dashboard/analiticas')) {
       const analyticsItem = this.menuItems.find(item => item.label === 'Analíticas');
@@ -158,6 +188,43 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // Cerrar dropdowns al hacer click fuera (mejora UX)
     this.handleDocumentClick = this.handleDocumentClick.bind(this);
     document.addEventListener('click', this.handleDocumentClick);
+
+    // Escuchar cambios en el storage para actualizar avatar cuando se cambia desde otra página/pestaña
+    const storageListener = (e: StorageEvent) => {
+      if (e.key === 'user_data' && e.newValue) {
+        setTimeout(() => {
+          this.refreshUserData();
+        }, 100);
+      }
+    };
+    window.addEventListener('storage', storageListener);
+
+    // Verificar periódicamente si el usuario cambió (para cambios en la misma ventana)
+    // Esto es necesario porque el evento storage solo se dispara en otras ventanas
+    const checkUserInterval = setInterval(() => {
+      const currentUser = this.authService.getUser();
+      if (currentUser && this.user) {
+        const currentAvatarUrl = validateAvatarUrl((currentUser as UserProfileData).avatarUrl);
+        const cachedAvatarUrl = validateAvatarUrl((this.user as UserProfileData).avatarUrl);
+
+        // Si el avatar cambió, refrescar
+        if (currentAvatarUrl !== cachedAvatarUrl) {
+          console.log('Avatar detectado como cambiado, refrescando...', { currentAvatarUrl, cachedAvatarUrl });
+          this.refreshUserData();
+        }
+      } else if (currentUser && !this.user) {
+        // Si no había usuario antes pero ahora sí, actualizar
+        this.refreshUserData();
+      }
+    }, 500); // Verificar cada 500ms para respuesta más rápida
+
+    // Limpiar listeners al destruir el componente
+    this.subscriptions.add({
+      unsubscribe: () => {
+        clearInterval(checkUserInterval);
+        window.removeEventListener('storage', storageListener);
+      }
+    });
   }
 
   ngOnDestroy() {
@@ -183,7 +250,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const currentRoute = this.router.url;
     const urlTree = this.router.parseUrl(currentRoute);
     const queryParams = urlTree.queryParams;
-    
+
     // Buscar en items principales y submenús
     for (const item of this.menuItems) {
       if (item.hasSubmenu && item.children) {
@@ -195,7 +262,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                                child.label === 'Grupos' && queryParams['category'] === 'groups';
           return baseMatch && (categoryMatch || !queryParams['category']);
         });
-        
+
         if (activeChild || (currentRoute.startsWith('/dashboard/analiticas') && queryParams['category'])) {
           this.activeSection = activeChild ? `${item.label} - ${activeChild.label}` : item.label;
           // Auto-expandir el submenú si está activo
@@ -209,7 +276,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         return;
       }
     }
-    
+
     if (currentRoute === '/dashboard' || currentRoute.startsWith('/dashboard')) {
       this.activeSection = 'Dashboard';
     } else {
@@ -223,7 +290,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   toggleSubmenu(itemLabel: string, event: Event): void {
     event.preventDefault();
     event.stopPropagation();
-    
+
     if (this.expandedMenuItems.has(itemLabel)) {
       this.expandedMenuItems.delete(itemLabel);
     } else {
@@ -245,10 +312,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const currentRoute = this.router.url;
     const urlTree = this.router.parseUrl(currentRoute);
     const queryParams = urlTree.queryParams;
-    
+
     const routeMatch = currentRoute === childRoute || currentRoute.startsWith(childRoute + '/');
     const categoryMatch = queryParams['category'] === expectedCategory;
-    
+
     return routeMatch && categoryMatch;
   }
 
@@ -285,6 +352,67 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return (names[0][0] + names[1][0]).toUpperCase();
     }
     return names[0][0].toUpperCase();
+  }
+
+  getUserAvatarUrl(): string | null {
+    return this.avatarUrlWithCache;
+  }
+
+  /**
+   * Actualiza la URL del avatar con cache buster
+   * Se llama cuando la URL cambia o cuando se necesita refrescar
+   */
+  private updateAvatarUrl(forceRefresh: boolean = false): void {
+    if (!this.user) {
+      this.avatarUrlWithCache = null;
+      return;
+    }
+
+    const userProfile = this.user as UserProfileData;
+    const avatarUrl = validateAvatarUrl(userProfile.avatarUrl);
+
+    if (avatarUrl) {
+      // Extraer URL base sin parámetros de query
+      const baseUrl = avatarUrl.split('?')[0];
+      const cachedBaseUrl = this.avatarUrlWithCache?.split('?')[0];
+
+      // Si se fuerza refresh, la URL base cambió, o no hay cache, generar nuevo timestamp
+      if (forceRefresh || baseUrl !== cachedBaseUrl || !this.avatarUrlWithCache) {
+        const separator = avatarUrl.includes('?') ? '&' : '?';
+        this.avatarUrlWithCache = `${avatarUrl}${separator}t=${Date.now()}`;
+        console.log('Avatar URL actualizado:', this.avatarUrlWithCache);
+      }
+      // Si ya hay cache y la URL base es la misma, mantenerlo (evita ExpressionChangedAfterItHasBeenCheckedError)
+    } else {
+      this.avatarUrlWithCache = null;
+      console.log('No hay avatarUrl válido');
+    }
+  }
+
+  /**
+   * Recarga los datos del usuario desde localStorage o servidor
+   * Útil cuando se actualiza el perfil desde otra página
+   */
+  refreshUserData(): void {
+    const currentUser = this.authService.getUser();
+    if (currentUser) {
+      const oldAvatarUrl = this.user ? validateAvatarUrl((this.user as UserProfileData).avatarUrl) : null;
+      this.user = currentUser;
+
+      const newAvatarUrl = validateAvatarUrl((currentUser as UserProfileData).avatarUrl);
+
+      // Si la URL cambió, actualizar
+      if (oldAvatarUrl !== newAvatarUrl) {
+        this.updateAvatarUrl(true); // Forzar refresh con nuevo timestamp
+      } else if (oldAvatarUrl === newAvatarUrl && newAvatarUrl) {
+        // Si la URL es la misma pero existe, forzar refresh para recargar la imagen
+        // (útil cuando se sube una nueva imagen con el mismo nombre)
+        this.updateAvatarUrl(true); // Forzar refresh
+      } else if (!newAvatarUrl) {
+        // Si no hay URL, limpiar cache
+        this.avatarUrlWithCache = null;
+      }
+    }
   }
 
   getIconHtml(icon: string | undefined): SafeHtml | null {

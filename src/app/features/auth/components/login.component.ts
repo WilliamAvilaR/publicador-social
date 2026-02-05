@@ -96,6 +96,19 @@ export class LoginComponent implements OnInit, OnDestroy {
         // Guardar token y datos de usuario desde response.data
         this.authService.setAuthData(response.data.token, response.data);
         
+        // Obtener perfil completo del servidor para tener todos los datos (incluyendo avatarUrl)
+        const profileSubscription = this.authService.getProfile().subscribe({
+          next: (profileResponse) => {
+            // Actualizar datos del usuario con el perfil completo
+            this.authService.updateUserData(profileResponse.data);
+          },
+          error: (error) => {
+            // Si falla obtener el perfil, continuar con los datos básicos del login
+            console.warn('No se pudo obtener el perfil completo después del login:', error);
+          }
+        });
+        this.subscriptions.add(profileSubscription);
+        
         // Redirigir a la URL de destino o al dashboard por defecto
         const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
         this.router.navigate([returnUrl]);

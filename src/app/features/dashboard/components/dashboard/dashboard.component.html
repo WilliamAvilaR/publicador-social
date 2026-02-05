@@ -95,7 +95,17 @@
 
         <div class="user-menu">
           <button class="user-btn" (click)="toggleUserDropdown()">
-            <div class="user-avatar">{{ getUserInitials() }}</div>
+            <div class="user-avatar" [class.has-image]="getUserAvatarUrl()">
+              <img 
+                *ngIf="getUserAvatarUrl()" 
+                [src]="getUserAvatarUrl()" 
+                [alt]="user?.fullName || 'Usuario'"
+                class="avatar-image"
+              />
+              <span *ngIf="!getUserAvatarUrl()" class="avatar-initials">
+                {{ getUserInitials() }}
+              </span>
+            </div>
             <span class="user-name" *ngIf="!sidebarCollapsed">{{ user?.fullName }}</span>
             <span class="dropdown-arrow" *ngIf="!sidebarCollapsed">▼</span>
           </button>

@@ -52,3 +52,32 @@ export function getFieldError(formGroup: FormGroup, fieldName: string): string {
 
   return '';
 }
+
+/**
+ * Valida que un valor sea una URL de avatar válida (string).
+ * Maneja casos donde el valor puede ser un objeto por error.
+ * 
+ * @param value - Valor a validar (puede ser string, object, null, undefined)
+ * @returns La URL como string o null si es inválida
+ */
+export function validateAvatarUrl(value: unknown): string | null {
+  if (!value) {
+    return null;
+  }
+
+  // Si es string, devolverlo directamente
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value;
+  }
+
+  // Si es objeto (error de serialización), intentar extraer la URL
+  if (typeof value === 'object' && value !== null) {
+    const obj = value as Record<string, unknown>;
+    const url = obj['url'] || obj['avatarUrl'] || obj['data'];
+    if (typeof url === 'string' && url.trim().length > 0) {
+      return url;
+    }
+  }
+
+  return null;
+}

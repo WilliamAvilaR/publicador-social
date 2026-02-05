@@ -40,7 +40,10 @@
           </div>
         </div>
         <div class="avatar-actions">
-          <label class="avatar-upload-btn" [class.uploading]="uploadingAvatar">
+          <label
+            *ngIf="!selectedFile"
+            class="avatar-upload-btn"
+            [class.uploading]="uploadingAvatar">
             <input
               type="file"
               accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
@@ -48,11 +51,11 @@
               [disabled]="uploadingAvatar || deletingAvatar"
               style="display: none;"
             />
-            <span *ngIf="!uploadingAvatar">Subir Foto</span>
+            <span *ngIf="!uploadingAvatar">{{ hasSavedAvatar() ? 'Cambiar Foto' : 'Subir Foto' }}</span>
             <span *ngIf="uploadingAvatar">Subiendo...</span>
           </label>
           <button
-            *ngIf="hasAvatar()"
+            *ngIf="hasSavedAvatar() && !selectedFile"
             type="button"
             class="avatar-delete-btn"
             (click)="deleteAvatar()"
@@ -79,6 +82,45 @@
           {{ avatarError }}
         </div>
         <p class="avatar-hint">Formatos permitidos: JPG, PNG, GIF, WEBP. Tamaño máximo: 5MB</p>
+      </div>
+    </div>
+
+    <!-- Modal de Crop -->
+    <div class="crop-modal" *ngIf="showCropModal" (click)="cancelCrop()">
+      <div class="crop-modal-content" (click)="$event.stopPropagation()">
+        <div class="crop-modal-header">
+          <h3>Recortar Imagen</h3>
+          <button type="button" class="close-btn" (click)="cancelCrop()" aria-label="Cerrar">×</button>
+        </div>
+
+        <div class="crop-modal-body">
+          <image-cropper
+            [imageFile]="imageFileForCropper"
+            [maintainAspectRatio]="true"
+            [aspectRatio]="1"
+            [resizeToWidth]="400"
+            [cropperMinWidth]="100"
+            [roundCropper]="true"
+            [onlyScaleDown]="true"
+            [format]="'png'"
+            [imageQuality]="90"
+            [autoCrop]="true"
+            [output]="'base64'"
+            (imageCropped)="imageCropped($event)"
+            (imageLoaded)="imageLoaded()"
+            (cropperReady)="cropperReady()"
+            (loadImageFailed)="loadImageFailed()">
+          </image-cropper>
+        </div>
+
+        <div class="crop-modal-footer">
+          <button type="button" class="cancel-btn" (click)="cancelCrop()">
+            Cancelar
+          </button>
+          <button type="button" class="apply-btn" (click)="applyCrop()" [disabled]="!croppedImage">
+            Aplicar Recorte
+          </button>
+        </div>
       </div>
     </div>
 

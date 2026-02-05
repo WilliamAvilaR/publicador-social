@@ -575,6 +575,24 @@
     font-size: 14px;
     font-weight: 600;
     flex-shrink: 0;
+    overflow: hidden;
+    position: relative;
+
+    // Cuando tiene imagen, quitar gradiente de fondo
+    &.has-image {
+      background: transparent;
+    }
+
+    .avatar-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .avatar-initials {
+      position: relative;
+      z-index: 1;
+    }
   }
 
   .user-name {

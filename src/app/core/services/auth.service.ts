@@ -39,6 +39,13 @@ export class AuthService {
   }
 
   /**
+   * Obtiene el perfil completo del usuario autenticado actual.
+   */
+  getProfile(): Observable<UpdateProfileResponse> {
+    return this.http.get<UpdateProfileResponse>('/api/me');
+  }
+
+  /**
    * Actualiza el perfil del usuario autenticado actual.
    * Permite actualizar: nombres, apellidos, email, teléfono y fecha de nacimiento.
    */

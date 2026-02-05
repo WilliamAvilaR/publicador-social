@@ -461,34 +461,6 @@
   image-cropper {
     width: 100%;
     max-width: 500px;
-
-    // Aplicar escala de grises y transparencia al área fuera del círculo
-    // Usando las clases reales de ngx-image-cropper
-    ::ng-deep {
-      // Contenedor principal
-      > div {
-        position: relative;
-      }
-
-      // Los estilos de escala de grises se aplican dinámicamente desde el componente TypeScript
-      // Aquí solo mantenemos los estilos del overlay y el borde del círculo
-
-      // Overlay más opaco (área oscura fuera del círculo)
-      .ngx-ic-overlay {
-        background-color: rgba(0, 0, 0, 0.5) !important;
-        opacity: 0.6 !important;
-        z-index: 2;
-      }
-
-      // El cropper circular debe tener borde más visible
-      .ngx-ic-cropper {
-        outline: 3px solid rgba(255, 255, 255, 1) !important;
-        outline-offset: -3px !important;
-        box-shadow: 0 0 0 2px rgba(61, 121, 238, 0.8), 0 0 0 4px rgba(255, 255, 255, 0.9) !important;
-        position: relative;
-        z-index: 3;
-      }
-    }
   }
 }
 
