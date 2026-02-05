@@ -36,6 +36,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
   imageChangedEvent: any = '';
   imageFileForCropper: File | undefined = undefined;
   croppedImage: string | null = null;
+  currentAvatarUrl: string | null = null; // URL con cache buster para usar en el template
   private readonly MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   private readonly ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   private subscriptions = new Subscription();
@@ -85,6 +86,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
       });
       // Validar avatarUrl antes de asignarlo
       this.avatarUrl = validateAvatarUrl(userProfile.avatarUrl);
+      this.updateCurrentAvatarUrl();
     }
 
     // Obtener datos frescos del servidor
@@ -101,6 +103,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
 
         // Validar avatarUrl antes de asignarlo
         this.avatarUrl = validateAvatarUrl(profileData.avatarUrl);
+        this.updateCurrentAvatarUrl();
 
         // Actualizar localStorage con datos validados
         this.authService.updateUserData(profileData);
@@ -158,6 +161,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
         // Actualizar avatarUrl en el componente si existe
         if (validatedData.avatarUrl) {
           this.avatarUrl = validatedData.avatarUrl;
+          this.updateCurrentAvatarUrl();
         }
 
         // Emitir evento para el componente padre
@@ -280,6 +284,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
       // Convertir base64 a File y establecer preview
       this.avatarPreview = this.croppedImage;
       this.selectedFile = this.base64ToFile(this.croppedImage, this.selectedFile.name);
+      this.updateCurrentAvatarUrl();
       this.showCropModal = false;
       this.imageChangedEvent = null;
     }
@@ -293,6 +298,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
     this.selectedFile = null;
     this.avatarPreview = null;
     this.avatarError = '';
+    this.updateCurrentAvatarUrl();
   }
 
   private base64ToFile(base64: string, filename: string): File {
@@ -328,6 +334,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
 
         // Limpiar temporalmente avatarUrl para forzar la actualización
         this.avatarUrl = null;
+        this.updateCurrentAvatarUrl();
 
         // Siempre obtener el perfil completo del servidor para asegurar que tenemos la URL correcta
         const profileSubscription = this.authService.getProfile().subscribe({
@@ -335,8 +342,9 @@ export class EditProfileComponent implements OnInit, OnDestroy {
             const profileData = profileResponse.data;
             const validatedUrl = validateAvatarUrl(profileData.avatarUrl);
             if (validatedUrl) {
-              // Guardar URL sin cache buster (getCurrentAvatarUrl() lo agregará cada vez)
+              // Guardar URL sin cache buster
               this.avatarUrl = validatedUrl;
+              this.updateCurrentAvatarUrl();
 
               const user = this.authService.getUser();
               if (user) {
@@ -352,6 +360,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
             const newAvatarUrl = validateAvatarUrl(response.data);
             if (newAvatarUrl) {
               this.avatarUrl = newAvatarUrl;
+              this.updateCurrentAvatarUrl();
             }
           }
         });
@@ -411,6 +420,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
         // Limpiar selección
         this.selectedFile = null;
         this.avatarPreview = null;
+        this.updateCurrentAvatarUrl();
 
         // Emitir evento para el componente padre
         this.profileUpdated.emit();
@@ -432,26 +442,38 @@ export class EditProfileComponent implements OnInit, OnDestroy {
     this.croppedImage = null;
     this.imageChangedEvent = null;
     this.imageFileForCropper = undefined;
+    this.updateCurrentAvatarUrl();
   }
 
-  getCurrentAvatarUrl(): string | null {
+  /**
+   * Actualiza la propiedad currentAvatarUrl con el valor correcto.
+   * Este método debe llamarse cada vez que cambie avatarUrl o avatarPreview.
+   */
+  private updateCurrentAvatarUrl(): void {
     // Validar preview primero (preview es data URL, no necesita cache buster)
     if (this.avatarPreview) {
-      return validateAvatarUrl(this.avatarPreview);
+      this.currentAvatarUrl = validateAvatarUrl(this.avatarPreview);
+      return;
     }
 
     // Validar avatarUrl y agregar cache buster si es necesario
     const url = validateAvatarUrl(this.avatarUrl);
     if (url) {
-      // Si la URL ya tiene cache buster (contiene ?t=), devolverla tal cual
-      // Si no, agregar cache buster para forzar recarga
-      if (url.includes('?t=')) {
-        return url;
-      }
-      return this.addCacheBuster(url);
+      // Si la URL ya tiene cache buster (contiene ?t=), removerlo y agregar uno nuevo
+      // para asegurar que siempre tenga el timestamp más reciente
+      const urlWithoutParams = url.split('?')[0];
+      this.currentAvatarUrl = this.addCacheBuster(urlWithoutParams);
+    } else {
+      this.currentAvatarUrl = null;
     }
+  }
 
-    return null;
+  /**
+   * Método público para obtener la URL del avatar actual.
+   * Ahora simplemente retorna la propiedad almacenada.
+   */
+  getCurrentAvatarUrl(): string | null {
+    return this.currentAvatarUrl;
   }
 
   hasAvatar(): boolean {

@@ -1,8 +1,10 @@
 .dashboard-container {
   display: flex;
   min-height: 100vh;
+  max-height: 100vh; // Limitar altura máxima
   background: #f5f7fa;
   position: relative;
+  overflow: hidden; // Prevenir scroll en el contenedor principal
 }
 
 // ========== SIDEBAR ==========
@@ -394,6 +396,9 @@
   margin-left: 260px;
   display: flex;
   flex-direction: column;
+  height: 100vh; // Altura fija del viewport
+  max-height: 100vh; // Asegurar que no exceda el viewport
+  overflow: hidden; // Prevenir scroll aquí
   transition: margin-left 0.3s ease;
 
   .dashboard-container.sidebar-collapsed & {
@@ -414,6 +419,7 @@
   top: 0;
   z-index: 50;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0; // No se encoge
 }
 
 .top-bar-left {
@@ -654,7 +660,27 @@
 .main-content {
   flex: 1;
   padding: 24px;
-  overflow-y: auto;
+  overflow-y: auto; // Solo aquí hay scroll
+  overflow-x: hidden;
+  min-height: 0; // Importante para que flex funcione correctamente
+  
+  // Estilos del scrollbar para el main-content
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 4px;
+
+    &:hover {
+      background: #9ca3af;
+    }
+  }
 }
 
 .default-content {

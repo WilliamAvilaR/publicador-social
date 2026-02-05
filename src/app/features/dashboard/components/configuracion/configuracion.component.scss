@@ -2,34 +2,55 @@
   padding: 24px;
   max-width: 1200px;
   margin: 0 auto;
+  position: relative;
+  // Asegurar que no haya overflow que bloquee el fixed
+  overflow: visible;
 }
 
-.configuracion-header {
-  margin-bottom: 32px;
-}
-
-.configuracion-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: #111827;
-  margin: 0 0 8px 0;
-}
-
-.configuracion-subtitle {
-  font-size: 16px;
-  color: #6b7280;
-  margin: 0;
-}
-
-.configuracion-content {
-  display: flex;
-  gap: 24px;
-  align-items: flex-start;
-}
-
+// Sidebar fuera del contenedor de scroll - posición fija
 .configuracion-sidebar {
-  flex-shrink: 0;
+  position: fixed;
   width: 240px;
+  max-height: calc(100vh - 87px - 48px);
+  z-index: 40;
+  overflow-y: auto;
+  overflow-x: visible;
+  transition: left 0.3s ease;
+
+  // Estilos del scrollbar para el sidebar
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+
+    &:hover {
+      background: #9ca3af;
+    }
+  }
+}
+
+// Ajustar posición cuando el sidebar principal está colapsado
+:host-context(.dashboard-container.sidebar-collapsed) .configuracion-sidebar {
+  left: calc(72px + 24px);
+}
+
+// Contenedor de contenido con margin-left para compensar el sidebar
+.configuracion-content {
+  margin-left: 264px; // 240px sidebar + 24px gap
+  min-height: 100%;
+  transition: margin-left 0.3s ease;
+}
+
+// Ajustar margin cuando el sidebar principal está colapsado
+:host-context(.dashboard-container.sidebar-collapsed) .configuracion-content {
+  margin-left: 264px; // Mantener el mismo espacio para el sidebar de configuración
 }
 
 .configuracion-nav {
@@ -148,13 +169,18 @@
 }
 
 // Responsive
-@media (max-width: 768px) {
-  .configuracion-content {
-    flex-direction: column;
+@media (max-width: 1024px) {
+  .configuracion-sidebar {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+    max-height: none;
+    margin-bottom: 24px;
   }
 
-  .configuracion-sidebar {
-    width: 100%;
+  .configuracion-content {
+    margin-left: 0;
   }
 
   .configuracion-nav {
@@ -165,5 +191,15 @@
   .nav-item {
     white-space: nowrap;
     min-width: fit-content;
+  }
+}
+
+@media (max-width: 768px) {
+  .configuracion-container {
+    padding: 16px;
+  }
+
+  .configuracion-section {
+    padding: 24px;
   }
 }

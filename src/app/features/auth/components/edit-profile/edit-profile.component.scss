@@ -108,19 +108,27 @@
 .edit-profile-form {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 10px;
 }
 
 .input-group {
   position: relative;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+
+.input-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
 }
 
 .input-icon {
   position: absolute;
   left: 16px;
-  top: 50%;
+  top: calc(50% + 12px);
   transform: translateY(-50%);
   width: 20px;
   height: 20px;
@@ -379,10 +387,57 @@
   margin-top: -8px;
 }
 
-.avatar-hint {
-  color: #6b7280;
-  font-size: 12px;
-  margin: 0;
+.avatar-info-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+  margin-left: 8px;
+
+  .info-icon {
+    width: 18px;
+    height: 18px;
+    color: #6b7280;
+    transition: color 0.2s ease;
+  }
+
+  &:hover .info-icon {
+    color: #3d79ee;
+  }
+
+  .tooltip-text {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background: #111827;
+    color: white;
+    font-size: 12px;
+    white-space: nowrap;
+    border-radius: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+    // Flecha del tooltip
+    &::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: #111827;
+    }
+  }
+
+  &:hover .tooltip-text {
+    opacity: 1;
+  }
 }
 
 // ========== Estilos de Modal de Crop ==========

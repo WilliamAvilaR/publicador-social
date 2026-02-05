@@ -251,6 +251,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const urlTree = this.router.parseUrl(currentRoute);
     const queryParams = urlTree.queryParams;
 
+    // Manejar ruta de Configuración (está en el footer, no en menuItems)
+    if (currentRoute === '/dashboard/configuracion' || currentRoute.startsWith('/dashboard/configuracion')) {
+      this.activeSection = 'Configuración';
+      return;
+    }
+
     // Buscar en items principales y submenús
     for (const item of this.menuItems) {
       if (item.hasSubmenu && item.children) {
