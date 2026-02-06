@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserSettingsService } from '../../../../core/services/user-settings.service';
+import { TranslationService } from '../../../../core/services/translation.service';
 import { UserSettings, UpdateUserSettingsRequest } from '../../../../core/models/user-settings.model';
 import { markFormGroupTouched, isFieldInvalid } from '../../../../shared/utils/form.utils';
 import { extractErrorMessage } from '../../../../shared/utils/error.utils';
@@ -72,6 +73,7 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private authService: AuthService,
     private settingsService: UserSettingsService,
+    private translationService: TranslationService,
     private router: Router
   ) {}
 
@@ -181,6 +183,11 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
         this.isLoading = false;
         this.successMessage = 'Preferencias actualizadas exitosamente';
         this.currentSettings = response.data;
+        
+        // Si se cambió el idioma, actualizar el servicio de traducción
+        if (request.language) {
+          this.translationService.changeLanguage(request.language);
+        }
         
         // Emitir evento para el componente padre
         this.preferencesUpdated.emit();

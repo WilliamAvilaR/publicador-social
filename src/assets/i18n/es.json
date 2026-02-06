@@ -1,0 +1,84 @@
+{
+  "COMMON": {
+    "SAVE": "Guardar",
+    "CANCEL": "Cancelar",
+    "DELETE": "Eliminar",
+    "EDIT": "Editar",
+    "LOADING": "Cargando...",
+    "SAVING": "Guardando...",
+    "SUCCESS": "¡Éxito!",
+    "ERROR": "Error",
+    "SELECT": "Seleccionar",
+    "NO_CHANGES": "No hay cambios para guardar"
+  },
+  "AUTH": {
+    "LOGIN": "Iniciar sesión",
+    "LOGOUT": "Cerrar sesión",
+    "REGISTER": "Registrarse",
+    "EMAIL": "Correo electrónico",
+    "PASSWORD": "Contraseña",
+    "FORGOT_PASSWORD": "¿Olvidaste tu contraseña?",
+    "REMEMBER_ME": "Recordarme"
+  },
+  "PREFERENCES": {
+    "TITLE": "Editar Preferencias",
+    "SUBTITLE": "Personaliza tu experiencia",
+    "LANGUAGE": "Idioma",
+    "TIMEZONE": "Zona Horaria",
+    "DATE_FORMAT": "Formato de Fecha",
+    "FIRST_DAY_OF_WEEK": "Primer Día de la Semana",
+    "THEME": "Tema",
+    "SELECT_LANGUAGE": "Seleccionar idioma",
+    "SELECT_TIMEZONE": "Seleccionar zona horaria",
+    "SELECT_FORMAT": "Seleccionar formato",
+    "SELECT_THEME": "Seleccionar tema",
+    "LOADING_PREFERENCES": "Cargando preferencias...",
+    "SAVE_PREFERENCES": "Guardar Preferencias",
+    "UPDATED_SUCCESS": "Preferencias actualizadas exitosamente",
+    "LANGUAGES": {
+      "ES": "Español",
+      "EN": "English",
+      "PT": "Português"
+    },
+    "THEMES": {
+      "LIGHT": "Claro",
+      "DARK": "Oscuro",
+      "AUTO": "Automático"
+    },
+    "DAYS": {
+      "SUNDAY": "Domingo",
+      "MONDAY": "Lunes",
+      "TUESDAY": "Martes",
+      "SATURDAY": "Sábado"
+    }
+  },
+  "DASHBOARD": {
+    "TITLE": "Dashboard",
+    "OVERVIEW": "Resumen",
+    "CONNECTED_ACCOUNTS": "Cuentas Conectadas",
+    "SETTINGS": "Configuración"
+  },
+  "MENU": {
+    "DASHBOARD": "Dashboard",
+    "SCHEDULER": "Programador",
+    "FACEBOOK": "Facebook",
+    "PAGES": "Páginas",
+    "GROUPS": "Grupos",
+    "MESSAGING": "Mensajería",
+    "ANALYTICS": "Analíticas",
+    "SETTINGS": "Configuración",
+    "PROFILE": "Perfil",
+    "PREFERENCES": "Preferencias"
+  },
+  "CONFIGURATION": {
+    "PROFILE": "Perfil",
+    "SECURITY": "Seguridad",
+    "NOTIFICATIONS": "Notificaciones",
+    "PREFERENCES": "Preferencias",
+    "PROFILE_INFO": "Información del Perfil",
+    "SECURITY_TITLE": "Seguridad",
+    "NOTIFICATIONS_TITLE": "Notificaciones",
+    "PREFERENCES_TITLE": "Preferencias",
+    "NOTIFICATIONS_COMING_SOON": "Las preferencias de notificaciones estarán disponibles próximamente."
+  }
+}

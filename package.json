@@ -22,6 +22,8 @@
     "@fullcalendar/daygrid": "^6.1.20",
     "@fullcalendar/interaction": "^6.1.20",
     "@fullcalendar/timegrid": "^6.1.20",
+    "@ngx-translate/core": "^17.0.0",
+    "@ngx-translate/http-loader": "^17.0.0",
     "ag-grid-angular": "^35.0.1",
     "ag-grid-community": "^35.0.1",
     "echarts": "^6.0.0",

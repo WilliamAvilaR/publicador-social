@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserData, UserProfileData } from '../../../../core/models/auth.model';
 import { ChangePasswordComponent } from '../../../auth/components/change-password/change-password.component';
@@ -12,7 +13,7 @@ type ConfigSection = 'perfil' | 'seguridad' | 'notificaciones' | 'preferencias';
 @Component({
   selector: 'app-configuracion',
   standalone: true,
-  imports: [CommonModule, ChangePasswordComponent, EditProfileComponent, EditPreferencesComponent],
+  imports: [CommonModule, TranslateModule, ChangePasswordComponent, EditProfileComponent, EditPreferencesComponent],
   templateUrl: './configuracion.component.html',
   styleUrl: './configuracion.component.scss'
 })

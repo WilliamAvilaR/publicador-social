@@ -1,0 +1,84 @@
+{
+  "COMMON": {
+    "SAVE": "Salvar",
+    "CANCEL": "Cancelar",
+    "DELETE": "Excluir",
+    "EDIT": "Editar",
+    "LOADING": "Carregando...",
+    "SAVING": "Salvando...",
+    "SUCCESS": "Sucesso!",
+    "ERROR": "Erro",
+    "SELECT": "Selecionar",
+    "NO_CHANGES": "Não há alterações para salvar"
+  },
+  "AUTH": {
+    "LOGIN": "Entrar",
+    "LOGOUT": "Sair",
+    "REGISTER": "Registrar",
+    "EMAIL": "E-mail",
+    "PASSWORD": "Senha",
+    "FORGOT_PASSWORD": "Esqueceu sua senha?",
+    "REMEMBER_ME": "Lembrar-me"
+  },
+  "PREFERENCES": {
+    "TITLE": "Editar Preferências",
+    "SUBTITLE": "Personalize sua experiência",
+    "LANGUAGE": "Idioma",
+    "TIMEZONE": "Fuso Horário",
+    "DATE_FORMAT": "Formato de Data",
+    "FIRST_DAY_OF_WEEK": "Primeiro Dia da Semana",
+    "THEME": "Tema",
+    "SELECT_LANGUAGE": "Selecionar idioma",
+    "SELECT_TIMEZONE": "Selecionar fuso horário",
+    "SELECT_FORMAT": "Selecionar formato",
+    "SELECT_THEME": "Selecionar tema",
+    "LOADING_PREFERENCES": "Carregando preferências...",
+    "SAVE_PREFERENCES": "Salvar Preferências",
+    "UPDATED_SUCCESS": "Preferências atualizadas com sucesso",
+    "LANGUAGES": {
+      "ES": "Espanhol",
+      "EN": "Inglês",
+      "PT": "Português"
+    },
+    "THEMES": {
+      "LIGHT": "Claro",
+      "DARK": "Escuro",
+      "AUTO": "Automático"
+    },
+    "DAYS": {
+      "SUNDAY": "Domingo",
+      "MONDAY": "Segunda-feira",
+      "TUESDAY": "Terça-feira",
+      "SATURDAY": "Sábado"
+    }
+  },
+  "DASHBOARD": {
+    "TITLE": "Painel",
+    "OVERVIEW": "Visão Geral",
+    "CONNECTED_ACCOUNTS": "Contas Conectadas",
+    "SETTINGS": "Configurações"
+  },
+  "MENU": {
+    "DASHBOARD": "Painel",
+    "SCHEDULER": "Agendador",
+    "FACEBOOK": "Facebook",
+    "PAGES": "Páginas",
+    "GROUPS": "Grupos",
+    "MESSAGING": "Mensagens",
+    "ANALYTICS": "Análises",
+    "SETTINGS": "Configurações",
+    "PROFILE": "Perfil",
+    "PREFERENCES": "Preferências"
+  },
+  "CONFIGURATION": {
+    "PROFILE": "Perfil",
+    "SECURITY": "Segurança",
+    "NOTIFICATIONS": "Notificações",
+    "PREFERENCES": "Preferências",
+    "PROFILE_INFO": "Informações do Perfil",
+    "SECURITY_TITLE": "Segurança",
+    "NOTIFICATIONS_TITLE": "Notificações",
+    "PREFERENCES_TITLE": "Preferências",
+    "NOTIFICATIONS_COMING_SOON": "As preferências de notificações estarão disponíveis em breve."
+  }
+}
