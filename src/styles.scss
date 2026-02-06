@@ -11,3 +11,125 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* ========== VARIABLES CSS PARA TEMA CLARO (POR DEFECTO) ========== */
+:root {
+  /* Colores de fondo */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f7fa;
+  --bg-tertiary: #f9fafb;
+  --bg-hover: #f3f4f6;
+  
+  /* Colores de texto */
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-tertiary: #6b7280;
+  --text-quaternary: #9ca3af;
+  
+  /* Colores de borde */
+  --border-primary: #e5e7eb;
+  --border-secondary: #d1d5db;
+  --border-hover: #9ca3af;
+  
+  /* Colores de acento/primario */
+  --accent-primary: #3d79ee;
+  --accent-primary-hover: #2563eb;
+  --accent-primary-light: rgba(61, 121, 238, 0.1);
+  
+  /* Colores de estado */
+  --success-bg: #d1fae5;
+  --success-text: #065f46;
+  --error-bg: #fee2e2;
+  --error-text: #991b1b;
+  --warning-bg: #fef3c7;
+  --warning-text: #92400e;
+  --info-bg: #dbeafe;
+  --info-text: #1e40af;
+  
+  /* Sombras */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: #d1d5db;
+  --scrollbar-thumb-hover: #9ca3af;
+}
+
+/* ========== VARIABLES CSS PARA TEMA OSCURO ========== */
+body.dark-theme,
+[data-theme="dark"] {
+  /* Colores de fondo */
+  --bg-primary: #1f2937;
+  --bg-secondary: #111827;
+  --bg-tertiary: #374151;
+  --bg-hover: #4b5563;
+  
+  /* Colores de texto */
+  --text-primary: #f9fafb;
+  --text-secondary: #e5e7eb;
+  --text-tertiary: #d1d5db;
+  --text-quaternary: #9ca3af;
+  
+  /* Colores de borde */
+  --border-primary: #374151;
+  --border-secondary: #4b5563;
+  --border-hover: #6b7280;
+  
+  /* Colores de acento/primario */
+  --accent-primary: #3d79ee;
+  --accent-primary-hover: #2563eb;
+  --accent-primary-light: rgba(61, 121, 238, 0.2);
+  
+  /* Colores de estado */
+  --success-bg: #064e3b;
+  --success-text: #6ee7b7;
+  --error-bg: #7f1d1d;
+  --error-text: #fca5a5;
+  --warning-bg: #78350f;
+  --warning-text: #fcd34d;
+  --info-bg: #1e3a8a;
+  --info-text: #93c5fd;
+  
+  /* Sombras */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: #4b5563;
+  --scrollbar-thumb-hover: #6b7280;
+}
+
+/* ========== ESTILOS GLOBALES QUE USAN VARIABLES ========== */
+body {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Estilos para scrollbar global */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+  
+  &:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+}
+
+/* Transición suave para cambios de tema */
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}

@@ -23,15 +23,15 @@
   }
 
   &::-webkit-scrollbar-track {
-    background: transparent;
+    background: var(--scrollbar-track);
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #d1d5db;
+    background: var(--scrollbar-thumb);
     border-radius: 3px;
 
     &:hover {
-      background: #9ca3af;
+      background: var(--scrollbar-thumb-hover);
     }
   }
 }
@@ -57,10 +57,10 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .nav-item {
@@ -75,17 +75,17 @@
   transition: all 0.2s ease;
   font-size: 15px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-tertiary);
   text-align: left;
   width: 100%;
 
   &:hover {
-    background: #f3f4f6;
-    color: #111827;
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
   &.active {
-    background: #3d79ee;
+    background: var(--accent-primary);
     color: white;
 
     .nav-icon {
@@ -107,16 +107,16 @@
 }
 
 .configuracion-section {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 32px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .section-title {
   font-size: 24px;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   margin: 0 0 24px 0;
 }
 
@@ -127,10 +127,10 @@
 }
 
 .info-card {
-  background: #f9fafb;
+  background: var(--bg-tertiary);
   border-radius: 8px;
   padding: 20px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-primary);
 }
 
 .info-row {
@@ -138,7 +138,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 0;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-primary);
 
   &:last-child {
     border-bottom: none;
@@ -147,25 +147,25 @@
 
 .info-label {
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-tertiary);
   font-size: 14px;
 }
 
 .info-value {
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
 .section-note {
-  color: #6b7280;
+  color: var(--text-tertiary);
   font-size: 14px;
   font-style: italic;
   margin: 0;
   padding: 16px;
-  background: #f9fafb;
+  background: var(--bg-tertiary);
   border-radius: 8px;
-  border-left: 3px solid #3d79ee;
+  border-left: 3px solid var(--accent-primary);
 }
 
 // Responsive

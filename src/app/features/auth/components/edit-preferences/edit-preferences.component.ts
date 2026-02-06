@@ -7,6 +7,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserSettingsService } from '../../../../core/services/user-settings.service';
 import { TranslationService } from '../../../../core/services/translation.service';
+import { ThemeService } from '../../../../core/services/theme.service';
 import { UserSettings, UpdateUserSettingsRequest } from '../../../../core/models/user-settings.model';
 import { markFormGroupTouched, isFieldInvalid } from '../../../../shared/utils/form.utils';
 import { extractErrorMessage } from '../../../../shared/utils/error.utils';
@@ -74,6 +75,7 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private settingsService: UserSettingsService,
     private translationService: TranslationService,
+    private themeService: ThemeService,
     private router: Router
   ) {}
 
@@ -187,6 +189,11 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
         // Si se cambió el idioma, actualizar el servicio de traducción
         if (request.language) {
           this.translationService.changeLanguage(request.language);
+        }
+        
+        // Si se cambió el tema, aplicarlo inmediatamente
+        if (request.theme !== undefined) {
+          this.themeService.applyTheme(request.theme as 'light' | 'dark' | 'auto');
         }
         
         // Emitir evento para el componente padre

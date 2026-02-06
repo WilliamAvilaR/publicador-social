@@ -11,10 +11,10 @@
 }
 
 .edit-preferences-panel {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 16px;
   padding: 40px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-md);
   width: 100%;
   max-width: 500px;
 
@@ -34,19 +34,19 @@
 .title {
   font-size: 28px;
   font-weight: 600;
-  color: #373f59;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .subtitle {
   font-size: 16px;
-  color: #666;
+  color: var(--text-tertiary);
   margin: 0;
 }
 
 .success-message {
-  background: #e8f5e9;
-  border: 1px solid #4caf50;
+  background: var(--success-bg);
+  border: 1px solid var(--success-text);
   border-radius: 10px;
   padding: 14px 16px;
   margin-bottom: 24px;
@@ -70,7 +70,7 @@
 .success-icon {
   width: 20px;
   height: 20px;
-  color: #4caf50;
+  color: var(--success-text);
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -80,7 +80,7 @@
 
   strong {
     display: block;
-    color: #2e7d32;
+    color: var(--success-text);
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 4px;
@@ -88,19 +88,19 @@
 
   p {
     margin: 0;
-    color: #388e3c;
+    color: var(--success-text);
     font-size: 13px;
     line-height: 1.4;
   }
 }
 
 .error-message {
-  background: #ffebee;
-  border: 1px solid #f44336;
+  background: var(--error-bg);
+  border: 1px solid var(--error-text);
   border-radius: 10px;
   padding: 14px 16px;
   margin-bottom: 24px;
-  color: #c62828;
+  color: var(--error-text);
   font-size: 14px;
   text-align: center;
 }
@@ -108,7 +108,7 @@
 .loading-message {
   text-align: center;
   padding: 40px 20px;
-  color: #6b7280;
+  color: var(--text-tertiary);
   font-size: 16px;
 }
 
@@ -127,22 +127,23 @@
 .input-label {
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: var(--text-secondary);
   margin-bottom: 4px;
 }
 
 .select-field {
   width: 100%;
   padding: 14px 16px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-secondary);
   border-radius: 10px;
   font-size: 16px;
   transition: all 0.3s ease;
-  background: white;
-  color: #111827;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  // El SVG del dropdown se adaptará al color del texto
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 16px center;
   background-size: 12px;
@@ -150,27 +151,29 @@
 
   &:focus {
     outline: none;
-    border-color: #7B2CBF;
-    box-shadow: 0 0 0 3px rgba(123, 44, 191, 0.1);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px var(--accent-primary-light);
   }
 
   &:hover {
-    border-color: #ccc;
+    border-color: var(--border-hover);
   }
 
   &.invalid {
-    border-color: #f44336;
+    border-color: var(--error-text);
   }
 
   option {
     padding: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
   }
 }
 
 .field-error {
   margin-top: 4px;
   font-size: 12px;
-  color: #f44336;
+  color: var(--error-text);
   padding-left: 4px;
 }
 
@@ -183,9 +186,9 @@
 .cancel-button {
   flex: 1;
   padding: 14px;
-  background: white;
-  color: #666;
-  border: 1px solid #e0e0e0;
+  background: var(--bg-primary);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-secondary);
   border-radius: 10px;
   font-size: 16px;
   font-weight: 600;
@@ -193,8 +196,8 @@
   transition: all 0.3s ease;
 
   &:hover:not(:disabled) {
-    background: #f5f5f5;
-    border-color: #ccc;
+    background: var(--bg-hover);
+    border-color: var(--border-hover);
   }
 
   &:disabled {
@@ -206,18 +209,19 @@
 .submit-button {
   flex: 2;
   padding: 14px;
-  background: #3d79ee;
+  background: var(--accent-primary);
   color: white;
   border: none;
   border-radius: 10px;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 
   &:hover:not(:disabled) {
+    background: var(--accent-primary-hover);
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(61, 121, 238, 0.3);
+    box-shadow: var(--shadow-md);
   }
 
   &:active:not(:disabled) {
