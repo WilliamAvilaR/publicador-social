@@ -57,7 +57,7 @@ export const routes: Routes = [
         loadComponent: () => import('./features/facebook/components/group-detail/group-detail.component').then(m => m.GroupDetailComponent)
       },
       {
-        path: 'segmentos',
+        path: 'colecciones',
         loadComponent: () => import('./features/segments/components/segments/segments.component').then(m => m.SegmentsComponent)
       }
     ]

@@ -1,5 +1,5 @@
 /**
- * Modelos para la gestión de Segmentos
+ * Modelos para la gestión de Colecciones
  */
 
 /**
@@ -13,7 +13,7 @@ export type AssetType = 'page' | 'group';
 export type Provider = 'facebook' | 'instagram' | 'twitter';
 
 /**
- * Item de activo social dentro de un segmento
+ * Item de activo social dentro de una colección
  */
 export interface SegmentItem {
   socialAssetId: number;
@@ -26,7 +26,7 @@ export interface SegmentItem {
 }
 
 /**
- * Request para crear un segmento
+ * Request para crear una colección
  */
 export interface CreateSegmentRequest {
   name: string;
@@ -34,7 +34,7 @@ export interface CreateSegmentRequest {
 }
 
 /**
- * Response al crear un segmento
+ * Response al crear una colección
  */
 export interface CreateSegmentResponse {
   segmentId: number;
@@ -45,7 +45,7 @@ export interface CreateSegmentResponse {
 }
 
 /**
- * Segmento en la lista (sin items detallados)
+ * Colección en la lista (sin items detallados)
  */
 export interface SegmentListItem {
   segmentId: number;
@@ -57,7 +57,7 @@ export interface SegmentListItem {
 }
 
 /**
- * Detalle completo de un segmento
+ * Detalle completo de una colección
  */
 export interface SegmentDetail {
   segmentId: number;
@@ -67,7 +67,7 @@ export interface SegmentDetail {
 }
 
 /**
- * Request para actualizar un segmento
+ * Request para actualizar una colección
  */
 export interface UpdateSegmentRequest {
   name?: string;
@@ -76,21 +76,21 @@ export interface UpdateSegmentRequest {
 }
 
 /**
- * Request para archivar/desarchivar un segmento
+ * Request para archivar/desarchivar una colección
  */
 export interface ArchiveSegmentRequest {
   isArchived: boolean;
 }
 
 /**
- * Request para agregar items a un segmento (bulk)
+ * Request para agregar items a una colección (bulk)
  */
 export interface AddItemsToSegmentRequest {
   socialAssetIds: number[];
 }
 
 /**
- * Response al agregar items a un segmento
+ * Response al agregar items a una colección
  */
 export interface AddItemsToSegmentResponse {
   segmentId: number;
@@ -99,17 +99,17 @@ export interface AddItemsToSegmentResponse {
 }
 
 /**
- * Request para reemplazar items de un segmento
+ * Request para reemplazar items de una colección
  */
 export interface ReplaceSegmentItemsRequest {
   socialAssetIds: number[];
 }
 
 /**
- * Request para resolver targets por segmentos
+ * Request para resolver targets por colecciones
  */
 export interface ResolveTargetsRequest {
-  segmentIds: number[];
+  collectionIds: number[];
   includeDisconnected?: boolean;
 }
 

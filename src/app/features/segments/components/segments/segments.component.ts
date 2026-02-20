@@ -97,19 +97,23 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Carga la lista de segmentos
+   * Carga la lista de colecciones
    */
   loadSegments(): void {
     this.loading = true;
     this.error = null;
 
-    const subscription = this.segmentsService.listSegments(this.showArchived, true).subscribe({
+    // Solo enviar archived=true si showArchived es true, de lo contrario undefined (solo activas)
+    const archivedParam = this.showArchived ? true : undefined;
+    
+    const subscription = this.segmentsService.listSegments(archivedParam, true).subscribe({
       next: (segments) => {
         this.segments = segments;
         this.loading = false;
       },
       error: (error) => {
-        this.error = extractErrorMessage(error, 'Error al cargar los segmentos');
+        console.error('Error al cargar colecciones:', error);
+        this.error = extractErrorMessage(error, 'Error al cargar las colecciones');
         this.loading = false;
       }
     });
@@ -118,7 +122,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Carga el detalle de un segmento
+   * Carga el detalle de una colección
    */
   loadSegmentDetail(segmentId: number): void {
     this.loading = true;
@@ -128,7 +132,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
         this.loading = false;
       },
       error: (error) => {
-        this.error = extractErrorMessage(error, 'Error al cargar el detalle del segmento');
+        this.error = extractErrorMessage(error, 'Error al cargar el detalle de la colección');
         this.loading = false;
       }
     });
@@ -137,7 +141,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Abre el modal para crear un segmento
+   * Abre el modal para crear una colección
    */
   openCreateModal(): void {
     this.createForm.reset();
@@ -153,7 +157,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Crea un nuevo segmento
+   * Crea una nueva colección
    */
   onCreateSubmit(): void {
     if (this.createForm.invalid) {
@@ -175,7 +179,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.creating = false;
-        this.error = extractErrorMessage(error, 'Error al crear el segmento');
+        this.error = extractErrorMessage(error, 'Error al crear la colección');
       }
     });
 
@@ -183,7 +187,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Abre el modal para editar un segmento
+   * Abre el modal para editar una colección
    */
   openEditModal(segment: SegmentListItem): void {
     this.loadSegmentDetail(segment.segmentId);
@@ -204,7 +208,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Actualiza un segmento
+   * Actualiza una colección
    */
   onEditSubmit(): void {
     if (this.editForm.invalid || !this.selectedSegment) {
@@ -230,7 +234,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.updating = false;
-        this.error = extractErrorMessage(error, 'Error al actualizar el segmento');
+        this.error = extractErrorMessage(error, 'Error al actualizar la colección');
       }
     });
 
@@ -257,7 +261,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Elimina un segmento
+   * Elimina una colección
    */
   confirmDelete(): void {
     if (!this.selectedSegment) return;
@@ -273,7 +277,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.deleting = false;
-        this.error = extractErrorMessage(error, 'Error al eliminar el segmento');
+        this.error = extractErrorMessage(error, 'Error al eliminar la colección');
       }
     });
 
@@ -281,7 +285,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Archiva o desarchiva un segmento
+   * Archiva o desarchiva una colección
    */
   toggleArchive(segment: SegmentListItem, archive: boolean): void {
     const request: ArchiveSegmentRequest = { isArchived: archive };
@@ -290,7 +294,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
         this.loadSegments();
       },
       error: (error) => {
-        this.error = extractErrorMessage(error, `Error al ${archive ? 'archivar' : 'desarchivar'} el segmento`);
+        this.error = extractErrorMessage(error, `Error al ${archive ? 'archivar' : 'desarchivar'} la colección`);
       }
     });
 
@@ -378,7 +382,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Agrega items al segmento
+   * Agrega items a la colección
    */
   onAddItemsSubmit(): void {
     if (this.selectedAssetIds.length === 0 || !this.selectedSegment) {
@@ -405,7 +409,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.addingItems = false;
-        this.error = extractErrorMessage(error, 'Error al agregar items al segmento');
+        this.error = extractErrorMessage(error, 'Error al agregar items a la colección');
       }
     });
 
@@ -413,12 +417,12 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Quita un item del segmento
+   * Quita un item de la colección
    */
   removeItemFromSegment(item: SegmentItem): void {
     if (!this.selectedSegment || this.removingItem) return;
 
-    if (!confirm(`¿Estás seguro de que deseas quitar "${item.name}" del segmento?`)) {
+    if (!confirm(`¿Estás seguro de que deseas quitar "${item.name}" de la colección?`)) {
       return;
     }
 
@@ -436,7 +440,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.removingItem = false;
-        this.error = extractErrorMessage(error, 'Error al quitar el item del segmento');
+        this.error = extractErrorMessage(error, 'Error al quitar el item de la colección');
       }
     });
 
@@ -485,7 +489,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
    * Por ahora, necesitamos un endpoint que devuelva los activos sociales con sus IDs.
    * Esta función es un placeholder que necesita ser implementada correctamente.
    * 
-   * IMPORTANTE: El endpoint de segmentos espera `socialAssetId` que es un número interno
+   * IMPORTANTE: El endpoint de colecciones espera `socialAssetId` que es un número interno
    * del sistema, no el `facebookPageId` que es un string. Necesitamos un endpoint que
    * devuelva los activos sociales disponibles con sus `socialAssetId` correspondientes.
    */
