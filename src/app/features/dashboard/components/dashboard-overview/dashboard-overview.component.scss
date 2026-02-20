@@ -387,6 +387,32 @@
   }
 }
 
+.page-actions {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.view-details-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #3b82f6;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  width: 100%;
+  justify-content: center;
+
+  &:hover {
+    background-color: #2563eb;
+  }
+}
+
 .empty-state {
   text-align: center;
   padding: 60px 20px;

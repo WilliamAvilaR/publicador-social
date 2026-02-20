@@ -321,3 +321,96 @@ export interface UpdateGroupStatusResponse {
   };
   meta: FacebookPagesMeta;
 }
+
+// ============================================
+// Page Overview Models
+// ============================================
+
+/**
+ * Header de una página de Facebook (información básica)
+ */
+export interface PageOverviewHeader {
+  facebookPageId: string;
+  name: string;
+  avatarUrl: string;
+  isActive: boolean;
+  permissions: string[];
+  tokenStatus: string;
+  isTokenValid: boolean;
+  lastValidatedAt: string;
+  lastErrorCode?: string;
+  lastErrorMessage?: string;
+}
+
+/**
+ * Resumen de analytics de una página (analyticsSummary del API)
+ */
+export interface PageOverviewAnalyticsSummary {
+  id: number;
+  facebookPageId: string;
+  name: string;
+  pictureUrl: string;
+  fanCount: number;
+  followersCount: number;
+  city?: string;
+  country?: string;
+  state?: string;
+  category?: string;
+  about?: string;
+  website?: string;
+  snapshotAt: string;
+}
+
+/**
+ * Contadores operativos de una página (operationalCounters del API)
+ */
+export interface PageOverviewOperationalCounters {
+  scheduledNext7Days: number;
+  failedRecent: number;
+  publishedRecent: number;
+  pendingPosts: number;
+}
+
+/**
+ * Publicación reciente de una página (recentPosts del API)
+ */
+export interface PageOverviewRecentPost {
+  postId: string;
+  message?: string;
+  createdTime: string;
+  permalinkUrl?: string;
+  type: string;
+  pictureUrl?: string;
+  reactionsCount: number;
+  commentsCount: number;
+  sharesCount: number;
+}
+
+/**
+ * Alerta de conexión de una página (connectionAlerts del API)
+ */
+export interface PageOverviewConnectionAlert {
+  alertType: string;
+  severity: string;
+  message: string;
+  relatedDate?: string;
+}
+
+/**
+ * Overview completo de una página de Facebook
+ */
+export interface PageOverview {
+  header: PageOverviewHeader;
+  analyticsSummary: PageOverviewAnalyticsSummary;
+  operationalCounters: PageOverviewOperationalCounters;
+  recentPosts: PageOverviewRecentPost[];
+  connectionAlerts: PageOverviewConnectionAlert[];
+}
+
+/**
+ * Response del overview de una página
+ */
+export interface PageOverviewResponse {
+  data: PageOverview;
+  meta: FacebookPagesMeta;
+}

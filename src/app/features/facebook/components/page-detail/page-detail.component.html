@@ -1,0 +1,232 @@
+<div class="page-detail-container">
+  <!-- Header con navegación -->
+  <div class="page-header-nav">
+    <button class="back-btn" (click)="router.navigate(['/dashboard'])">
+      ← Volver al Dashboard
+    </button>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner-large"></div>
+    <p>Cargando información de la página...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-container">
+    <div class="error-icon">⚠️</div>
+    <h2>Error al cargar la página</h2>
+    <p>{{ error }}</p>
+    <button class="retry-btn" (click)="pageId && loadPageOverview(pageId)">
+      Reintentar
+    </button>
+  </div>
+
+  <!-- Content -->
+  <div *ngIf="overview && !loading" class="page-content">
+    <!-- Header de la Página -->
+    <section class="page-header-section">
+      <div class="page-header-content">
+        <div class="page-avatar-large">
+          <img 
+            *ngIf="overview.header.avatarUrl" 
+            [src]="overview.header.avatarUrl" 
+            [alt]="overview.header.name"
+            class="avatar-img-large">
+          <div *ngIf="!overview.header.avatarUrl" class="avatar-placeholder-large">
+            {{ overview.header.name.charAt(0).toUpperCase() }}
+          </div>
+        </div>
+        <div class="page-header-info">
+          <h1 class="page-title">{{ overview.header.name }}</h1>
+          <div class="page-meta">
+            <span class="meta-badge" [class.active]="overview.header.isActive">
+              {{ overview.header.isActive ? '✅ Activa' : '⏸️ Inactiva' }}
+            </span>
+            <span class="meta-badge" [class.success]="overview.header.isTokenValid" [class.error]="!overview.header.isTokenValid">
+              {{ overview.header.isTokenValid ? '🔐 Token válido' : '⚠️ Token inválido' }}
+            </span>
+            <span *ngIf="overview.header.permissions && overview.header.permissions.length > 0" class="meta-badge info">
+              🔑 {{ overview.header.permissions.length }} permiso(s)
+            </span>
+          </div>
+          <div *ngIf="overview.header.lastErrorMessage" class="error-message">
+            <span class="error-label">Último error:</span>
+            <span class="error-text">{{ overview.header.lastErrorMessage }}</span>
+            <span *ngIf="overview.header.lastErrorCode" class="error-code">({{ overview.header.lastErrorCode }})</span>
+          </div>
+          <div class="page-actions">
+            <a 
+              [href]="getFacebookPageUrl()" 
+              target="_blank" 
+              class="action-btn primary">
+              🔗 Ver en Facebook
+            </a>
+            <button 
+              class="action-btn secondary" 
+              (click)="goToScheduler()"
+              [disabled]="!overview.header.isTokenValid || !overview.header.isActive">
+              📅 Programar publicación
+            </button>
+            <button 
+              class="action-btn secondary" 
+              (click)="goToMessages()">
+              💬 Ver mensajes
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Alertas de Conexión -->
+    <section *ngIf="overview.connectionAlerts && overview.connectionAlerts.length > 0" class="alerts-section">
+      <h2 class="section-title">⚠️ Alertas de Conexión</h2>
+      <div class="alerts-list">
+        <div 
+          *ngFor="let alert of overview.connectionAlerts" 
+          class="alert-item"
+          [class.alert-error]="alert.severity === 'error' || alert.severity === 'critical'"
+          [class.alert-warning]="alert.severity === 'warning'"
+          [class.alert-info]="alert.severity === 'info'"
+          [class.alert-success]="alert.severity === 'success'">
+          <span class="alert-icon">{{ getAlertIcon(alert) }}</span>
+          <div class="alert-content">
+            <span class="alert-type">{{ alert.alertType }}</span>
+            <span class="alert-message">{{ alert.message }}</span>
+            <span *ngIf="alert.relatedDate" class="alert-date">
+              {{ formatDate(alert.relatedDate) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Resumen de Analytics -->
+    <section *ngIf="overview.analyticsSummary" class="analytics-section">
+      <div class="section-header">
+        <h2 class="section-title">📊 Resumen de Analytics</h2>
+        <button 
+          class="sync-btn" 
+          (click)="syncAnalytics()"
+          [disabled]="syncing">
+          <span *ngIf="!syncing">🔄 Sincronizar ahora</span>
+          <span *ngIf="syncing">⏳ Sincronizando...</span>
+        </button>
+      </div>
+
+      <!-- Analytics Summary -->
+      <div class="analytics-summary-card">
+        <div class="analytics-header-info">
+          <div *ngIf="overview.analyticsSummary.pictureUrl" class="analytics-avatar">
+            <img [src]="overview.analyticsSummary.pictureUrl" [alt]="overview.analyticsSummary.name">
+          </div>
+          <div class="analytics-info">
+            <h3>{{ overview.analyticsSummary.name }}</h3>
+            <div class="analytics-location" *ngIf="overview.analyticsSummary.city || overview.analyticsSummary.country">
+              📍 
+              <span *ngIf="overview.analyticsSummary.city">{{ overview.analyticsSummary.city }}</span>
+              <span *ngIf="overview.analyticsSummary.state">, {{ overview.analyticsSummary.state }}</span>
+              <span *ngIf="overview.analyticsSummary.country">, {{ overview.analyticsSummary.country }}</span>
+            </div>
+            <div class="analytics-category" *ngIf="overview.analyticsSummary.category">
+              📁 {{ overview.analyticsSummary.category }}
+            </div>
+            <div class="analytics-about" *ngIf="overview.analyticsSummary.about">
+              <p>{{ overview.analyticsSummary.about }}</p>
+            </div>
+            <div class="analytics-website" *ngIf="overview.analyticsSummary.website">
+              <a [href]="overview.analyticsSummary.website" target="_blank" class="website-link">
+                🔗 {{ overview.analyticsSummary.website }}
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="snapshot-grid">
+          <div class="snapshot-item">
+            <span class="snapshot-label">👥 Fans</span>
+            <span class="snapshot-value">{{ formatNumber(overview.analyticsSummary.fanCount) }}</span>
+          </div>
+          <div class="snapshot-item">
+            <span class="snapshot-label">👤 Seguidores</span>
+            <span class="snapshot-value">{{ formatNumber(overview.analyticsSummary.followersCount) }}</span>
+          </div>
+          <div class="snapshot-item">
+            <span class="snapshot-label">📅 Actualizado</span>
+            <span class="snapshot-value">{{ getTimeAgo(overview.analyticsSummary.snapshotAt) }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contadores Operativos -->
+    <section class="counters-section">
+      <h2 class="section-title">⚙️ Contadores Operativos</h2>
+      <div class="counters-grid">
+        <div class="counter-card">
+          <span class="counter-icon">📅</span>
+          <span class="counter-label">Programados (próximos 7 días)</span>
+          <span class="counter-value">{{ overview.operationalCounters.scheduledNext7Days }}</span>
+        </div>
+        <div class="counter-card">
+          <span class="counter-icon">✅</span>
+          <span class="counter-label">Publicados recientes</span>
+          <span class="counter-value">{{ overview.operationalCounters.publishedRecent }}</span>
+        </div>
+        <div class="counter-card" [class.has-errors]="overview.operationalCounters.failedRecent > 0">
+          <span class="counter-icon">❌</span>
+          <span class="counter-label">Fallidos recientes</span>
+          <span class="counter-value">{{ overview.operationalCounters.failedRecent }}</span>
+        </div>
+        <div class="counter-card" [class.has-pending]="overview.operationalCounters.pendingPosts > 0">
+          <span class="counter-icon">⏳</span>
+          <span class="counter-label">Posts pendientes</span>
+          <span class="counter-value">{{ overview.operationalCounters.pendingPosts }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Publicaciones Recientes -->
+    <section *ngIf="overview.recentPosts && overview.recentPosts.length > 0" class="posts-section">
+      <h2 class="section-title">📝 Publicaciones Recientes</h2>
+      <div class="posts-list">
+        <div 
+          *ngFor="let post of overview.recentPosts" 
+          class="post-card">
+          <div class="post-header">
+            <div *ngIf="post.pictureUrl" class="post-image">
+              <img [src]="post.pictureUrl" [alt]="post.message || 'Publicación'">
+            </div>
+            <div class="post-content">
+              <div class="post-type-badge">
+                {{ post.type }}
+              </div>
+              <p *ngIf="post.message" class="post-message">{{ post.message }}</p>
+              <a 
+                *ngIf="post.permalinkUrl" 
+                [href]="post.permalinkUrl" 
+                target="_blank" 
+                class="post-link">
+                🔗 Ver publicación en Facebook
+              </a>
+              <div class="post-meta">
+                <span class="post-date">{{ formatDate(post.createdTime) }}</span>
+                <span class="post-id">ID: {{ post.postId }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="post-stats">
+            <span class="post-stat">👍 {{ formatNumber(post.reactionsCount) }}</span>
+            <span class="post-stat">💬 {{ formatNumber(post.commentsCount) }}</span>
+            <span class="post-stat">🔄 {{ formatNumber(post.sharesCount) }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Empty State para publicaciones -->
+    <section *ngIf="!overview.recentPosts || overview.recentPosts.length === 0" class="empty-section">
+      <p>No hay publicaciones recientes disponibles</p>
+    </section>
+  </div>
+</div>

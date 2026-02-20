@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import { FacebookConnectResponse, FacebookPage, FacebookPagesResponse, UpdatePageStatusRequest, UpdatePageStatusResponse } from '../../features/facebook/models/facebook.model';
+import { FacebookConnectResponse, FacebookPage, FacebookPagesResponse, UpdatePageStatusRequest, UpdatePageStatusResponse, PageOverviewResponse } from '../../features/facebook/models/facebook.model';
 
 @Injectable({
   providedIn: 'root'
@@ -69,6 +69,27 @@ export class FacebookOAuthService {
       `${this.apiUrl}/pages/${facebookPageId}/status`,
       requestBody
     ).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Obtiene un resumen completo (overview) de una página de Facebook.
+   * Incluye header de la página, resumen de analytics, contadores operativos,
+   * publicaciones recientes y alertas.
+   * El interceptor HTTP agregará automáticamente el token de autenticación.
+   * @param facebookPageId ID de la página en Facebook
+   * @param recentPostsLimit Cantidad de publicaciones recientes a obtener (opcional, por defecto: 10)
+   * @returns Observable con el overview completo de la página
+   */
+  getPageOverview(facebookPageId: string, recentPostsLimit?: number): Observable<PageOverviewResponse> {
+    let url = `${this.apiUrl}/pages/${facebookPageId}/overview`;
+    
+    if (recentPostsLimit !== undefined) {
+      url += `?recentPostsLimit=${recentPostsLimit}`;
+    }
+    
+    return this.http.get<PageOverviewResponse>(url).pipe(
       catchError(this.handleError)
     );
   }

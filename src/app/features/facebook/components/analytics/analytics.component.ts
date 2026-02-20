@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { NgxEchartsModule } from 'ngx-echarts';
 import * as echarts from 'echarts';
@@ -44,7 +44,7 @@ type ViewType = 'overview' | 'detailed';
 @Component({
   selector: 'app-analytics',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgxEchartsModule, AgGridAngular],
+  imports: [CommonModule, FormsModule, NgxEchartsModule, AgGridAngular, RouterModule],
   templateUrl: './analytics.component.html',
   styleUrl: './analytics.component.scss'
 })

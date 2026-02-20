@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { Subscription, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { FacebookOAuthService } from '../../../../core/services/facebook-oauth.service';
@@ -20,7 +21,7 @@ interface GroupWithSnapshot extends FacebookGroup {
 @Component({
   selector: 'app-dashboard-overview',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './dashboard-overview.component.html',
   styleUrl: './dashboard-overview.component.scss'
 })

@@ -111,6 +111,15 @@
         <div *ngIf="!page.isActive" class="inactive-message">
           <p>Esta página está inactiva</p>
         </div>
+
+        <!-- Botón para ver detalles completos -->
+        <div class="page-actions">
+          <a 
+            [routerLink]="['/dashboard/paginas', page.facebookPageId]" 
+            class="view-details-btn">
+            Ver detalles completos →
+          </a>
+        </div>
       </div>
     </div>
   </div>
