@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { UserSettingsService } from './user-settings.service';
+import { AuthService } from './auth.service';
 import { take } from 'rxjs/operators';
 
 @Injectable({
@@ -9,7 +10,8 @@ import { take } from 'rxjs/operators';
 export class TranslationService {
   constructor(
     private translate: TranslateService,
-    private userSettingsService: UserSettingsService
+    private userSettingsService: UserSettingsService,
+    private authService: AuthService
   ) {}
 
   /**
@@ -19,6 +21,12 @@ export class TranslationService {
     // Idioma por defecto
     const defaultLang = 'es';
     this.translate.setDefaultLang(defaultLang);
+    
+    // Solo intentar obtener preferencias si el usuario está autenticado
+    if (!this.authService.isAuthenticated()) {
+      this.translate.use(defaultLang);
+      return;
+    }
     
     // Obtener idioma del usuario desde UserSettings
     this.userSettingsService.getUserSettings()
@@ -32,7 +40,7 @@ export class TranslationService {
           this.translate.use(langToUse);
         },
         error: () => {
-          // Si hay error, usar idioma por defecto
+          // Si hay error, usar idioma por defecto (silenciosamente)
           this.translate.use(defaultLang);
         }
       });

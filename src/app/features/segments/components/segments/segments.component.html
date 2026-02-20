@@ -61,7 +61,7 @@
       </div>
 
       <div class="segment-actions">
-        <button class="btn-secondary" (click)="loadSegmentDetail(segment.segmentId)">
+        <button class="btn-secondary" (click)="loadSegmentDetail(segment.collectionId)">
           Ver Detalles
         </button>
         <button class="btn-secondary" (click)="openEditModal(segment)">
@@ -110,7 +110,7 @@
     <div *ngIf="selectedSegment.items && selectedSegment.items.length > 0" class="items-list">
       <div class="items-header">
         <h3>Items de la Colección ({{ selectedSegment.items.length }})</h3>
-        <button class="btn-primary" (click)="openAddItemsModal({segmentId: selectedSegment.segmentId, name: selectedSegment.name, totalItems: selectedSegment.items.length || 0, updatedAt: ''})">
+        <button class="btn-primary" (click)="openAddItemsModal({collectionId: selectedSegment.collectionId, name: selectedSegment.name, totalItems: selectedSegment.items.length || 0, updatedAt: ''})">
           + Agregar Items
         </button>
       </div>
@@ -147,7 +147,7 @@
 
     <div *ngIf="!selectedSegment.items || selectedSegment.items.length === 0" class="empty-items">
       <p>Esta colección no tiene items aún</p>
-      <button class="btn-primary" (click)="openAddItemsModal({segmentId: selectedSegment.segmentId, name: selectedSegment.name, totalItems: 0, updatedAt: ''})">
+      <button class="btn-primary" (click)="openAddItemsModal({collectionId: selectedSegment.collectionId, name: selectedSegment.name, totalItems: 0, updatedAt: ''})">
         Agregar Items
       </button>
     </div>
@@ -255,6 +255,12 @@
       <div class="modal-header">
         <h2>Crear Nueva Colección</h2>
         <button class="close-btn" (click)="closeCreateModal()">×</button>
+      </div>
+      <!-- Mensaje de error del modal -->
+      <div *ngIf="createError" class="error-alert" style="margin: 1rem;">
+        <span class="error-icon">⚠️</span>
+        <span>{{ createError }}</span>
+        <button class="close-btn" (click)="createError = null">×</button>
       </div>
       <form [formGroup]="createForm" (ngSubmit)="onCreateSubmit()" class="modal-body">
         <div class="form-group">

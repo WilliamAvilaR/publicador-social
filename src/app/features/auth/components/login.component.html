@@ -43,6 +43,7 @@
           formControlName="email"
           placeholder="name@example.com" 
           class="input-field"
+          autocomplete="email"
           [class.invalid]="isFieldInvalid('email')"
         />
         <div *ngIf="isFieldInvalid('email')" class="field-error">
@@ -60,6 +61,7 @@
           formControlName="password"
           placeholder="••••••••" 
           class="input-field"
+          autocomplete="current-password"
           [class.invalid]="isFieldInvalid('password')"
         />
         <button type="button" class="toggle-password" (click)="togglePassword()">

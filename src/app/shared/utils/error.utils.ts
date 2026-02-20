@@ -9,16 +9,26 @@ import { HttpErrorResponse } from '@angular/common/http';
  * @returns Un mensaje de error legible para el usuario
  */
 export function extractErrorMessage(
-  error: HttpErrorResponse,
+  error: HttpErrorResponse | Error,
   defaultMessage: string = 'Ha ocurrido un error. Por favor, intenta nuevamente.'
 ): string {
-  if (!error.error) {
+  // Si es un Error simple (no HttpErrorResponse), usar su mensaje directamente
+  // HttpErrorResponse tiene la propiedad 'error', Error simple no
+  if (error instanceof Error && !('error' in error)) {
     return error.message || defaultMessage;
+  }
+  
+  // Si es HttpErrorResponse
+  const httpError = error as HttpErrorResponse;
+  
+  // Si no tiene error.error, usar el mensaje del error HTTP
+  if (!httpError.error) {
+    return httpError.message || defaultMessage;
   }
 
   // Si errors es un array de objetos con detail
-  if (Array.isArray(error.error.errors) && error.error.errors.length > 0) {
-    const firstError = error.error.errors[0];
+  if (Array.isArray(httpError.error.errors) && httpError.error.errors.length > 0) {
+    const firstError = httpError.error.errors[0];
     if (firstError.detail) {
       return firstError.detail;
     }
@@ -29,11 +39,11 @@ export function extractErrorMessage(
 
   // Si errors es un objeto con campos (validación por campo)
   // Esto es común en validaciones de formularios del backend
-  if (error.error.errors && typeof error.error.errors === 'object' && !Array.isArray(error.error.errors)) {
-    const errorFields = Object.keys(error.error.errors);
+  if (httpError.error.errors && typeof httpError.error.errors === 'object' && !Array.isArray(httpError.error.errors)) {
+    const errorFields = Object.keys(httpError.error.errors);
     if (errorFields.length > 0) {
       const firstField = errorFields[0];
-      const firstError = error.error.errors[firstField];
+      const firstError = httpError.error.errors[firstField];
       if (Array.isArray(firstError) && firstError.length > 0) {
         return firstError[0];
       }
@@ -44,18 +54,18 @@ export function extractErrorMessage(
   }
 
   // Si hay detail directo en error.error
-  if (error.error.detail) {
-    return error.error.detail;
+  if (httpError.error.detail) {
+    return httpError.error.detail;
   }
 
   // Si hay title directo en error.error
-  if (error.error.title) {
-    return error.error.title;
+  if (httpError.error.title) {
+    return httpError.error.title;
   }
 
   // Si hay un mensaje de error general
-  if (error.error.message) {
-    return error.error.message;
+  if (httpError.error.message) {
+    return httpError.error.message;
   }
 
   // Último recurso: mensaje genérico

@@ -18,7 +18,7 @@ export const appConfig: ApplicationConfig = {
     ),
     // Configuración de ngx-translate
     TranslateModule.forRoot({
-      defaultLanguage: 'es'
+      fallbackLang: 'es'
     }).providers!,
     // Configuración del HttpLoader para cargar traducciones desde assets
     ...provideTranslateHttpLoader({

@@ -39,6 +39,9 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   showDeleteModal = false;
   showAddItemsModal = false;
   
+  // Errores específicos de modales
+  createError: string | null = null;
+  
   // Formularios
   createForm!: FormGroup;
   editForm!: FormGroup;
@@ -124,9 +127,9 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   /**
    * Carga el detalle de una colección
    */
-  loadSegmentDetail(segmentId: number): void {
+  loadSegmentDetail(collectionId: number): void {
     this.loading = true;
-    const subscription = this.segmentsService.getSegmentDetail(segmentId, true).subscribe({
+    const subscription = this.segmentsService.getSegmentDetail(collectionId, true).subscribe({
       next: (detail) => {
         this.selectedSegment = detail;
         this.loading = false;
@@ -145,6 +148,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
    */
   openCreateModal(): void {
     this.createForm.reset();
+    this.createError = null;
     this.showCreateModal = true;
   }
 
@@ -154,6 +158,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   closeCreateModal(): void {
     this.showCreateModal = false;
     this.createForm.reset();
+    this.createError = null;
   }
 
   /**
@@ -166,6 +171,8 @@ export class SegmentsComponent implements OnInit, OnDestroy {
     }
 
     this.creating = true;
+    this.createError = null; // Limpiar error previo
+    
     const request: CreateSegmentRequest = {
       name: this.createForm.value.name.trim(),
       description: this.createForm.value.description?.trim() || undefined
@@ -179,7 +186,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.creating = false;
-        this.error = extractErrorMessage(error, 'Error al crear la colección');
+        this.createError = extractErrorMessage(error, 'Error al crear la colección');
       }
     });
 
@@ -190,7 +197,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
    * Abre el modal para editar una colección
    */
   openEditModal(segment: SegmentListItem): void {
-    this.loadSegmentDetail(segment.segmentId);
+    this.loadSegmentDetail(segment.collectionId);
     this.editForm.patchValue({
       name: segment.name,
       isArchived: false
@@ -224,7 +231,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
     };
 
     const subscription = this.segmentsService.updateSegment(
-      this.selectedSegment.segmentId,
+      this.selectedSegment.collectionId,
       request
     ).subscribe({
       next: () => {
@@ -246,7 +253,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
    */
   openDeleteModal(segment: SegmentListItem): void {
     this.selectedSegment = {
-      segmentId: segment.segmentId,
+      collectionId: segment.collectionId,
       name: segment.name
     };
     this.showDeleteModal = true;
@@ -268,7 +275,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
 
     this.deleting = true;
     const subscription = this.segmentsService.deleteSegment(
-      this.selectedSegment.segmentId
+      this.selectedSegment.collectionId
     ).subscribe({
       next: () => {
         this.deleting = false;
@@ -289,7 +296,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
    */
   toggleArchive(segment: SegmentListItem, archive: boolean): void {
     const request: ArchiveSegmentRequest = { isArchived: archive };
-    const subscription = this.segmentsService.archiveSegment(segment.segmentId, request).subscribe({
+    const subscription = this.segmentsService.archiveSegment(segment.collectionId, request).subscribe({
       next: () => {
         this.loadSegments();
       },
@@ -313,7 +320,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
    */
   openAddItemsModal(segment: SegmentListItem): void {
     this.selectedSegment = {
-      segmentId: segment.segmentId,
+      collectionId: segment.collectionId,
       name: segment.name
     };
     this.selectedAssetIds = [];
@@ -395,7 +402,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
     };
 
     const subscription = this.segmentsService.addItemsToSegment(
-      this.selectedSegment.segmentId,
+      this.selectedSegment.collectionId,
       request
     ).subscribe({
       next: (response) => {
@@ -403,7 +410,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
         this.closeAddItemsModal();
         this.loadSegments();
         if (this.selectedSegment) {
-          this.loadSegmentDetail(this.selectedSegment.segmentId);
+          this.loadSegmentDetail(this.selectedSegment.collectionId);
         }
         alert(`Se agregaron ${response.added} items. ${response.skippedDuplicates > 0 ? `${response.skippedDuplicates} duplicados omitidos.` : ''}`);
       },
@@ -428,13 +435,13 @@ export class SegmentsComponent implements OnInit, OnDestroy {
 
     this.removingItem = true;
     const subscription = this.segmentsService.removeItemFromSegment(
-      this.selectedSegment.segmentId,
+      this.selectedSegment.collectionId,
       item.socialAssetId
     ).subscribe({
       next: () => {
         this.removingItem = false;
         if (this.selectedSegment) {
-          this.loadSegmentDetail(this.selectedSegment.segmentId);
+          this.loadSegmentDetail(this.selectedSegment.collectionId);
         }
         this.loadSegments();
       },

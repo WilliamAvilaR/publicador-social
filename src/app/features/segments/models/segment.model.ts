@@ -34,10 +34,10 @@ export interface CreateSegmentRequest {
 }
 
 /**
- * Response al crear una colección
+ * Datos de una colección en la respuesta de creación
  */
-export interface CreateSegmentResponse {
-  segmentId: number;
+export interface CollectionData {
+  collectionId: number;
   name: string;
   description?: string;
   totalItems: number;
@@ -45,10 +45,43 @@ export interface CreateSegmentResponse {
 }
 
 /**
- * Colección en la lista (sin items detallados)
+ * Metadatos de paginación en respuestas de la API
  */
-export interface SegmentListItem {
-  segmentId: number;
+export interface ResponseMeta {
+  totalCount: number;
+  pageSize: number;
+  currentPage: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviusPage: boolean;
+  nextPageUrl?: string;
+  previusPageUrl?: string;
+}
+
+/**
+ * Response al crear una colección (estructura completa de la API)
+ */
+export interface CreateCollectionApiResponse {
+  data: CollectionData;
+  meta: ResponseMeta;
+}
+
+/**
+ * Response al crear una colección (usa directamente CollectionData)
+ */
+export interface CreateSegmentResponse {
+  collectionId: number;
+  name: string;
+  description?: string;
+  totalItems: number;
+  createdAt: string;
+}
+
+/**
+ * Item de colección en la lista (sin items detallados)
+ */
+export interface CollectionListItem {
+  collectionId: number;
   name: string;
   totalItems: number;
   pages?: number;
@@ -57,13 +90,34 @@ export interface SegmentListItem {
 }
 
 /**
+ * Response de la API al listar colecciones
+ */
+export interface ListCollectionsApiResponse {
+  data: CollectionListItem[];
+  meta: ResponseMeta;
+}
+
+/**
+ * Colección en la lista (sin items detallados) - alias para compatibilidad
+ */
+export interface SegmentListItem extends CollectionListItem {}
+
+/**
  * Detalle completo de una colección
  */
 export interface SegmentDetail {
-  segmentId: number;
+  collectionId: number;
   name: string;
   description?: string;
   items?: SegmentItem[];
+}
+
+/**
+ * Response de la API al obtener el detalle de una colección
+ */
+export interface GetCollectionDetailApiResponse {
+  data: SegmentDetail;
+  meta: ResponseMeta;
 }
 
 /**
@@ -93,9 +147,17 @@ export interface AddItemsToSegmentRequest {
  * Response al agregar items a una colección
  */
 export interface AddItemsToSegmentResponse {
-  segmentId: number;
+  collectionId: number;
   added: number;
   skippedDuplicates: number;
+}
+
+/**
+ * Response de la API al agregar items a una colección
+ */
+export interface AddItemsToSegmentApiResponse {
+  data: AddItemsToSegmentResponse;
+  meta: ResponseMeta;
 }
 
 /**

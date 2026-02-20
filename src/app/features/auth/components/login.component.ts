@@ -19,7 +19,7 @@ import { getFieldError } from '../../../shared/utils/validation.utils';
   styleUrl: './login.component.scss'
 })
 export class LoginComponent implements OnInit, OnDestroy {
-  loginForm!: FormGroup;
+  loginForm: FormGroup;
   showPassword = false;
   showSuccessMessage = false;
   isLoading = false;
@@ -31,7 +31,13 @@ export class LoginComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private route: ActivatedRoute,
     private router: Router
-  ) {}
+  ) {
+    // Inicializar el formulario en el constructor para evitar errores de undefined
+    this.loginForm = this.fb.group({
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required]]
+    });
+  }
 
   ngOnInit() {
     // Si el usuario ya está autenticado, redirigir al dashboard
@@ -40,8 +46,7 @@ export class LoginComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.initForm();
-    
+    // El formulario ya está inicializado en el constructor
     // Verificar si viene de registro exitoso (solo una vez)
     this.route.queryParams.pipe(take(1)).subscribe(params => {
       if (params['registered'] === 'true') {
@@ -126,10 +131,16 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   getFieldError(fieldName: string): string {
+    if (!this.loginForm) {
+      return '';
+    }
     return getFieldError(this.loginForm, fieldName);
   }
 
   isFieldInvalid(fieldName: string): boolean {
+    if (!this.loginForm) {
+      return false;
+    }
     return isFieldInvalid(this.loginForm, fieldName);
   }
 }

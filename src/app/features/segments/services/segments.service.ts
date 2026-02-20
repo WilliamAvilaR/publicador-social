@@ -1,16 +1,20 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
 import {
   CreateSegmentRequest,
   CreateSegmentResponse,
+  CreateCollectionApiResponse,
   SegmentListItem,
+  ListCollectionsApiResponse,
   SegmentDetail,
+  GetCollectionDetailApiResponse,
   UpdateSegmentRequest,
   ArchiveSegmentRequest,
   AddItemsToSegmentRequest,
   AddItemsToSegmentResponse,
+  AddItemsToSegmentApiResponse,
   ReplaceSegmentItemsRequest,
   ResolveTargetsRequest,
   ResolveTargetsResponse
@@ -47,113 +51,124 @@ export class SegmentsService {
    * @returns Observable con la colección creada
    */
   createSegment(request: CreateSegmentRequest): Observable<CreateSegmentResponse> {
-    return this.http.post<CreateSegmentResponse>(this.collectionsApiUrl, request).pipe(
+    return this.http.post<CreateCollectionApiResponse>(this.collectionsApiUrl, request).pipe(
+      map(response => response.data),
       catchError(this.handleError)
     );
   }
 
   /**
    * Lista todas las colecciones del usuario
-   * @param archived Si es true, incluye colecciones archivadas. Si es false o undefined, solo activas
-   * @param includeCounts Si es true, incluye conteos de páginas/grupos
+   * @param archived Si es true, incluye colecciones archivadas. Si es false o undefined, solo activas (default: false)
+   * @param includeCounts Si es true, incluye conteos de páginas/grupos (default: true)
    * @returns Observable con la lista de colecciones
    */
   listSegments(archived?: boolean, includeCounts?: boolean): Observable<SegmentListItem[]> {
     let params = new HttpParams();
 
-    // Solo agregar parámetro archived si es explícitamente true
-    // Si es false o undefined, no enviarlo (el backend por defecto devuelve solo activas)
-    if (archived === true) {
-      params = params.set('archived', 'true');
+    // Enviar archived explícitamente si se proporciona (default del backend es false)
+    if (archived !== undefined) {
+      params = params.set('archived', archived.toString());
     }
 
-    // Solo agregar includeCounts si es explícitamente true
-    if (includeCounts === true) {
-      params = params.set('includeCounts', 'true');
+    // Enviar includeCounts explícitamente si se proporciona (default del backend es true)
+    if (includeCounts !== undefined) {
+      params = params.set('includeCounts', includeCounts.toString());
     }
 
-    return this.http.get<SegmentListItem[]>(this.collectionsApiUrl, { params }).pipe(
+    return this.http.get<ListCollectionsApiResponse>(this.collectionsApiUrl, { params }).pipe(
+      map(response => {
+        // La API siempre devuelve updatedAt según la especificación, pero por seguridad
+        // aseguramos un valor por defecto si no viene
+        return response.data.map(item => ({
+          ...item,
+          updatedAt: item.updatedAt || new Date().toISOString()
+        }));
+      }),
       catchError(this.handleError)
     );
   }
 
   /**
    * Obtiene el detalle completo de una colección
-   * @param segmentId ID de la colección
-   * @param items Si es true, incluye la lista de activos de la colección
+   * @param collectionId ID de la colección
+   * @param items Si es true, incluye la lista de activos de la colección (default: true)
    * @returns Observable con el detalle de la colección
    */
-  getSegmentDetail(segmentId: number, items?: boolean): Observable<SegmentDetail> {
+  getSegmentDetail(collectionId: number, items?: boolean): Observable<SegmentDetail> {
     let params = new HttpParams();
 
+    // Enviar items explícitamente si se proporciona (default del backend es true)
     if (items !== undefined) {
       params = params.set('items', items.toString());
     }
 
-    return this.http.get<SegmentDetail>(`${this.collectionsApiUrl}/${segmentId}`, { params }).pipe(
+    return this.http.get<GetCollectionDetailApiResponse>(`${this.collectionsApiUrl}/${collectionId}`, { params }).pipe(
+      map(response => response.data),
       catchError(this.handleError)
     );
   }
 
   /**
    * Actualiza una colección
-   * @param segmentId ID de la colección
-   * @param request Datos a actualizar
-   * @returns Observable con la respuesta
+   * @param collectionId ID de la colección
+   * @param request Datos a actualizar (name, description, isArchived - todos opcionales)
+   * @returns Observable que completa cuando la actualización es exitosa
    */
-  updateSegment(segmentId: number, request: UpdateSegmentRequest): Observable<void> {
-    return this.http.put<void>(`${this.collectionsApiUrl}/${segmentId}`, request).pipe(
+  updateSegment(collectionId: number, request: UpdateSegmentRequest): Observable<void> {
+    return this.http.put<void>(`${this.collectionsApiUrl}/${collectionId}`, request).pipe(
       catchError(this.handleError)
     );
   }
 
   /**
    * Archiva o desarchiva una colección
-   * @param segmentId ID de la colección
-   * @param request Datos de archivado
-   * @returns Observable con la respuesta
+   * @param collectionId ID de la colección
+   * @param request Datos de archivado ({ isArchived: boolean })
+   * @returns Observable que completa cuando la operación es exitosa
    */
-  archiveSegment(segmentId: number, request: ArchiveSegmentRequest): Observable<void> {
-    return this.http.patch<void>(`${this.collectionsApiUrl}/${segmentId}/archive`, request).pipe(
+  archiveSegment(collectionId: number, request: ArchiveSegmentRequest): Observable<void> {
+    return this.http.patch<void>(`${this.collectionsApiUrl}/${collectionId}/archive`, request).pipe(
       catchError(this.handleError)
     );
   }
 
   /**
-   * Elimina una colección
-   * @param segmentId ID de la colección
-   * @returns Observable con la respuesta
+   * Elimina una colección (hard delete)
+   * @param collectionId ID de la colección
+   * @returns Observable que completa cuando la eliminación es exitosa
    */
-  deleteSegment(segmentId: number): Observable<void> {
-    return this.http.delete<void>(`${this.collectionsApiUrl}/${segmentId}`).pipe(
+  deleteSegment(collectionId: number): Observable<void> {
+    return this.http.delete<void>(`${this.collectionsApiUrl}/${collectionId}`).pipe(
       catchError(this.handleError)
     );
   }
 
   /**
    * Agrega items a una colección (bulk)
-   * @param segmentId ID de la colección
+   * @param collectionId ID de la colección
    * @param request IDs de los activos sociales a agregar
    * @returns Observable con el resultado de la operación
    */
-  addItemsToSegment(segmentId: number, request: AddItemsToSegmentRequest): Observable<AddItemsToSegmentResponse> {
-    return this.http.post<AddItemsToSegmentResponse>(
-      `${this.collectionsApiUrl}/${segmentId}/items`,
+  addItemsToSegment(collectionId: number, request: AddItemsToSegmentRequest): Observable<AddItemsToSegmentResponse> {
+    return this.http.post<AddItemsToSegmentApiResponse>(
+      `${this.collectionsApiUrl}/${collectionId}/items`,
       request
     ).pipe(
+      map(response => response.data),
       catchError(this.handleError)
     );
   }
 
   /**
-   * Quita un item de una colección
-   * @param segmentId ID de la colección
-   * @param socialAssetId ID del activo social a quitar
-   * @returns Observable con la respuesta
+   * Elimina un item de una colección
+   * @param collectionId ID de la colección
+   * @param socialAssetId ID del activo social a eliminar
+   * @returns Observable que completa cuando la eliminación es exitosa
    */
-  removeItemFromSegment(segmentId: number, socialAssetId: number): Observable<void> {
+  removeItemFromSegment(collectionId: number, socialAssetId: number): Observable<void> {
     return this.http.delete<void>(
-      `${this.collectionsApiUrl}/${segmentId}/items/${socialAssetId}`
+      `${this.collectionsApiUrl}/${collectionId}/items/${socialAssetId}`
     ).pipe(
       catchError(this.handleError)
     );
@@ -161,13 +176,13 @@ export class SegmentsService {
 
   /**
    * Reemplaza todos los items de una colección
-   * @param segmentId ID de la colección
-   * @param request IDs de los nuevos activos sociales
-   * @returns Observable con la respuesta
+   * @param collectionId ID de la colección
+   * @param request IDs de los nuevos activos sociales ({ socialAssetIds: number[] })
+   * @returns Observable que completa cuando la operación es exitosa
    */
-  replaceSegmentItems(segmentId: number, request: ReplaceSegmentItemsRequest): Observable<void> {
+  replaceSegmentItems(collectionId: number, request: ReplaceSegmentItemsRequest): Observable<void> {
     return this.http.put<void>(
-      `${this.collectionsApiUrl}/${segmentId}/items`,
+      `${this.collectionsApiUrl}/${collectionId}/items`,
       request
     ).pipe(
       catchError(this.handleError)
