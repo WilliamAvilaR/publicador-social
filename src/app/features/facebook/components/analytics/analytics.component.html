@@ -268,24 +268,31 @@
           <aside class="pages-sidebar">
             <h3 class="sidebar-title">Grupos</h3>
             <div class="pages-list-vertical">
-              <button
-                *ngFor="let group of groups"
-                class="page-btn-vertical"
-                [class.active]="group.selected"
-                (click)="selectGroup(group)">
-                <img 
-                  *ngIf="group.pictureUrl" 
-                  [src]="group.pictureUrl" 
-                  [alt]="group.name"
-                  class="page-thumb">
-                <div *ngIf="!group.pictureUrl" class="page-thumb-placeholder">
-                  {{ group.name.charAt(0).toUpperCase() }}
-                </div>
-                <div class="page-info-vertical">
-                  <span class="page-name">{{ group.name }}</span>
-                  <span class="page-id-small">ID: {{ group.facebookGroupId }}</span>
-                </div>
-              </button>
+              <div *ngFor="let group of groups" class="page-item-wrapper">
+                <button
+                  class="page-btn-vertical"
+                  [class.active]="group.selected"
+                  (click)="selectGroup(group)">
+                  <img 
+                    *ngIf="group.pictureUrl" 
+                    [src]="group.pictureUrl" 
+                    [alt]="group.name"
+                    class="page-thumb">
+                  <div *ngIf="!group.pictureUrl" class="page-thumb-placeholder">
+                    {{ group.name.charAt(0).toUpperCase() }}
+                  </div>
+                  <div class="page-info-vertical">
+                    <span class="page-name">{{ group.name }}</span>
+                    <span class="page-id-small">ID: {{ group.facebookGroupId }}</span>
+                  </div>
+                </button>
+                <a 
+                  [routerLink]="['/dashboard/grupos', group.facebookGroupId]" 
+                  class="page-detail-link"
+                  title="Ver detalles completos">
+                  🔗
+                </a>
+              </div>
             </div>
           </aside>
 

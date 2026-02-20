@@ -5,8 +5,8 @@
       <h1>Resumen del Dashboard</h1>
       <p class="subtitle">Vista general de tus páginas y métricas</p>
     </div>
-    <button 
-      class="sync-btn" 
+    <button
+      class="sync-btn"
       [class.syncing]="syncing"
       [disabled]="syncing"
       (click)="syncAnalytics()">
@@ -59,9 +59,9 @@
       <div *ngFor="let page of pages" class="page-card" [class.inactive]="!page.isActive">
         <div class="page-header">
           <div class="page-avatar">
-            <img 
-              *ngIf="page.pictureUrl" 
-              [src]="page.pictureUrl" 
+            <img
+              *ngIf="page.pictureUrl"
+              [src]="page.pictureUrl"
               [alt]="page.name"
               class="avatar-img">
             <div *ngIf="!page.pictureUrl" class="avatar-placeholder">
@@ -114,8 +114,8 @@
 
         <!-- Botón para ver detalles completos -->
         <div class="page-actions">
-          <a 
-            [routerLink]="['/dashboard/paginas', page.facebookPageId]" 
+          <a
+            [routerLink]="['/dashboard/paginas', page.facebookPageId]"
             class="view-details-btn">
             Ver detalles completos →
           </a>
@@ -131,9 +131,9 @@
       <div *ngFor="let group of groups" class="page-card" [class.inactive]="!group.isActive">
         <div class="page-header">
           <div class="page-avatar">
-            <img 
-              *ngIf="group.pictureUrl" 
-              [src]="group.pictureUrl" 
+            <img
+              *ngIf="group.pictureUrl"
+              [src]="group.pictureUrl"
               [alt]="group.name"
               class="avatar-img">
             <div *ngIf="!group.pictureUrl" class="avatar-placeholder">
@@ -180,6 +180,15 @@
 
         <div *ngIf="!group.isActive" class="inactive-message">
           <p>Este grupo está inactivo</p>
+        </div>
+
+        <!-- Botón para ver detalles completos -->
+        <div class="page-actions">
+          <a
+            [routerLink]="['/dashboard/grupos', group.facebookGroupId]"
+            class="view-details-btn">
+            Ver detalles completos →
+          </a>
         </div>
       </div>
     </div>

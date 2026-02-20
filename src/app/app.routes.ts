@@ -51,6 +51,14 @@ export const routes: Routes = [
       {
         path: 'paginas/:pageId',
         loadComponent: () => import('./features/facebook/components/page-detail/page-detail.component').then(m => m.PageDetailComponent)
+      },
+      {
+        path: 'grupos/:groupId',
+        loadComponent: () => import('./features/facebook/components/group-detail/group-detail.component').then(m => m.GroupDetailComponent)
+      },
+      {
+        path: 'segmentos',
+        loadComponent: () => import('./features/segments/components/segments/segments.component').then(m => m.SegmentsComponent)
       }
     ]
   },

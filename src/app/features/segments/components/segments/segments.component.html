@@ -1,0 +1,362 @@
+<div class="segments-container">
+  <!-- Header -->
+  <div class="segments-header">
+    <div>
+      <h1>Segmentos</h1>
+      <p class="subtitle">Organiza tus páginas y grupos en segmentos para facilitar la publicación</p>
+    </div>
+    <button class="btn-primary" (click)="openCreateModal()">
+      + Nuevo Segmento
+    </button>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters-section">
+    <label class="filter-toggle">
+      <input 
+        type="checkbox" 
+        [(ngModel)]="showArchived"
+        (change)="loadSegments()">
+      <span>Mostrar archivados</span>
+    </label>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading && segments.length === 0" class="loading-container">
+    <div class="spinner"></div>
+    <p>Cargando segmentos...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error" class="error-alert">
+    <span class="error-icon">⚠️</span>
+    <span>{{ error }}</span>
+    <button class="close-btn" (click)="error = null">×</button>
+  </div>
+
+  <!-- Lista de Segmentos -->
+  <div *ngIf="!loading || segments.length > 0" class="segments-grid">
+    <div *ngFor="let segment of segments" class="segment-card">
+      <div class="segment-header">
+        <div class="segment-info">
+          <h3 class="segment-name">{{ segment.name }}</h3>
+          <div class="segment-stats">
+            <span class="stat-item">
+              <span class="stat-label">Total:</span>
+              <span class="stat-value">{{ formatNumber(segment.totalItems) }}</span>
+            </span>
+            <span *ngIf="segment.pages !== undefined" class="stat-item">
+              <span class="stat-label">Páginas:</span>
+              <span class="stat-value">{{ formatNumber(segment.pages) }}</span>
+            </span>
+            <span *ngIf="segment.groups !== undefined" class="stat-item">
+              <span class="stat-label">Grupos:</span>
+              <span class="stat-value">{{ formatNumber(segment.groups) }}</span>
+            </span>
+          </div>
+          <div class="segment-meta">
+            <span class="meta-text">Actualizado {{ getTimeAgo(segment.updatedAt) }}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="segment-actions">
+        <button class="btn-secondary" (click)="loadSegmentDetail(segment.segmentId)">
+          Ver Detalles
+        </button>
+        <button class="btn-secondary" (click)="openEditModal(segment)">
+          Editar
+        </button>
+        <button 
+          class="btn-secondary" 
+          (click)="toggleArchive(segment, true)"
+          *ngIf="!showArchived">
+          Archivar
+        </button>
+        <button 
+          class="btn-secondary" 
+          (click)="toggleArchive(segment, false)"
+          *ngIf="showArchived">
+          Desarchivar
+        </button>
+        <button class="btn-danger" (click)="openDeleteModal(segment)">
+          Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!loading && segments.length === 0" class="empty-state">
+    <div class="empty-icon">📋</div>
+    <h2>No hay segmentos</h2>
+    <p>Crea tu primer segmento para organizar tus páginas y grupos</p>
+    <button class="btn-primary" (click)="openCreateModal()">
+      Crear Segmento
+    </button>
+  </div>
+
+  <!-- Detalle del Segmento -->
+  <div *ngIf="selectedSegment && !showEditModal && !showDeleteModal" class="segment-detail-section">
+    <div class="detail-header">
+      <h2>{{ selectedSegment.name }}</h2>
+      <button class="close-btn" (click)="selectedSegment = null">×</button>
+    </div>
+    
+    <div *ngIf="selectedSegment.description" class="detail-description">
+      <p>{{ selectedSegment.description }}</p>
+    </div>
+
+    <div *ngIf="selectedSegment.items && selectedSegment.items.length > 0" class="items-list">
+      <div class="items-header">
+        <h3>Items del Segmento ({{ selectedSegment.items.length }})</h3>
+        <button class="btn-primary" (click)="openAddItemsModal({segmentId: selectedSegment.segmentId, name: selectedSegment.name, totalItems: selectedSegment.items?.length || 0, updatedAt: ''})">
+          + Agregar Items
+        </button>
+      </div>
+      <div class="items-grid">
+        <div *ngFor="let item of selectedSegment.items" class="item-card">
+          <img 
+            *ngIf="item.pictureUrl" 
+            [src]="item.pictureUrl" 
+            [alt]="item.name"
+            class="item-avatar">
+          <div *ngIf="!item.pictureUrl" class="item-avatar-placeholder">
+            {{ item.name.charAt(0).toUpperCase() }}
+          </div>
+          <div class="item-info">
+            <h4>{{ item.name }}</h4>
+            <div class="item-meta">
+              <span class="item-type">{{ item.assetType === 'page' ? '📄 Página' : '👥 Grupo' }}</span>
+              <span class="item-provider">{{ item.provider }}</span>
+              <span class="item-status" [class.connected]="item.isConnected">
+                {{ item.isConnected ? '✅ Conectado' : '❌ Desconectado' }}
+              </span>
+            </div>
+          </div>
+          <button 
+            class="remove-item-btn" 
+            (click)="removeItemFromSegment(item)"
+            [disabled]="removingItem"
+            title="Quitar del segmento">
+            ×
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="!selectedSegment.items || selectedSegment.items.length === 0" class="empty-items">
+      <p>Este segmento no tiene items aún</p>
+      <button class="btn-primary" (click)="openAddItemsModal({segmentId: selectedSegment.segmentId, name: selectedSegment.name, totalItems: 0, updatedAt: ''})">
+        Agregar Items
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal: Agregar Items -->
+  <div *ngIf="showAddItemsModal" class="modal-overlay" (click)="closeAddItemsModal()">
+    <div class="modal-content modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Agregar Items al Segmento</h2>
+        <button class="close-btn" (click)="closeAddItemsModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="loadingAssets" class="loading-container">
+          <div class="spinner"></div>
+          <p>Cargando activos disponibles...</p>
+        </div>
+
+        <div *ngIf="!loadingAssets" class="assets-selection">
+          <div class="selection-info">
+            <p>Selecciona las páginas y grupos que deseas agregar al segmento.</p>
+            <p class="selected-count" *ngIf="selectedAssetIds.length > 0">
+              {{ selectedAssetIds.length }} item(s) seleccionado(s)
+            </p>
+          </div>
+
+          <!-- Páginas -->
+          <div *ngIf="availablePages.length > 0" class="assets-section">
+            <h4>📄 Páginas ({{ availablePages.length }})</h4>
+            <div class="assets-list">
+              <label *ngFor="let page of availablePages" class="asset-checkbox">
+                <input
+                  type="checkbox"
+                  [checked]="isAssetSelected(getPageAssetId(page))"
+                  (change)="toggleAssetSelection(getPageAssetId(page))">
+                <div class="asset-info">
+                  <img 
+                    *ngIf="page.pictureUrl" 
+                    [src]="page.pictureUrl" 
+                    [alt]="page.name"
+                    class="asset-thumb">
+                  <div *ngIf="!page.pictureUrl" class="asset-thumb-placeholder">
+                    {{ page.name.charAt(0).toUpperCase() }}
+                  </div>
+                  <div class="asset-details">
+                    <strong>{{ page.name }}</strong>
+                    <span class="asset-id">ID: {{ page.facebookPageId }}</span>
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Grupos -->
+          <div *ngIf="availableGroups.length > 0" class="assets-section">
+            <h4>👥 Grupos ({{ availableGroups.length }})</h4>
+            <div class="assets-list">
+              <label *ngFor="let group of availableGroups" class="asset-checkbox">
+                <input
+                  type="checkbox"
+                  [checked]="isAssetSelected(group.id)"
+                  (change)="toggleAssetSelection(group.id)">
+                <div class="asset-info">
+                  <img 
+                    *ngIf="group.pictureUrl" 
+                    [src]="group.pictureUrl" 
+                    [alt]="group.name"
+                    class="asset-thumb">
+                  <div *ngIf="!group.pictureUrl" class="asset-thumb-placeholder">
+                    {{ group.name.charAt(0).toUpperCase() }}
+                  </div>
+                  <div class="asset-details">
+                    <strong>{{ group.name }}</strong>
+                    <span class="asset-id">ID: {{ group.facebookGroupId }}</span>
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div *ngIf="availablePages.length === 0 && availableGroups.length === 0" class="no-assets">
+            <p>No hay activos disponibles para agregar</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" (click)="closeAddItemsModal()">
+          Cancelar
+        </button>
+        <button 
+          type="button" 
+          class="btn-primary" 
+          (click)="onAddItemsSubmit()"
+          [disabled]="addingItems || selectedAssetIds.length === 0 || loadingAssets">
+          <span *ngIf="!addingItems">Agregar ({{ selectedAssetIds.length }})</span>
+          <span *ngIf="addingItems">Agregando...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Crear Segmento -->
+  <div *ngIf="showCreateModal" class="modal-overlay" (click)="closeCreateModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Crear Nuevo Segmento</h2>
+        <button class="close-btn" (click)="closeCreateModal()">×</button>
+      </div>
+      <form [formGroup]="createForm" (ngSubmit)="onCreateSubmit()" class="modal-body">
+        <div class="form-group">
+          <label for="create-name">Nombre *</label>
+          <input 
+            id="create-name"
+            type="text" 
+            formControlName="name"
+            placeholder="Ej: Cundinamarca"
+            class="form-input">
+          <span *ngIf="createForm.get('name')?.invalid && createForm.get('name')?.touched" class="error-text">
+            El nombre es requerido (mínimo 3 caracteres)
+          </span>
+        </div>
+        <div class="form-group">
+          <label for="create-description">Descripción</label>
+          <textarea 
+            id="create-description"
+            formControlName="description"
+            placeholder="Ej: Activos del departamento de Cundinamarca"
+            class="form-textarea"
+            rows="3"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" (click)="closeCreateModal()">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-primary" [disabled]="creating || createForm.invalid">
+            <span *ngIf="!creating">Crear</span>
+            <span *ngIf="creating">Creando...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Segmento -->
+  <div *ngIf="showEditModal" class="modal-overlay" (click)="closeEditModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Editar Segmento</h2>
+        <button class="close-btn" (click)="closeEditModal()">×</button>
+      </div>
+      <form [formGroup]="editForm" (ngSubmit)="onEditSubmit()" class="modal-body">
+        <div class="form-group">
+          <label for="edit-name">Nombre *</label>
+          <input 
+            id="edit-name"
+            type="text" 
+            formControlName="name"
+            class="form-input">
+          <span *ngIf="editForm.get('name')?.invalid && editForm.get('name')?.touched" class="error-text">
+            El nombre es requerido (mínimo 3 caracteres)
+          </span>
+        </div>
+        <div class="form-group">
+          <label for="edit-description">Descripción</label>
+          <textarea 
+            id="edit-description"
+            formControlName="description"
+            class="form-textarea"
+            rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" formControlName="isArchived">
+            <span>Archivado</span>
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" (click)="closeEditModal()">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-primary" [disabled]="updating || editForm.invalid">
+            <span *ngIf="!updating">Guardar</span>
+            <span *ngIf="updating">Guardando...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Eliminar Segmento -->
+  <div *ngIf="showDeleteModal" class="modal-overlay" (click)="closeDeleteModal()">
+    <div class="modal-content modal-small" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Eliminar Segmento</h2>
+        <button class="close-btn" (click)="closeDeleteModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <p>¿Estás seguro de que deseas eliminar el segmento <strong>{{ selectedSegment?.name }}</strong>?</p>
+        <p class="warning-text">Esta acción no se puede deshacer.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" (click)="closeDeleteModal()">
+          Cancelar
+        </button>
+        <button type="button" class="btn-danger" (click)="confirmDelete()" [disabled]="deleting">
+          <span *ngIf="!deleting">Eliminar</span>
+          <span *ngIf="deleting">Eliminando...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

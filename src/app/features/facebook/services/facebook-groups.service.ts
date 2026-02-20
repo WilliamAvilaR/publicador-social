@@ -10,7 +10,8 @@ import {
   GroupMetricsResponse,
   GroupChartMetricsResponse,
   UpdateGroupStatusRequest,
-  UpdateGroupStatusResponse
+  UpdateGroupStatusResponse,
+  GroupOverviewResponse
 } from '../models/facebook.model';
 
 /**
@@ -295,6 +296,27 @@ export class FacebookGroupsService {
       `${this.apiUrl}/${facebookGroupId}/status`,
       request
     ).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Obtiene un resumen completo (overview) de un grupo de Facebook.
+   * Incluye header del grupo, resumen de analytics, contadores operativos,
+   * publicaciones recientes y alertas.
+   * El interceptor HTTP agregará automáticamente el token de autenticación.
+   * @param facebookGroupId ID del grupo en Facebook
+   * @param recentPostsLimit Cantidad de publicaciones recientes a obtener (opcional, por defecto: 10)
+   * @returns Observable con el overview completo del grupo
+   */
+  getGroupOverview(facebookGroupId: string, recentPostsLimit?: number): Observable<GroupOverviewResponse> {
+    let url = `${this.apiUrl}/${facebookGroupId}/overview`;
+    
+    if (recentPostsLimit !== undefined) {
+      url += `?recentPostsLimit=${recentPostsLimit}`;
+    }
+    
+    return this.http.get<GroupOverviewResponse>(url).pipe(
       catchError(this.handleError)
     );
   }

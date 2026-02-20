@@ -414,3 +414,76 @@ export interface PageOverviewResponse {
   data: PageOverview;
   meta: FacebookPagesMeta;
 }
+
+// ============================================
+// Group Overview Models
+// ============================================
+
+/**
+ * Header de un grupo de Facebook (información básica)
+ */
+export interface GroupOverviewHeader {
+  facebookGroupId: string;
+  name: string;
+  avatarUrl: string;
+  isActive: boolean;
+  originalUrl: string;
+  lastSyncedAt: string;
+  facebookCreatedTime: string;
+}
+
+/**
+ * Resumen de analytics de un grupo (analyticsSummary del API)
+ */
+export interface GroupOverviewAnalyticsSummary {
+  facebookGroupId: string;
+  name: string;
+  pictureUrl: string;
+  memberCount: number;
+  postCount: number;
+  facebookCreatedTime: string;
+  lastSyncedAt: string;
+  snapshotAt: string;
+}
+
+/**
+ * Contadores operativos de un grupo (operationalCounters del API)
+ * Nota: Misma estructura que PageOverviewOperationalCounters
+ */
+export interface GroupOverviewOperationalCounters {
+  scheduledNext7Days: number;
+  failedRecent: number;
+  publishedRecent: number;
+  pendingPosts: number;
+}
+
+/**
+ * Publicación reciente de un grupo (recentPosts del API)
+ * Nota: Misma estructura que PageOverviewRecentPost
+ */
+export type GroupOverviewRecentPost = PageOverviewRecentPost;
+
+/**
+ * Alerta de conexión de un grupo (connectionAlerts del API)
+ * Nota: Misma estructura que PageOverviewConnectionAlert
+ */
+export type GroupOverviewConnectionAlert = PageOverviewConnectionAlert;
+
+/**
+ * Overview completo de un grupo de Facebook
+ */
+export interface GroupOverview {
+  header: GroupOverviewHeader;
+  analyticsSummary: GroupOverviewAnalyticsSummary;
+  operationalCounters: GroupOverviewOperationalCounters;
+  recentPosts: GroupOverviewRecentPost[];
+  connectionAlerts: GroupOverviewConnectionAlert[];
+}
+
+/**
+ * Response del overview de un grupo
+ */
+export interface GroupOverviewResponse {
+  data: GroupOverview;
+  meta: FacebookPagesMeta;
+}
