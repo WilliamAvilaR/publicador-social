@@ -169,8 +169,8 @@
         <div *ngIf="!loadingAssets" class="assets-selection">
           <div class="selection-info">
             <p>Selecciona las páginas y grupos que deseas agregar a la colección.</p>
-            <p class="selected-count" *ngIf="selectedAssetIds.length > 0">
-              {{ selectedAssetIds.length }} item(s) seleccionado(s)
+            <p class="selected-count" *ngIf="getTotalSelectedCount() > 0">
+              {{ getTotalSelectedCount() }} item(s) seleccionado(s)
             </p>
           </div>
 
@@ -181,8 +181,8 @@
               <label *ngFor="let page of availablePages" class="asset-checkbox">
                 <input
                   type="checkbox"
-                  [checked]="isAssetSelected(getPageAssetId(page))"
-                  (change)="toggleAssetSelection(getPageAssetId(page))">
+                  [checked]="isPageSelected(getPageAssetId(page))"
+                  (change)="togglePageSelection(getPageAssetId(page))">
                 <div class="asset-info">
                   <img
                     *ngIf="page.pictureUrl"
@@ -208,8 +208,8 @@
               <label *ngFor="let group of availableGroups" class="asset-checkbox">
                 <input
                   type="checkbox"
-                  [checked]="isAssetSelected(group.id)"
-                  (change)="toggleAssetSelection(group.id)">
+                  [checked]="isGroupSelected(group.id)"
+                  (change)="toggleGroupSelection(group.id)">
                 <div class="asset-info">
                   <img
                     *ngIf="group.pictureUrl"
@@ -241,8 +241,8 @@
           type="button"
           class="btn-primary"
           (click)="onAddItemsSubmit()"
-          [disabled]="addingItems || selectedAssetIds.length === 0 || loadingAssets">
-          <span *ngIf="!addingItems">Agregar ({{ selectedAssetIds.length }})</span>
+          [disabled]="addingItems || getTotalSelectedCount() === 0 || loadingAssets">
+          <span *ngIf="!addingItems">Agregar ({{ getTotalSelectedCount() }})</span>
           <span *ngIf="addingItems">Agregando...</span>
         </button>
       </div>
@@ -251,49 +251,180 @@
 
   <!-- Modal: Crear Colección -->
   <div *ngIf="showCreateModal" class="modal-overlay" (click)="closeCreateModal()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-content modal-large" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2>Crear Nueva Colección</h2>
+        <h2>Crear Colección</h2>
         <button class="close-btn" (click)="closeCreateModal()">×</button>
       </div>
+      
       <!-- Mensaje de error del modal -->
       <div *ngIf="createError" class="error-alert" style="margin: 1rem;">
         <span class="error-icon">⚠️</span>
         <span>{{ createError }}</span>
         <button class="close-btn" (click)="createError = null">×</button>
       </div>
-      <form [formGroup]="createForm" (ngSubmit)="onCreateSubmit()" class="modal-body">
-        <div class="form-group">
-          <label for="create-name">Nombre *</label>
-          <input
-            id="create-name"
-            type="text"
-            formControlName="name"
-            placeholder="Ej: Cundinamarca"
-            class="form-input">
-          <span *ngIf="createForm.get('name')?.invalid && createForm.get('name')?.touched" class="error-text">
-            El nombre es requerido (mínimo 3 caracteres)
-          </span>
+
+      <!-- Paso 1: Información básica -->
+      <div *ngIf="createStep === 1" class="modal-body">
+        <div class="step-indicator">
+          <div class="step active">
+            <div class="step-number">1</div>
+            <div class="step-label">Información básica</div>
+          </div>
+          <div class="step-line"></div>
+          <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-label">Seleccionar activos</div>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="create-description">Descripción</label>
-          <textarea
-            id="create-description"
-            formControlName="description"
-            placeholder="Ej: Activos del departamento de Cundinamarca"
-            class="form-textarea"
-            rows="3"></textarea>
-        </div>
+
+        <form [formGroup]="createForm" class="create-form">
+          <div class="form-group">
+            <label for="create-name">Nombre *</label>
+            <input
+              id="create-name"
+              type="text"
+              formControlName="name"
+              placeholder="Ej: Cundinamarca"
+              class="form-input">
+            <span *ngIf="createForm.get('name')?.invalid && createForm.get('name')?.touched" class="error-text">
+              El nombre es requerido (mínimo 3 caracteres)
+            </span>
+          </div>
+          <div class="form-group">
+            <label for="create-description">Descripción</label>
+            <textarea
+              id="create-description"
+              formControlName="description"
+              placeholder="Ej: Activos del departamento de Cundinamarca"
+              class="form-textarea"
+              rows="3"></textarea>
+          </div>
+        </form>
+
         <div class="modal-footer">
           <button type="button" class="btn-secondary" (click)="closeCreateModal()">
             Cancelar
           </button>
-          <button type="submit" class="btn-primary" [disabled]="creating || createForm.invalid">
-            <span *ngIf="!creating">Crear</span>
+          <button type="button" class="btn-primary" (click)="goToStep2()" [disabled]="createForm.invalid">
+            Continuar
+          </button>
+        </div>
+      </div>
+
+      <!-- Paso 2: Seleccionar activos -->
+      <div *ngIf="createStep === 2" class="modal-body">
+        <div class="step-indicator">
+          <div class="step completed">
+            <div class="step-number">✓</div>
+            <div class="step-label">Información básica</div>
+          </div>
+          <div class="step-line"></div>
+          <div class="step active">
+            <div class="step-number">2</div>
+            <div class="step-label">Seleccionar activos</div>
+          </div>
+        </div>
+
+        <div *ngIf="loadingAssets" class="loading-container">
+          <div class="spinner"></div>
+          <p>Cargando activos disponibles...</p>
+        </div>
+
+        <div *ngIf="!loadingAssets" class="assets-selection-step2">
+          <!-- Tabs -->
+          <div class="tabs-container">
+            <button 
+              class="tab-button" 
+              [class.active]="activeTab === 'all'"
+              (click)="activeTab = 'all'">
+              Todas
+            </button>
+            <button 
+              class="tab-button" 
+              [class.active]="activeTab === 'pages'"
+              (click)="activeTab = 'pages'">
+              Páginas
+            </button>
+            <button 
+              class="tab-button" 
+              [class.active]="activeTab === 'groups'"
+              (click)="activeTab = 'groups'">
+              Grupos
+            </button>
+          </div>
+
+          <!-- Buscador -->
+          <div class="search-container">
+            <input
+              type="text"
+              [(ngModel)]="searchQuery"
+              placeholder="Buscar por nombre o ID..."
+              class="search-input">
+          </div>
+
+          <!-- Contador dinámico -->
+          <div class="selection-info-step2" *ngIf="getTotalSelectedCount() > 0">
+            <span class="selected-count-badge">
+              {{ getTotalSelectedCount() }} activo(s) seleccionado(s)
+            </span>
+          </div>
+
+          <!-- Lista de activos -->
+          <div class="assets-list-step2">
+            <div *ngIf="getAllFilteredAssets().length === 0" class="no-assets">
+              <p>No se encontraron activos</p>
+            </div>
+
+            <label 
+              *ngFor="let asset of getAllFilteredAssets()" 
+              class="asset-checkbox-step2">
+              <input
+                type="checkbox"
+                [checked]="isAssetSelected(asset.id, asset.type)"
+                (change)="toggleAssetSelection(asset.id, asset.type)">
+              <div class="asset-info">
+                <img
+                  *ngIf="asset.type === 'page' && asset.page?.pictureUrl"
+                  [src]="asset.page?.pictureUrl"
+                  [alt]="asset.page?.name"
+                  class="asset-thumb">
+                <img
+                  *ngIf="asset.type === 'group' && asset.group?.pictureUrl"
+                  [src]="asset.group?.pictureUrl"
+                  [alt]="asset.group?.name"
+                  class="asset-thumb">
+                <div *ngIf="(asset.type === 'page' && !asset.page?.pictureUrl) || (asset.type === 'group' && !asset.group?.pictureUrl)" class="asset-thumb-placeholder">
+                  {{ getAssetInitial(asset) }}
+                </div>
+                <div class="asset-details">
+                  <strong>{{ asset.type === 'page' ? asset.page?.name : asset.group?.name }}</strong>
+                  <span class="asset-type-badge" [class.page]="asset.type === 'page'" [class.group]="asset.type === 'group'">
+                    {{ asset.type === 'page' ? '📄 Página' : '👥 Grupo' }}
+                  </span>
+                  <span class="asset-id">ID: {{ asset.type === 'page' ? asset.page?.facebookPageId : asset.group?.facebookGroupId }}</span>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" (click)="goToStep1()" [disabled]="creating">
+            Atrás
+          </button>
+          <button 
+            type="button" 
+            class="btn-primary" 
+            (click)="onCreateSubmit()" 
+            [disabled]="creating || createForm.invalid">
+            <span *ngIf="!creating">
+              Crear colección{{ getTotalSelectedCount() > 0 ? ' y añadir ' + getTotalSelectedCount() + ' activo(s)' : '' }}
+            </span>
             <span *ngIf="creating">Creando...</span>
           </button>
         </div>
-      </form>
+      </div>
     </div>
   </div>
 

@@ -1,7 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subscription, forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { SegmentsService } from '../../services/segments.service';
 import { FacebookOAuthService } from '../../../../core/services/facebook-oauth.service';
 import { FacebookGroupsService } from '../../../facebook/services/facebook-groups.service';
@@ -57,8 +58,14 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   // Datos para agregar items
   availablePages: FacebookPage[] = [];
   availableGroups: FacebookGroup[] = [];
-  selectedAssetIds: number[] = [];
+  selectedPageIds: number[] = [];
+  selectedGroupIds: number[] = [];
   loadingAssets = false;
+  
+  // Estado del modal de creación (dos pasos)
+  createStep: 1 | 2 = 1;
+  searchQuery: string = '';
+  activeTab: 'all' | 'pages' | 'groups' = 'all';
   
   private subscriptions = new Subscription();
 
@@ -149,6 +156,11 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   openCreateModal(): void {
     this.createForm.reset();
     this.createError = null;
+    this.createStep = 1;
+    this.searchQuery = '';
+    this.activeTab = 'all';
+    this.selectedPageIds = [];
+    this.selectedGroupIds = [];
     this.showCreateModal = true;
   }
 
@@ -159,10 +171,35 @@ export class SegmentsComponent implements OnInit, OnDestroy {
     this.showCreateModal = false;
     this.createForm.reset();
     this.createError = null;
+    this.createStep = 1;
+    this.searchQuery = '';
+    this.activeTab = 'all';
+    this.selectedPageIds = [];
+    this.selectedGroupIds = [];
   }
 
   /**
-   * Crea una nueva colección
+   * Avanza al paso 2 del modal de creación (selección de activos)
+   */
+  goToStep2(): void {
+    if (this.createForm.invalid) {
+      markFormGroupTouched(this.createForm);
+      return;
+    }
+
+    this.createStep = 2;
+    this.loadAvailableAssets();
+  }
+
+  /**
+   * Retrocede al paso 1 del modal de creación
+   */
+  goToStep1(): void {
+    this.createStep = 1;
+  }
+
+  /**
+   * Crea una nueva colección y agrega los items seleccionados
    */
   onCreateSubmit(): void {
     if (this.createForm.invalid) {
@@ -171,18 +208,57 @@ export class SegmentsComponent implements OnInit, OnDestroy {
     }
 
     this.creating = true;
-    this.createError = null; // Limpiar error previo
+    this.createError = null;
     
     const request: CreateSegmentRequest = {
       name: this.createForm.value.name.trim(),
       description: this.createForm.value.description?.trim() || undefined
     };
 
-    const subscription = this.segmentsService.createSegment(request).subscribe({
-      next: () => {
-        this.creating = false;
-        this.closeCreateModal();
-        this.loadSegments();
+    // Primero crear la colección
+    const createSubscription = this.segmentsService.createSegment(request).subscribe({
+      next: (response) => {
+        // Si hay items seleccionados, agregarlos
+        const totalSelected = this.selectedPageIds.length + this.selectedGroupIds.length;
+        if (totalSelected > 0) {
+          const addItemsRequest: AddItemsToSegmentRequest = {};
+          
+          if (this.selectedPageIds.length > 0) {
+            addItemsRequest.pageIds = this.selectedPageIds;
+          }
+          
+          if (this.selectedGroupIds.length > 0) {
+            addItemsRequest.groupIds = this.selectedGroupIds;
+          }
+
+          const addItemsSubscription = this.segmentsService.addItemsToSegment(
+            response.collectionId,
+            addItemsRequest
+          ).subscribe({
+            next: (addResponse) => {
+              this.creating = false;
+              this.closeCreateModal();
+              this.loadSegments();
+            },
+            error: (error) => {
+              // La colección se creó pero falló al agregar items
+              this.creating = false;
+              this.createError = extractErrorMessage(error, 'La colección se creó pero hubo un error al agregar los activos');
+              // Cerrar el modal después de un tiempo para que el usuario vea el mensaje
+              setTimeout(() => {
+                this.closeCreateModal();
+                this.loadSegments();
+              }, 3000);
+            }
+          });
+
+          this.subscriptions.add(addItemsSubscription);
+        } else {
+          // No hay items seleccionados, solo cerrar
+          this.creating = false;
+          this.closeCreateModal();
+          this.loadSegments();
+        }
       },
       error: (error) => {
         this.creating = false;
@@ -190,7 +266,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
       }
     });
 
-    this.subscriptions.add(subscription);
+    this.subscriptions.add(createSubscription);
   }
 
   /**
@@ -323,7 +399,8 @@ export class SegmentsComponent implements OnInit, OnDestroy {
       collectionId: segment.collectionId,
       name: segment.name
     };
-    this.selectedAssetIds = [];
+    this.selectedPageIds = [];
+    this.selectedGroupIds = [];
     this.loadAvailableAssets();
     this.showAddItemsModal = true;
   }
@@ -333,7 +410,8 @@ export class SegmentsComponent implements OnInit, OnDestroy {
    */
   closeAddItemsModal(): void {
     this.showAddItemsModal = false;
-    this.selectedAssetIds = [];
+    this.selectedPageIds = [];
+    this.selectedGroupIds = [];
     this.addItemsForm.reset();
   }
 
@@ -343,63 +421,103 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   loadAvailableAssets(): void {
     this.loadingAssets = true;
     
-    const pagesSub = this.facebookService.getConnectedPages().subscribe({
-      next: (pages) => {
-        this.availablePages = pages.filter(p => p.isActive);
-        this.loadingAssets = false;
-      },
-      error: (error) => {
+    // Usar forkJoin para esperar a que ambas peticiones terminen
+    const pages$ = this.facebookService.getConnectedPages().pipe(
+      catchError(error => {
         console.error('Error al cargar páginas:', error);
-        this.loadingAssets = false;
-      }
-    });
+        return of([]); // Retornar array vacío en caso de error
+      })
+    );
 
-    const groupsSub = this.groupsService.getGroups().subscribe({
-      next: (response) => {
-        this.availableGroups = response.data.filter(g => g.isActive);
+    const groups$ = this.groupsService.getGroups().pipe(
+      catchError(error => {
+        console.error('Error al cargar grupos:', error);
+        return of({ data: [] }); // Retornar objeto con data vacía en caso de error
+      })
+    );
+
+    const subscription = forkJoin({
+      pages: pages$,
+      groups: groups$
+    }).subscribe({
+      next: ({ pages, groups }) => {
+        this.availablePages = pages.filter(p => p.isActive);
+        this.availableGroups = groups.data.filter(g => g.isActive);
         this.loadingAssets = false;
       },
       error: (error) => {
-        console.error('Error al cargar grupos:', error);
+        console.error('Error al cargar activos:', error);
         this.loadingAssets = false;
       }
     });
 
-    this.subscriptions.add(pagesSub);
-    this.subscriptions.add(groupsSub);
+    this.subscriptions.add(subscription);
   }
 
   /**
-   * Toggle selección de un activo
+   * Toggle selección de una página
    */
-  toggleAssetSelection(assetId: number): void {
-    const index = this.selectedAssetIds.indexOf(assetId);
+  togglePageSelection(pageId: number): void {
+    const index = this.selectedPageIds.indexOf(pageId);
     if (index > -1) {
-      this.selectedAssetIds.splice(index, 1);
+      this.selectedPageIds.splice(index, 1);
     } else {
-      this.selectedAssetIds.push(assetId);
+      this.selectedPageIds.push(pageId);
     }
   }
 
   /**
-   * Verifica si un activo está seleccionado
+   * Toggle selección de un grupo
    */
-  isAssetSelected(assetId: number): boolean {
-    return this.selectedAssetIds.includes(assetId);
+  toggleGroupSelection(groupId: number): void {
+    const index = this.selectedGroupIds.indexOf(groupId);
+    if (index > -1) {
+      this.selectedGroupIds.splice(index, 1);
+    } else {
+      this.selectedGroupIds.push(groupId);
+    }
+  }
+
+  /**
+   * Verifica si una página está seleccionada
+   */
+  isPageSelected(pageId: number): boolean {
+    return this.selectedPageIds.includes(pageId);
+  }
+
+  /**
+   * Verifica si un grupo está seleccionado
+   */
+  isGroupSelected(groupId: number): boolean {
+    return this.selectedGroupIds.includes(groupId);
+  }
+
+  /**
+   * Obtiene el total de items seleccionados
+   */
+  getTotalSelectedCount(): number {
+    return this.selectedPageIds.length + this.selectedGroupIds.length;
   }
 
   /**
    * Agrega items a la colección
    */
   onAddItemsSubmit(): void {
-    if (this.selectedAssetIds.length === 0 || !this.selectedSegment) {
+    const totalSelected = this.selectedPageIds.length + this.selectedGroupIds.length;
+    if (totalSelected === 0 || !this.selectedSegment) {
       return;
     }
 
     this.addingItems = true;
-    const request: AddItemsToSegmentRequest = {
-      socialAssetIds: this.selectedAssetIds
-    };
+    const request: AddItemsToSegmentRequest = {};
+    
+    if (this.selectedPageIds.length > 0) {
+      request.pageIds = this.selectedPageIds;
+    }
+    
+    if (this.selectedGroupIds.length > 0) {
+      request.groupIds = this.selectedGroupIds;
+    }
 
     const subscription = this.segmentsService.addItemsToSegment(
       this.selectedSegment.collectionId,
@@ -491,19 +609,114 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Obtiene el ID del activo social de una página
-   * Nota: El socialAssetId debe obtenerse del backend.
-   * Por ahora, necesitamos un endpoint que devuelva los activos sociales con sus IDs.
-   * Esta función es un placeholder que necesita ser implementada correctamente.
+   * Obtiene el ID numérico de una página para usar en pageIds
    * 
-   * IMPORTANTE: El endpoint de colecciones espera `socialAssetId` que es un número interno
-   * del sistema, no el `facebookPageId` que es un string. Necesitamos un endpoint que
-   * devuelva los activos sociales disponibles con sus `socialAssetId` correspondientes.
+   * Nota: El modelo FacebookPage no incluye un campo 'id' numérico directamente.
+   * Este método intenta obtener el ID desde campos extendidos del objeto.
+   * Si el backend devuelve el ID en la respuesta, debería estar disponible aquí.
+   * 
+   * Si este método retorna 0, significa que no se pudo obtener el ID y la página
+   * no se podrá agregar a la colección. En ese caso, sería necesario que el backend
+   * incluya el ID numérico en la respuesta de GET /api/Facebook/pages.
    */
   getPageAssetId(page: FacebookPage): number {
-    // TODO: Necesitamos un endpoint como GET /api/social-assets que devuelva:
-    // { socialAssetId: number, facebookPageId: string, assetType: 'page' | 'group', ... }
-    // Por ahora, intentamos usar el ID si está disponible en el objeto extendido
-    return (page as any).id || (page as any).socialAssetId || 0;
+    // Intentar obtener el ID desde campos extendidos
+    // El backend debería incluir el ID numérico en la respuesta
+    return (page as any).id || (page as any).socialAssetId || (page as any).pageId || 0;
+  }
+
+  /**
+   * Filtra las páginas según la búsqueda y el tab activo
+   */
+  getFilteredPages(): FacebookPage[] {
+    let filtered = this.availablePages;
+
+    // Filtrar por búsqueda
+    if (this.searchQuery.trim()) {
+      const query = this.searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(page => 
+        page.name.toLowerCase().includes(query) ||
+        page.facebookPageId?.toString().includes(query)
+      );
+    }
+
+    return filtered;
+  }
+
+  /**
+   * Filtra los grupos según la búsqueda y el tab activo
+   */
+  getFilteredGroups(): FacebookGroup[] {
+    let filtered = this.availableGroups;
+
+    // Filtrar por búsqueda
+    if (this.searchQuery.trim()) {
+      const query = this.searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(group => 
+        group.name.toLowerCase().includes(query) ||
+        group.facebookGroupId?.toString().includes(query)
+      );
+    }
+
+    return filtered;
+  }
+
+  /**
+   * Obtiene todos los activos filtrados (páginas y grupos) según el tab activo
+   */
+  getAllFilteredAssets(): Array<{type: 'page' | 'group', page?: FacebookPage, group?: FacebookGroup, id: number}> {
+    const assets: Array<{type: 'page' | 'group', page?: FacebookPage, group?: FacebookGroup, id: number}> = [];
+
+    if (this.activeTab === 'all' || this.activeTab === 'pages') {
+      this.getFilteredPages().forEach(page => {
+        assets.push({
+          type: 'page',
+          page,
+          id: this.getPageAssetId(page)
+        });
+      });
+    }
+
+    if (this.activeTab === 'all' || this.activeTab === 'groups') {
+      this.getFilteredGroups().forEach(group => {
+        assets.push({
+          type: 'group',
+          group,
+          id: group.id
+        });
+      });
+    }
+
+    return assets;
+  }
+
+  /**
+   * Verifica si un activo está seleccionado
+   */
+  isAssetSelected(assetId: number, type: 'page' | 'group'): boolean {
+    if (type === 'page') {
+      return this.selectedPageIds.includes(assetId);
+    } else {
+      return this.selectedGroupIds.includes(assetId);
+    }
+  }
+
+  /**
+   * Toggle selección de un activo
+   */
+  toggleAssetSelection(assetId: number, type: 'page' | 'group'): void {
+    if (type === 'page') {
+      this.togglePageSelection(assetId);
+    } else {
+      this.toggleGroupSelection(assetId);
+    }
+  }
+
+  /**
+   * Obtiene la inicial de un activo para el placeholder
+   */
+  getAssetInitial(asset: {type: 'page' | 'group', page?: FacebookPage, group?: FacebookGroup}): string {
+    const name = asset.type === 'page' ? asset.page?.name : asset.group?.name;
+    return name?.charAt(0)?.toUpperCase() || '?';
   }
 }

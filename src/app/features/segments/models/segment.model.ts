@@ -138,9 +138,17 @@ export interface ArchiveSegmentRequest {
 
 /**
  * Request para agregar items a una colección (bulk)
+ * 
+ * Este endpoint permite agregar múltiples páginas y grupos de Facebook a una colección
+ * en una sola operación.
+ * 
+ * Los IDs deben ser mayores que 0 y corresponder a páginas o grupos existentes
+ * que pertenezcan al usuario autenticado. Si un activo ya está en la colección,
+ * se omite automáticamente (no se duplica).
  */
 export interface AddItemsToSegmentRequest {
-  socialAssetIds: number[];
+  pageIds?: number[];
+  groupIds?: number[];
 }
 
 /**

@@ -146,14 +146,43 @@ export class SegmentsService {
 
   /**
    * Agrega items a una colección (bulk)
-   * @param collectionId ID de la colección
-   * @param request IDs de los activos sociales a agregar
-   * @returns Observable con el resultado de la operación
+   *
+   * Este método permite agregar múltiples páginas y grupos de Facebook a una colección
+   * en una sola operación.
+   *
+   * Los IDs deben corresponder a páginas o grupos existentes que pertenezcan al usuario
+   * autenticado. Si un activo ya está en la colección, se omite automáticamente (no se duplica).
+   *
+   * @param collectionId ID de la colección a la que se agregarán los items
+   * @param request IDs de páginas y grupos a agregar (deben ser mayores que 0)
+   * @returns Observable con el resultado de la operación (collectionId, added, skippedDuplicates)
    */
   addItemsToSegment(collectionId: number, request: AddItemsToSegmentRequest): Observable<AddItemsToSegmentResponse> {
+    // Validar y filtrar IDs de páginas (deben ser mayores que 0)
+    const validPageIds = (request.pageIds || []).filter(id => id > 0);
+
+    // Validar y filtrar IDs de grupos (deben ser mayores que 0)
+    const validGroupIds = (request.groupIds || []).filter(id => id > 0);
+
+    // Verificar que al menos haya un ID válido
+    if (validPageIds.length === 0 && validGroupIds.length === 0) {
+      return throwError(() => new Error('Debe proporcionar al menos un ID de página o grupo válido (mayor que 0)'));
+    }
+
+    // Construir el request con solo los IDs válidos
+    const validRequest: AddItemsToSegmentRequest = {};
+
+    if (validPageIds.length > 0) {
+      validRequest.pageIds = validPageIds;
+    }
+
+    if (validGroupIds.length > 0) {
+      validRequest.groupIds = validGroupIds;
+    }
+
     return this.http.post<AddItemsToSegmentApiResponse>(
       `${this.collectionsApiUrl}/${collectionId}/items`,
-      request
+      validRequest
     ).pipe(
       map(response => response.data),
       catchError(this.handleError)
