@@ -169,16 +169,19 @@
         <div *ngIf="!loadingAssets" class="assets-selection">
           <div class="selection-info">
             <p>Selecciona las páginas y grupos que deseas agregar a la colección.</p>
+            <p *ngIf="currentCollectionItems.length > 0" class="collection-info">
+              La colección actualmente tiene <strong>{{ currentCollectionItems.length }}</strong> item(s).
+            </p>
             <p class="selected-count" *ngIf="getTotalSelectedCount() > 0">
-              {{ getTotalSelectedCount() }} item(s) seleccionado(s)
+              {{ getTotalSelectedCount() }} item(s) seleccionado(s) para agregar
             </p>
           </div>
 
-          <!-- Páginas -->
-          <div *ngIf="availablePages.length > 0" class="assets-section">
-            <h4>📄 Páginas ({{ availablePages.length }})</h4>
+          <!-- Páginas disponibles -->
+          <div *ngIf="getAvailablePagesForAdd().length > 0" class="assets-section">
+            <h4>📄 Páginas disponibles ({{ getAvailablePagesForAdd().length }})</h4>
             <div class="assets-list">
-              <label *ngFor="let page of availablePages" class="asset-checkbox">
+              <label *ngFor="let page of getAvailablePagesForAdd()" class="asset-checkbox">
                 <input
                   type="checkbox"
                   [checked]="isPageSelected(getPageAssetId(page))"
@@ -201,11 +204,35 @@
             </div>
           </div>
 
-          <!-- Grupos -->
-          <div *ngIf="availableGroups.length > 0" class="assets-section">
-            <h4>👥 Grupos ({{ availableGroups.length }})</h4>
+          <!-- Páginas ya en la colección (solo informativo) -->
+          <div *ngIf="availablePages.length > 0 && getAvailablePagesForAdd().length < availablePages.length" class="assets-section already-added">
+            <h4>📄 Páginas ya en la colección ({{ availablePages.length - getAvailablePagesForAdd().length }})</h4>
             <div class="assets-list">
-              <label *ngFor="let group of availableGroups" class="asset-checkbox">
+              <div *ngFor="let page of availablePages" class="asset-checkbox disabled">
+                <div *ngIf="isPageInCollection(getPageAssetId(page))" class="asset-info">
+                  <img
+                    *ngIf="page.pictureUrl"
+                    [src]="page.pictureUrl"
+                    [alt]="page.name"
+                    class="asset-thumb">
+                  <div *ngIf="!page.pictureUrl" class="asset-thumb-placeholder">
+                    {{ page.name.charAt(0).toUpperCase() }}
+                  </div>
+                  <div class="asset-details">
+                    <strong>{{ page.name }}</strong>
+                    <span class="asset-id">ID: {{ page.facebookPageId }}</span>
+                    <span class="already-added-badge">✓ Ya agregado</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Grupos disponibles -->
+          <div *ngIf="getAvailableGroupsForAdd().length > 0" class="assets-section">
+            <h4>👥 Grupos disponibles ({{ getAvailableGroupsForAdd().length }})</h4>
+            <div class="assets-list">
+              <label *ngFor="let group of getAvailableGroupsForAdd()" class="asset-checkbox">
                 <input
                   type="checkbox"
                   [checked]="isGroupSelected(group.id)"
@@ -228,6 +255,36 @@
             </div>
           </div>
 
+          <!-- Grupos ya en la colección (solo informativo) -->
+          <div *ngIf="availableGroups.length > 0 && getAvailableGroupsForAdd().length < availableGroups.length" class="assets-section already-added">
+            <h4>👥 Grupos ya en la colección ({{ availableGroups.length - getAvailableGroupsForAdd().length }})</h4>
+            <div class="assets-list">
+              <div *ngFor="let group of availableGroups" class="asset-checkbox disabled">
+                <div *ngIf="isGroupInCollection(group.id)" class="asset-info">
+                  <img
+                    *ngIf="group.pictureUrl"
+                    [src]="group.pictureUrl"
+                    [alt]="group.name"
+                    class="asset-thumb">
+                  <div *ngIf="!group.pictureUrl" class="asset-thumb-placeholder">
+                    {{ group.name.charAt(0).toUpperCase() }}
+                  </div>
+                  <div class="asset-details">
+                    <strong>{{ group.name }}</strong>
+                    <span class="asset-id">ID: {{ group.facebookGroupId }}</span>
+                    <span class="already-added-badge">✓ Ya agregado</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mensaje cuando no hay activos disponibles para agregar -->
+          <div *ngIf="getAvailablePagesForAdd().length === 0 && getAvailableGroupsForAdd().length === 0 && (availablePages.length > 0 || availableGroups.length > 0)" class="no-assets">
+            <p>✅ Todos los activos disponibles ya están en esta colección.</p>
+          </div>
+
+          <!-- Mensaje cuando no hay activos en absoluto -->
           <div *ngIf="availablePages.length === 0 && availableGroups.length === 0" class="no-assets">
             <p>No hay activos disponibles para agregar</p>
           </div>

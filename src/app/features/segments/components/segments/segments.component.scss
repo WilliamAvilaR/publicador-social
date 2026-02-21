@@ -641,6 +641,53 @@
   color: #6b7280;
 }
 
+// Estilos para items ya agregados
+.assets-section.already-added {
+  opacity: 0.7;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+
+  h4 {
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+  }
+}
+
+.asset-checkbox.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+
+  &:hover {
+    border-color: #e5e7eb;
+    background-color: #f9fafb;
+  }
+}
+
+.already-added-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  background-color: #d1fae5;
+  color: #065f46;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.collection-info {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #6b7280;
+
+  strong {
+    color: #374151;
+  }
+}
+
 // Estilos para el modal de creación con dos pasos
 .step-indicator {
   display: flex;

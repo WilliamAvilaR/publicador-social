@@ -61,6 +61,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   selectedPageIds: number[] = [];
   selectedGroupIds: number[] = [];
   loadingAssets = false;
+  currentCollectionItems: SegmentItem[] = []; // Items actuales de la colección
   
   // Estado del modal de creación (dos pasos)
   createStep: 1 | 2 = 1;
@@ -401,8 +402,25 @@ export class SegmentsComponent implements OnInit, OnDestroy {
     };
     this.selectedPageIds = [];
     this.selectedGroupIds = [];
-    this.loadAvailableAssets();
+    this.currentCollectionItems = [];
+    this.loadingAssets = true;
     this.showAddItemsModal = true;
+    
+    // Cargar el detalle de la colección para obtener los items actuales
+    const detailSub = this.segmentsService.getSegmentDetail(segment.collectionId, true).subscribe({
+      next: (detail) => {
+        this.currentCollectionItems = detail.items || [];
+        // Luego cargar los activos disponibles
+        this.loadAvailableAssets();
+      },
+      error: (error) => {
+        console.error('Error al cargar detalle de la colección:', error);
+        // Cargar activos de todas formas
+        this.loadAvailableAssets();
+      }
+    });
+    
+    this.subscriptions.add(detailSub);
   }
 
   /**
@@ -412,6 +430,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
     this.showAddItemsModal = false;
     this.selectedPageIds = [];
     this.selectedGroupIds = [];
+    this.currentCollectionItems = [];
     this.addItemsForm.reset();
   }
 
@@ -718,5 +737,57 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   getAssetInitial(asset: {type: 'page' | 'group', page?: FacebookPage, group?: FacebookGroup}): string {
     const name = asset.type === 'page' ? asset.page?.name : asset.group?.name;
     return name?.charAt(0)?.toUpperCase() || '?';
+  }
+
+  /**
+   * Verifica si una página ya está en la colección
+   * Compara usando el socialAssetId del SegmentItem con el ID numérico de la página
+   */
+  isPageInCollection(pageId: number): boolean {
+    if (pageId <= 0) return false;
+    
+    return this.currentCollectionItems.some(item => 
+      item.assetType === 'page' && item.socialAssetId === pageId
+    );
+  }
+
+  /**
+   * Verifica si un grupo ya está en la colección
+   * Compara usando el socialAssetId del SegmentItem con el ID del grupo
+   */
+  isGroupInCollection(groupId: number): boolean {
+    if (groupId <= 0) return false;
+    
+    return this.currentCollectionItems.some(item => 
+      item.assetType === 'group' && item.socialAssetId === groupId
+    );
+  }
+
+  /**
+   * Filtra las páginas disponibles (excluyendo las que ya están en la colección)
+   */
+  getAvailablePagesForAdd(): FacebookPage[] {
+    return this.availablePages.filter(page => {
+      const pageId = this.getPageAssetId(page);
+      return pageId > 0 && !this.isPageInCollection(pageId);
+    });
+  }
+
+  /**
+   * Filtra los grupos disponibles (excluyendo los que ya están en la colección)
+   */
+  getAvailableGroupsForAdd(): FacebookGroup[] {
+    return this.availableGroups.filter(group => !this.isGroupInCollection(group.id));
+  }
+
+  /**
+   * Verifica si un activo (página o grupo) ya está en la colección
+   */
+  isAssetInCollection(assetId: number, type: 'page' | 'group'): boolean {
+    if (type === 'page') {
+      return this.isPageInCollection(assetId);
+    } else {
+      return this.isGroupInCollection(assetId);
+    }
   }
 }
