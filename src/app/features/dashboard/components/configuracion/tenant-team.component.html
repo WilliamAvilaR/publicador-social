@@ -1,0 +1,392 @@
+<div class="tenant-team">
+  <div class="tenant-team-header">
+    <div class="titles">
+      <h3 class="section-subtitle">Equipo</h3>
+      <p class="section-description" *ngIf="currentTenantName">
+        Administra los usuarios, sus roles y los accesos dentro de este espacio de trabajo.
+      </p>
+      <p class="section-description" *ngIf="!currentTenantName">
+        Selecciona un workspace en la parte superior para gestionar su equipo.
+      </p>
+      <p class="section-description roles-hint" *ngIf="rolesError">
+        No se pudo cargar el catálogo de roles: {{ rolesError }}
+      </p>
+    </div>
+  </div>
+
+  <div class="tenant-team-body">
+    <!-- Estado de carga / error -->
+    <div *ngIf="loading" class="state-message">
+      Cargando equipo...
+    </div>
+
+    <div *ngIf="loadError && !loading" class="state-message error">
+      {{ loadError }}
+    </div>
+
+    <!-- Lista de miembros -->
+    <div *ngIf="!loading && !loadError" class="team-list-card">
+      <div *ngIf="teamActionError" class="team-action-banner error" role="alert">
+        <span>{{ teamActionError }}</span>
+        <button type="button" class="dismiss-banner" (click)="clearTeamActionError()" aria-label="Cerrar">×</button>
+      </div>
+
+      <div class="team-list-header">
+        <h4>Miembros del equipo</h4>
+        <span class="badge" *ngIf="team.length">
+          {{ team.length }} miembros
+        </span>
+        <div class="team-list-actions">
+          <button
+            type="button"
+            class="secondary-btn header-action"
+            *ngIf="isCurrentUserTenantOwner()"
+            (click)="openTransferModal()"
+            [disabled]="!currentTenantName || transferCandidates.length === 0">
+            Transferir propiedad
+          </button>
+          <button
+            type="button"
+            class="primary-btn"
+            *ngIf="isWorkspaceManager()"
+            (click)="openInviteModal()"
+            [disabled]="!currentTenantName">
+            Invitar miembro
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="team.length === 0" class="state-message">
+        Aún no hay miembros en este workspace. Si puedes gestionar el equipo, usa "Invitar miembro" para enviar una invitación.
+      </div>
+
+      <table *ngIf="team.length > 0" class="team-table">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Correo electrónico</th>
+            <th>Se unió el</th>
+            <th>Rol en el equipo</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let member of team">
+            <td>
+              <div class="user-cell">
+                <div class="avatar-placeholder">
+                  {{ member.fullName ? member.fullName.charAt(0).toUpperCase() : 'U' }}
+                </div>
+                <div class="user-info">
+                  <div class="name">{{ member.fullName || 'Usuario' }}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="email">{{ member.email }}</span>
+            </td>
+            <td>
+              <span class="date">
+                {{ member.joinedAt | date: 'short' }}
+              </span>
+            </td>
+            <td>
+              <ng-container *ngIf="canEditMemberRow(member) && assignableRoleOptions.length; else roleLabel">
+                <select
+                  class="role-select"
+                  [ngClass]="'role-select--' + getRoleBadgeModifier(member.roleInTenant)"
+                  [ngModel]="member.roleInTenant"
+                  [disabled]="rolePendingUserId === member.userId"
+                  (ngModelChange)="onChangeRole(member, $event)">
+                  <option *ngFor="let r of assignableRoleOptions" [value]="r.code">
+                    {{ getRoleDisplayLabel(r.code) }}
+                  </option>
+                </select>
+              </ng-container>
+              <ng-template #roleLabel>
+                <span [ngClass]="roleBadgeClasses(member.roleInTenant)">
+                  {{ getRoleDisplayLabel(member.roleInTenant) }}
+                </span>
+              </ng-template>
+            </td>
+            <td class="status-cell">
+              <div
+                class="toggle-switch"
+                *ngIf="canToggleMemberStatus(member)"
+                [class.toggle-switch--pending]="statusPendingUserId === member.userId">
+                <input
+                  type="checkbox"
+                  class="toggle-input"
+                  [id]="'workspace-member-active-' + member.userId"
+                  [checked]="member.isActive"
+                  [disabled]="statusPendingUserId === member.userId"
+                  (click)="onStatusToggleClick($event, member)"
+                />
+                <label
+                  [for]="'workspace-member-active-' + member.userId"
+                  class="toggle-label"
+                  [attr.aria-label]="member.isActive ? 'Activo en el workspace' : 'Inactivo en el workspace'">
+                </label>
+              </div>
+
+              <!-- Propietario del miembro, fila propia (no se gestiona el estado aquí), o sin permisos de gestión: solo texto -->
+              <span
+                *ngIf="
+                  !canToggleMemberStatus(member) &&
+                  (isMemberTenantOwner(member) ||
+                    !isWorkspaceManager() ||
+                    (currentUserId !== null && member.userId === currentUserId))
+                "
+                class="status-text"
+                [class.status-text--inactive]="!member.isActive">
+                {{ member.isActive ? 'Activo' : 'Inactivo' }}
+              </span>
+            </td>
+            <td>
+              <button
+                *ngIf="canDeleteMember(member); else noDeleteAction"
+                type="button"
+                class="secondary-btn table-action-btn"
+                (click)="onDeleteMember(member)"
+                [disabled]="deletePendingUserId === member.userId">
+                <span *ngIf="deletePendingUserId !== member.userId">Eliminar</span>
+                <span *ngIf="deletePendingUserId === member.userId">Eliminando...</span>
+              </button>
+              <ng-template #noDeleteAction>
+                <span class="date">-</span>
+              </ng-template>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="team-list-card">
+      <div *ngIf="invitationActionError" class="team-action-banner error" role="alert">
+        <span>{{ invitationActionError }}</span>
+        <button
+          type="button"
+          class="dismiss-banner"
+          (click)="clearInvitationActionError()"
+          aria-label="Cerrar">
+          ×
+        </button>
+      </div>
+
+      <div class="team-list-header">
+        <h4>Invitaciones</h4>
+        <span class="badge" *ngIf="invitations.length">
+          {{ invitations.length }} resultados
+        </span>
+      </div>
+
+      <div *ngIf="invitationsLoading" class="state-message">Cargando invitaciones...</div>
+      <div *ngIf="invitationsError && !invitationsLoading" class="state-message error">{{ invitationsError }}</div>
+
+      <div *ngIf="!invitationsLoading && !invitationsError && invitations.length === 0" class="state-message">
+        No hay invitaciones para los filtros seleccionados.
+      </div>
+
+      <table *ngIf="!invitationsLoading && !invitationsError && invitations.length > 0" class="team-table">
+        <thead>
+          <tr>
+            <th>Invitado</th>
+            <th>Correo electrónico</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th>Creada</th>
+            <th>Expira</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let invitation of invitations">
+            <td>{{ getInvitationDisplayName(invitation) }}</td>
+            <td><span class="email">{{ invitation.email }}</span></td>
+            <td><span [ngClass]="roleBadgeClasses(invitation.roleInTenant)">{{ getRoleDisplayLabel(invitation.roleInTenant) }}</span></td>
+            <td>
+              <span [ngClass]="getInvitationStatusClass(invitation.status)">
+                {{ getInvitationStatusLabel(invitation.status) }}
+              </span>
+            </td>
+            <td><span class="date">{{ invitation.createdAt | date: 'short' }}</span></td>
+            <td>
+              <span class="date" *ngIf="invitation.status === 'Accepted' && invitation.acceptedAt">
+                Aceptada {{ invitation.acceptedAt | date: 'short' }}
+              </span>
+              <span class="date" *ngIf="!(invitation.status === 'Accepted' && invitation.acceptedAt)">
+                {{ invitation.expiresAt | date: 'short' }}
+              </span>
+            </td>
+            <td>
+              <button
+                type="button"
+                class="secondary-btn table-action-btn"
+                (click)="onCancelInvitation(invitation)"
+                [disabled]="cancelPendingInvitationId === invitation.invitationId">
+                <span *ngIf="cancelPendingInvitationId !== invitation.invitationId">Eliminar</span>
+                <span *ngIf="cancelPendingInvitationId === invitation.invitationId">Eliminando...</span>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- Modal de invitación -->
+  <div class="invite-modal-backdrop" *ngIf="showInviteModal">
+    <div class="invite-modal">
+      <div class="invite-modal-header">
+        <h4>Invitar nuevo miembro</h4>
+        <button type="button" class="close-btn" (click)="closeInviteModal()">×</button>
+      </div>
+
+      <p class="helper-text">
+        Envía una invitación por email. Nombre y apellidos son opcionales. El rol debe coincidir con el catálogo del servidor.
+      </p>
+
+      <div *ngIf="rolesLoading" class="state-message">Cargando roles...</div>
+
+      <form [formGroup]="inviteForm" (ngSubmit)="onInviteSubmit()" class="invite-form" *ngIf="!rolesLoading">
+        <div class="form-row">
+          <div class="form-field">
+            <label for="firstName">Nombre (opcional)</label>
+            <input
+              id="firstName"
+              type="text"
+              formControlName="firstName"
+              [class.invalid]="isFieldInvalid('firstName')" />
+            <span class="error-text" *ngIf="isFieldInvalid('firstName')">
+              {{ getFieldError('firstName') }}
+            </span>
+          </div>
+          <div class="form-field">
+            <label for="lastName">Apellidos (opcional)</label>
+            <input
+              id="lastName"
+              type="text"
+              formControlName="lastName"
+              [class.invalid]="isFieldInvalid('lastName')" />
+            <span class="error-text" *ngIf="isFieldInvalid('lastName')">
+              {{ getFieldError('lastName') }}
+            </span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="email">Correo electrónico</label>
+            <input
+              id="email"
+              type="email"
+              formControlName="email"
+              [class.invalid]="isFieldInvalid('email')" />
+            <span class="error-text" *ngIf="isFieldInvalid('email')">
+              {{ getFieldError('email') }}
+            </span>
+          </div>
+          <div class="form-field">
+            <label for="telephone">Teléfono (opcional, no se envía en la invitación)</label>
+            <input
+              id="telephone"
+              type="tel"
+              formControlName="telephone" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="roleInTenant">Rol en el equipo</label>
+            <select
+              id="roleInTenant"
+              formControlName="roleInTenant"
+              [class.invalid]="isFieldInvalid('roleInTenant')">
+              <option *ngFor="let r of inviteRoleOptions" [value]="r.code">
+                {{ getRoleDisplayLabel(r.code) }}
+              </option>
+            </select>
+            <span class="error-text" *ngIf="isFieldInvalid('roleInTenant')">
+              {{ getFieldError('roleInTenant') }}
+            </span>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button
+            type="button"
+            class="secondary-btn"
+            (click)="closeInviteModal()"
+            [disabled]="inviteLoading">
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            class="primary-btn"
+            [disabled]="inviteLoading || inviteSeatCheckPending || !currentTenantName || inviteRoleOptions.length === 0">
+            <span *ngIf="!inviteLoading && !inviteSeatCheckPending">Enviar invitación</span>
+            <span *ngIf="inviteSeatCheckPending">Verificando cupo...</span>
+            <span *ngIf="inviteLoading">Enviando...</span>
+          </button>
+        </div>
+
+        <div *ngIf="inviteError" class="feedback-message error">
+          {{ inviteError }}
+        </div>
+
+        <div *ngIf="inviteSuccess" class="feedback-message success pre-wrap">
+          {{ inviteSuccess }}
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal transferencia de propiedad -->
+  <div class="invite-modal-backdrop" *ngIf="showTransferModal">
+    <div class="invite-modal">
+      <div class="invite-modal-header">
+        <h4>Transferir propiedad</h4>
+        <button type="button" class="close-btn" (click)="closeTransferModal()">×</button>
+      </div>
+
+      <p class="helper-text">
+        Solo puede recibir la propiedad un miembro <strong>activo</strong> del workspace. Tras la transferencia el servidor puede pedir renovar la sesión.
+      </p>
+
+      <div class="invite-form">
+        <div class="form-field">
+          <label for="newOwner">Nuevo propietario</label>
+          <select
+            id="newOwner"
+            class="role-select full-width"
+            [(ngModel)]="selectedNewOwnerId"
+            [ngModelOptions]="{ standalone: true }">
+            <option [ngValue]="null">Selecciona un usuario</option>
+            <option *ngFor="let m of transferCandidates" [ngValue]="m.userId">
+              {{ m.fullName || m.email }} ({{ m.email }})
+            </option>
+          </select>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="secondary-btn" (click)="closeTransferModal()" [disabled]="transferLoading">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="primary-btn"
+            (click)="onTransferSubmit()"
+            [disabled]="transferLoading || selectedNewOwnerId == null">
+            <span *ngIf="!transferLoading">Confirmar transferencia</span>
+            <span *ngIf="transferLoading">Procesando...</span>
+          </button>
+        </div>
+
+        <div *ngIf="transferError" class="feedback-message error">{{ transferError }}</div>
+        <div *ngIf="transferSuccess" class="feedback-message success">{{ transferSuccess }}</div>
+      </div>
+    </div>
+  </div>
+</div>

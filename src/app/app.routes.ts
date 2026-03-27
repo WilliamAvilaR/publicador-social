@@ -59,6 +59,21 @@ export const routes: Routes = [
       {
         path: 'colecciones',
         loadComponent: () => import('./features/segments/components/segments/segments.component').then(m => m.SegmentsComponent)
+      },
+      {
+        path: 'publicaciones',
+        redirectTo: 'programador',
+        pathMatch: 'full'
+      },
+      {
+        path: 'automatizaciones',
+        redirectTo: 'programador',
+        pathMatch: 'full'
+      },
+      {
+        path: 'integraciones',
+        redirectTo: 'cuentas',
+        pathMatch: 'full'
       }
     ]
   },
@@ -69,5 +84,9 @@ export const routes: Routes = [
   {
     path: 'facebook-connected',
     loadComponent: () => import('./features/facebook/components/facebook-success/facebook-success.component').then(m => m.FacebookSuccessComponent)
+  },
+  {
+    path: 'accept-invitation',
+    loadComponent: () => import('./features/auth/components/accept-invitation.component').then(m => m.AcceptInvitationComponent)
   }
 ];

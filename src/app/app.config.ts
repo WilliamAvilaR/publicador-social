@@ -8,13 +8,15 @@ import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { tenantInterceptor } from './core/interceptors/tenant.interceptor';
+import { requiresReauthInterceptor } from './core/interceptors/requires-reauth.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideHttpClient(
-      withInterceptors([authInterceptor])
+      withInterceptors([authInterceptor, tenantInterceptor, requiresReauthInterceptor])
     ),
     // Configuración de ngx-translate
     TranslateModule.forRoot({

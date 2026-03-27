@@ -5,7 +5,11 @@
       <h1>Colecciones</h1>
       <p class="subtitle">Organiza tus páginas y grupos en colecciones para facilitar la publicación</p>
     </div>
-    <button class="btn-primary" (click)="openCreateModal()">
+    <button
+      class="btn-primary"
+      (click)="openCreateModal()"
+      [disabled]="!canCreateCollection"
+      [attr.title]="limitGateErrorMessage || null">
       + Nueva Colección
     </button>
   </div>
@@ -91,7 +95,11 @@
     <div class="empty-icon">📋</div>
     <h2>No hay colecciones</h2>
     <p>Crea tu primera colección para organizar tus páginas y grupos</p>
-    <button class="btn-primary" (click)="openCreateModal()">
+    <button
+      class="btn-primary"
+      (click)="openCreateModal()"
+      [disabled]="!canCreateCollection"
+      [attr.title]="limitGateErrorMessage || null">
       Crear Colección
     </button>
   </div>

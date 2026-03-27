@@ -14,7 +14,7 @@
 
     <nav class="sidebar-nav">
       <ul class="menu-list">
-        <li *ngFor="let item of menuItems" class="menu-item" [class.has-submenu]="item.hasSubmenu" [class.expanded]="isSubmenuExpanded(item.label)">
+        <li *ngFor="let item of visibleMenuItems" class="menu-item" [class.has-submenu]="item.hasSubmenu" [class.expanded]="isSubmenuExpanded(item.label)">
           <!-- Item sin submenú -->
           <a 
             *ngIf="!item.hasSubmenu && item.route"
@@ -80,6 +80,25 @@
             class="search-input"
           />
         </div>
+        <div class="tenant-info" *ngIf="currentTenant && !showTenantPickerModal">
+          <span class="tenant-label">Workspace actual:</span>
+          <ng-container *ngIf="tenants.length > 1; else singleTenantLabel">
+            <select
+              class="tenant-select"
+              [value]="currentTenant.tenantId"
+              (change)="onHeaderTenantChange($event)"
+              [attr.aria-label]="'Cambiar workspace: ' + currentTenant.name">
+              <option *ngFor="let t of tenants" [value]="t.tenantId">
+                {{ t.name }} ({{ t.role }})
+              </option>
+            </select>
+          </ng-container>
+          <ng-template #singleTenantLabel>
+            <span class="tenant-name">
+              {{ currentTenant.name }} ({{ currentTenant.role }})
+            </span>
+          </ng-template>
+        </div>
       </div>
 
       <div class="top-bar-right">
@@ -121,10 +140,39 @@
       </div>
     </header>
 
-    <!-- Main Content Area -->
+    <!-- Rutas hijas solo tras cargar tenants y, si aplica, tras elegir workspace en el modal -->
     <main class="main-content">
-      <router-outlet></router-outlet>
+      <div *ngIf="loadingTenants" class="tenant-shell-loading">Cargando workspaces…</div>
+      <router-outlet *ngIf="!loadingTenants && !showTenantPickerModal"></router-outlet>
     </main>
+  </div>
+
+  <!-- Elección obligatoria de workspace (varios tenants, sin selección válida guardada) -->
+  <div
+    class="tenant-picker-overlay"
+    *ngIf="showTenantPickerModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tenant-picker-title">
+    <div class="tenant-picker-panel">
+      <h2 id="tenant-picker-title" class="tenant-picker-title">Elige un workspace</h2>
+      <p class="tenant-picker-hint">
+        Tienes acceso a varias organizaciones. Selecciona con cuál quieres trabajar.
+      </p>
+      <label class="tenant-picker-label" for="tenant-modal-select">Organización</label>
+      <select
+        id="tenant-modal-select"
+        class="tenant-select tenant-select--modal"
+        [value]="modalTenantSelectionId ?? ''"
+        (change)="onModalTenantSelect($event)">
+        <option *ngFor="let t of tenants" [value]="t.tenantId">
+          {{ t.name }} ({{ t.role }})
+        </option>
+      </select>
+      <button type="button" class="tenant-picker-confirm" (click)="confirmWorkspaceFromModal()">
+        Continuar
+      </button>
+    </div>
   </div>
 
   <!-- Notifications Dropdown -->

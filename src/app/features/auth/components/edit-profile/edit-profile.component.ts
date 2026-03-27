@@ -6,6 +6,9 @@ import { Subscription } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../../core/services/auth.service';
 import { UpdateProfileRequest, UserProfileData } from '../../../../core/models/auth.model';
+import { TenantEntitlementsResponse } from '../../../../core/models/tenant.model';
+import { TenantEntitlementsService } from '../../../../core/services/tenant-entitlements.service';
+import { canUseLimit, getLimitValue, isFeatureEnabled } from '../../../../core/utils/entitlements.utils';
 import { markFormGroupTouched, isFieldInvalid } from '../../../../shared/utils/form.utils';
 import { extractErrorMessage } from '../../../../shared/utils/error.utils';
 import { getFieldError, validateAvatarUrl } from '../../../../shared/utils/validation.utils';
@@ -32,6 +35,10 @@ export class EditProfileComponent implements OnInit, OnDestroy {
   uploadingAvatar = false;
   deletingAvatar = false;
   avatarError = '';
+  entitlements: TenantEntitlementsResponse['data'] | null = null;
+  entitlementsLoading = false;
+  canUploadAvatar = true;
+  avatarUploadGateError: string | null = null;
   showCropModal = false;
   imageChangedEvent: any = '';
   imageFileForCropper: File | undefined = undefined;
@@ -44,7 +51,8 @@ export class EditProfileComponent implements OnInit, OnDestroy {
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private tenantEntitlements: TenantEntitlementsService
   ) {}
 
   ngOnInit() {
@@ -56,10 +64,59 @@ export class EditProfileComponent implements OnInit, OnDestroy {
 
     this.initForm();
     this.loadUserData();
+    this.refreshEntitlements();
   }
 
   ngOnDestroy() {
     this.subscriptions.unsubscribe();
+  }
+
+  private refreshEntitlements(): void {
+    this.entitlementsLoading = true;
+    const sub = this.tenantEntitlements.refreshCurrentEntitlements().subscribe((data) => {
+      this.entitlements = data;
+      this.entitlementsLoading = false;
+      this.updateAvatarUploadGate();
+    });
+    this.subscriptions.add(sub);
+  }
+
+  private updateAvatarUploadGate(): void {
+    // Si no hay archivo seleccionado, el gating no aplica.
+    if (!this.selectedFile) {
+      this.canUploadAvatar = true;
+      this.avatarUploadGateError = null;
+      return;
+    }
+
+    if (!this.entitlements) {
+      // Sin entitlements cargados no bloqueamos para no romper flujo.
+      this.canUploadAvatar = true;
+      this.avatarUploadGateError = null;
+      return;
+    }
+
+    // Feature opcional: si existe y viene en false, bloqueamos.
+    if (!isFeatureEnabled(this.entitlements.features, 'module.storage')) {
+      this.canUploadAvatar = false;
+      this.avatarUploadGateError = 'Tu plan no permite usar almacenamiento para avatares.';
+      return;
+    }
+
+    const storageLimitMB = getLimitValue(this.entitlements.limits, ['limit.storageMB']);
+    const currentUsageStorageMB = this.entitlements.currentUsage['storageMB'] ?? 0;
+
+    // Conversión a MB (base 1024) + redondeo simple para evitar falsos negativos.
+    const fileSizeMB = Math.ceil((this.selectedFile.size / (1024 * 1024)) * 100) / 100;
+
+    if (!canUseLimit(currentUsageStorageMB, storageLimitMB, fileSizeMB)) {
+      this.canUploadAvatar = false;
+      this.avatarUploadGateError = 'Has alcanzado el límite de almacenamiento. Actualiza tu plan.';
+      return;
+    }
+
+    this.canUploadAvatar = true;
+    this.avatarUploadGateError = null;
   }
 
   initForm() {
@@ -237,6 +294,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
         this.selectedFile = file;
         this.croppedImage = null;
         this.showCropModal = true;
+        this.updateAvatarUploadGate();
       }, 150);
     }
   }
@@ -287,6 +345,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
       this.updateCurrentAvatarUrl();
       this.showCropModal = false;
       this.imageChangedEvent = null;
+      this.updateAvatarUploadGate();
     }
   }
 
@@ -298,6 +357,8 @@ export class EditProfileComponent implements OnInit, OnDestroy {
     this.selectedFile = null;
     this.avatarPreview = null;
     this.avatarError = '';
+    this.avatarUploadGateError = null;
+    this.canUploadAvatar = true;
     this.updateCurrentAvatarUrl();
   }
 
@@ -317,6 +378,13 @@ export class EditProfileComponent implements OnInit, OnDestroy {
 
   uploadAvatar(): void {
     if (!this.selectedFile) {
+      return;
+    }
+
+    // Gate UX por entitlements (storageMB).
+    this.updateAvatarUploadGate();
+    if (!this.canUploadAvatar) {
+      this.avatarError = this.avatarUploadGateError || 'No puedes subir este avatar con tu plan actual.';
       return;
     }
 
@@ -368,6 +436,9 @@ export class EditProfileComponent implements OnInit, OnDestroy {
 
         // Emitir evento para el componente padre
         this.profileUpdated.emit();
+
+        // El backend puede actualizar el uso de almacenamiento; refrescar entitlements.
+        this.refreshEntitlements();
 
         // Limpiar mensaje después de 1 segundo
         setTimeout(() => {
@@ -424,6 +495,9 @@ export class EditProfileComponent implements OnInit, OnDestroy {
 
         // Emitir evento para el componente padre
         this.profileUpdated.emit();
+
+        // Refrescar uso de almacenamiento (backend enforcement).
+        this.refreshEntitlements();
       },
       error: (error: HttpErrorResponse) => {
         this.deletingAvatar = false;

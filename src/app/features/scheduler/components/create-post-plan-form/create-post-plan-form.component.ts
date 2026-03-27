@@ -4,6 +4,9 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { Subscription } from 'rxjs';
 import { PostPlanService } from '../../services/post-plan.service';
 import { FacebookOAuthService } from '../../../../core/services/facebook-oauth.service';
+import { TenantEntitlementsResponse } from '../../../../core/models/tenant.model';
+import { TenantEntitlementsService } from '../../../../core/services/tenant-entitlements.service';
+import { canUseLimit, getLimitValue, isFeatureEnabled } from '../../../../core/utils/entitlements.utils';
 import { FacebookPage } from '../../../facebook/models/facebook.model';
 import { markFormGroupTouched, isFieldInvalid } from '../../../../shared/utils/form.utils';
 import { extractErrorMessage } from '../../../../shared/utils/error.utils';
@@ -26,6 +29,10 @@ export class CreatePostPlanFormComponent implements OnInit, OnDestroy {
   loadingPages = true;
   isLoading = false;
   errorMessage = '';
+  entitlements: TenantEntitlementsResponse['data'] | null = null;
+  entitlementsLoading = false;
+  canCreatePostPlan = true;
+  limitGateErrorMessage: string | null = null;
   private subscriptions = new Subscription();
 
   // Timezones comunes
@@ -45,12 +52,14 @@ export class CreatePostPlanFormComponent implements OnInit, OnDestroy {
   constructor(
     private fb: FormBuilder,
     private postPlanService: PostPlanService,
-    private facebookService: FacebookOAuthService
+    private facebookService: FacebookOAuthService,
+    private tenantEntitlements: TenantEntitlementsService
   ) {}
 
   ngOnInit(): void {
     this.initForm();
     this.loadPages();
+    this.refreshEntitlements();
   }
 
   ngOnDestroy(): void {
@@ -99,6 +108,7 @@ export class CreatePostPlanFormComponent implements OnInit, OnDestroy {
         // Filtrar solo páginas que pueden publicar (isActive AND canPublish)
         this.pages = pages.filter(page => page.isActive && page.canPublish);
         this.loadingPages = false;
+        this.updatePostPlanGate();
       },
       error: (error) => {
         console.error('Error al cargar páginas:', error);
@@ -107,6 +117,69 @@ export class CreatePostPlanFormComponent implements OnInit, OnDestroy {
       }
     });
     this.subscriptions.add(pagesSubscription);
+  }
+
+  private refreshEntitlements(): void {
+    this.entitlementsLoading = true;
+    const sub = this.tenantEntitlements.refreshCurrentEntitlements().subscribe((data) => {
+      this.entitlements = data;
+      this.entitlementsLoading = false;
+      this.updatePostPlanGate();
+    });
+    this.subscriptions.add(sub);
+  }
+
+  private computeSelectedDelta(): number {
+    const pageIds: string[] = this.postPlanForm.get('pageIds')?.value || [];
+    if (pageIds.length > 0) return pageIds.length;
+    // Si no hay selección explícita, el backend probablemente publicará en todas las páginas disponibles del UI.
+    return this.pages.length;
+  }
+
+  private updatePostPlanGate(): void {
+    // Si aún no tenemos info de entitlements o páginas, no bloquear hasta que haya datos.
+    if (!this.entitlements) {
+      this.canCreatePostPlan = true;
+      this.limitGateErrorMessage = null;
+      return;
+    }
+    if (this.loadingPages) {
+      this.canCreatePostPlan = true;
+      this.limitGateErrorMessage = null;
+      return;
+    }
+
+    const schedulerEnabled = isFeatureEnabled(this.entitlements.features, 'module.scheduler');
+    if (!schedulerEnabled) {
+      this.canCreatePostPlan = false;
+      this.limitGateErrorMessage = 'Tu plan no permite programar publicaciones.';
+      return;
+    }
+
+    const pagesEnabled = isFeatureEnabled(this.entitlements.features, 'network.facebook.pages');
+    if (!pagesEnabled) {
+      this.canCreatePostPlan = false;
+      this.limitGateErrorMessage = 'Tu plan no permite publicar con Facebook Pages.';
+      return;
+    }
+
+    const postsThisMonth = this.entitlements.currentUsage.postsThisMonth ?? 0;
+    const postsPerMonthLimit = getLimitValue(this.entitlements.limits, ['limit.postsPerMonth']);
+    const delta = this.computeSelectedDelta();
+
+    if (!canUseLimit(postsThisMonth, postsPerMonthLimit, delta)) {
+      if (postsPerMonthLimit == null) {
+        this.canCreatePostPlan = true;
+        this.limitGateErrorMessage = null;
+        return;
+      }
+      this.canCreatePostPlan = false;
+      this.limitGateErrorMessage = 'Has alcanzado el límite mensual de publicaciones. Actualiza tu plan.';
+      return;
+    }
+
+    this.canCreatePostPlan = true;
+    this.limitGateErrorMessage = null;
   }
 
   togglePageSelection(pageId: string): void {
@@ -123,6 +196,7 @@ export class CreatePostPlanFormComponent implements OnInit, OnDestroy {
     }
 
     pageIdsControl.setValue(currentIds);
+    this.updatePostPlanGate();
   }
 
   isPageSelected(pageId: string): boolean {
@@ -133,15 +207,22 @@ export class CreatePostPlanFormComponent implements OnInit, OnDestroy {
   selectAllPages(): void {
     const allPageIds = this.pages.map(page => page.facebookPageId);
     this.postPlanForm.get('pageIds')?.setValue(allPageIds);
+    this.updatePostPlanGate();
   }
 
   deselectAllPages(): void {
     this.postPlanForm.get('pageIds')?.setValue([]);
+    this.updatePostPlanGate();
   }
 
   onSubmit(): void {
     if (this.postPlanForm.invalid) {
       markFormGroupTouched(this.postPlanForm);
+      return;
+    }
+
+    if (!this.canCreatePostPlan) {
+      this.errorMessage = this.limitGateErrorMessage || 'No puedes crear este plan con tu plan actual.';
       return;
     }
 
@@ -182,6 +263,11 @@ export class CreatePostPlanFormComponent implements OnInit, OnDestroy {
         // Mostrar mensaje de éxito
         alert(`Plan creado exitosamente!\n${response.data.message}\nTargets creados: ${response.data.targetsCreated}\nTargets omitidos: ${response.data.targetsSkipped}`);
         this.success.emit();
+
+        // Refrescar entitlements/uso para que el UI refleje el enforcement real del backend.
+        this.tenantEntitlements.refreshCurrentEntitlements().subscribe(() => {
+          this.updatePostPlanGate();
+        });
       },
       error: (error) => {
         this.isLoading = false;

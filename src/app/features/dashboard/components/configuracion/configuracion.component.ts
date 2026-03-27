@@ -7,13 +7,14 @@ import { UserData, UserProfileData } from '../../../../core/models/auth.model';
 import { ChangePasswordComponent } from '../../../auth/components/change-password/change-password.component';
 import { EditProfileComponent } from '../../../auth/components/edit-profile/edit-profile.component';
 import { EditPreferencesComponent } from '../../../auth/components/edit-preferences/edit-preferences.component';
+import { TenantTeamComponent } from './tenant-team.component';
 
-type ConfigSection = 'perfil' | 'seguridad' | 'notificaciones' | 'preferencias';
+type ConfigSection = 'perfil' | 'seguridad' | 'notificaciones' | 'preferencias' | 'equipo';
 
 @Component({
   selector: 'app-configuracion',
   standalone: true,
-  imports: [CommonModule, TranslateModule, ChangePasswordComponent, EditProfileComponent, EditPreferencesComponent],
+  imports: [CommonModule, TranslateModule, ChangePasswordComponent, EditProfileComponent, EditPreferencesComponent, TenantTeamComponent],
   templateUrl: './configuracion.component.html',
   styleUrl: './configuracion.component.scss'
 })

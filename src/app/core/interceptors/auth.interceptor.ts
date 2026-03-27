@@ -23,7 +23,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   // Rutas públicas que no requieren token
   const publicRoutes = [
     '/api/Token/login',
-    '/api/Token/register'
+    '/api/Token/register',
+    '/api/invitations/'
   ];
 
   // Verificar si la ruta es pública

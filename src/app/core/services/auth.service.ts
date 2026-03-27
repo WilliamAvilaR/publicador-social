@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { LoginRequest, LoginResponse, UserData, RegisterRequest, RegisterResponse, RefreshResponse, ApiError, ChangePasswordRequest, ChangePasswordResponse, UpdateProfileRequest, UpdateProfileResponse, UserProfileData, UploadAvatarResponse, DeleteAvatarResponse } from '../models/auth.model';
+import { TenantContextService } from './tenant-context.service';
 
 @Injectable({
   providedIn: 'root'
@@ -12,7 +13,10 @@ export class AuthService {
   private readonly TOKEN_KEY = 'auth_token';
   private readonly USER_KEY = 'user_data';
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private tenantContext: TenantContextService
+  ) {}
 
   register(userData: RegisterRequest): Observable<RegisterResponse> {
     return this.http.post<RegisterResponse>(`${this.apiUrl}/register`, userData);
@@ -150,5 +154,6 @@ export class AuthService {
   logout(): void {
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
+    this.tenantContext.clearCurrentTenant();
   }
 }

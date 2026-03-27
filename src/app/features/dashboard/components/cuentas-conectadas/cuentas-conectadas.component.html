@@ -69,7 +69,8 @@
               <input 
                 type="checkbox" 
                 [checked]="page.isActive"
-                [disabled]="isUpdatingStatus(page.facebookPageId)"
+              [disabled]="isUpdatingStatus(page.facebookPageId) || !isPageActivationAllowed(page)"
+              [attr.title]="getPageActivationGateReason(page) || null"
                 (change)="updatePageStatus(page, $any($event.target).checked)"
                 class="toggle-input">
               <span class="toggle-slider" [class.updating]="isUpdatingStatus(page.facebookPageId)"></span>
@@ -177,7 +178,8 @@
               <input 
                 type="checkbox" 
                 [checked]="group.isActive"
-                [disabled]="isUpdatingGroupStatus(group.facebookGroupId)"
+                [disabled]="isUpdatingGroupStatus(group.facebookGroupId) || !isGroupActivationAllowed(group)"
+                [attr.title]="getGroupActivationGateReason(group) || null"
                 (change)="updateGroupStatus(group, $any($event.target).checked)"
                 class="toggle-input">
               <span class="toggle-slider" [class.updating]="isUpdatingGroupStatus(group.facebookGroupId)"></span>

@@ -67,7 +67,8 @@
             *ngIf="selectedFile && !uploadingAvatar"
             type="button"
             class="avatar-save-btn"
-            (click)="uploadAvatar()">
+            (click)="uploadAvatar()"
+            [disabled]="!canUploadAvatar">
             Guardar Foto
           </button>
           <button
@@ -86,8 +87,8 @@
             <span class="tooltip-text">Formatos permitidos: JPG, PNG, GIF, WEBP. Tamaño máximo: 5MB</span>
           </div>
         </div>
-        <div *ngIf="avatarError" class="avatar-error">
-          {{ avatarError }}
+        <div *ngIf="avatarError || avatarUploadGateError" class="avatar-error">
+          {{ avatarError || avatarUploadGateError }}
         </div>
       </div>
     </div>

@@ -45,7 +45,8 @@ export class RegisterComponent implements OnInit, OnDestroy {
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(8)]],
       confirmPassword: ['', [Validators.required]],
-      telephone: ['', [Validators.required]]
+      telephone: ['', [Validators.required]],
+      tenantName: ['', [Validators.minLength(2)]]
     }, {
       validators: this.passwordMatchValidator
     });
@@ -84,7 +85,7 @@ export class RegisterComponent implements OnInit, OnDestroy {
   }
 
   getStep1Fields() {
-    return ['firstName', 'lastName', 'email', 'telephone'];
+    return ['firstName', 'lastName', 'email', 'telephone', 'tenantName'];
   }
 
   getStep2Fields() {
@@ -145,7 +146,8 @@ export class RegisterComponent implements OnInit, OnDestroy {
       email: formValue.email,
       password: formValue.password,
       telephone: formValue.telephone,
-      rol: this.DEFAULT_ROLE
+      rol: this.DEFAULT_ROLE,
+      tenantName: formValue.tenantName
     };
 
     const registerSubscription = this.authService.register(registerData).subscribe({

@@ -5,6 +5,9 @@ import { Subscription, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { SegmentsService } from '../../services/segments.service';
 import { FacebookOAuthService } from '../../../../core/services/facebook-oauth.service';
+import { TenantEntitlementsResponse } from '../../../../core/models/tenant.model';
+import { TenantEntitlementsService } from '../../../../core/services/tenant-entitlements.service';
+import { canUseLimit, getLimitValue, isFeatureEnabled } from '../../../../core/utils/entitlements.utils';
 import { FacebookGroupsService } from '../../../facebook/services/facebook-groups.service';
 import {
   SegmentListItem,
@@ -42,6 +45,10 @@ export class SegmentsComponent implements OnInit, OnDestroy {
   
   // Errores específicos de modales
   createError: string | null = null;
+  entitlements: TenantEntitlementsResponse['data'] | null = null;
+  entitlementsLoading = false;
+  canCreateCollection = true;
+  limitGateErrorMessage: string | null = null;
   
   // Formularios
   createForm!: FormGroup;
@@ -74,17 +81,55 @@ export class SegmentsComponent implements OnInit, OnDestroy {
     private segmentsService: SegmentsService,
     private facebookService: FacebookOAuthService,
     private groupsService: FacebookGroupsService,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private tenantEntitlements: TenantEntitlementsService
   ) {
     this.initForms();
   }
 
   ngOnInit(): void {
     this.loadSegments();
+    this.refreshEntitlements();
   }
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+  }
+
+  private refreshEntitlements(): void {
+    this.entitlementsLoading = true;
+    const sub = this.tenantEntitlements.refreshCurrentEntitlements().subscribe((data) => {
+      this.entitlements = data;
+      this.entitlementsLoading = false;
+      this.updateCreateCollectionGate();
+    });
+    this.subscriptions.add(sub);
+  }
+
+  private updateCreateCollectionGate(): void {
+    if (!this.entitlements) {
+      this.canCreateCollection = true;
+      this.limitGateErrorMessage = null;
+      return;
+    }
+
+    if (!isFeatureEnabled(this.entitlements.features, 'module.collections')) {
+      this.canCreateCollection = false;
+      this.limitGateErrorMessage = 'Tu plan no permite crear colecciones.';
+      return;
+    }
+
+    const currentCollections = this.entitlements.currentUsage.collections ?? 0;
+    const collectionsLimit = getLimitValue(this.entitlements.limits, ['limit.collections']);
+
+    if (!canUseLimit(currentCollections, collectionsLimit, 1)) {
+      this.canCreateCollection = false;
+      this.limitGateErrorMessage = 'Has alcanzado el límite de colecciones. Actualiza tu plan.';
+      return;
+    }
+
+    this.canCreateCollection = true;
+    this.limitGateErrorMessage = null;
   }
 
   /**
@@ -155,6 +200,10 @@ export class SegmentsComponent implements OnInit, OnDestroy {
    * Abre el modal para crear una colección
    */
   openCreateModal(): void {
+    if (!this.canCreateCollection) {
+      alert(this.limitGateErrorMessage || 'No puedes crear esta colección con tu plan actual.');
+      return;
+    }
     this.createForm.reset();
     this.createError = null;
     this.createStep = 1;
@@ -208,6 +257,11 @@ export class SegmentsComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!this.canCreateCollection) {
+      this.createError = this.limitGateErrorMessage || 'No puedes crear colecciones con tu plan actual.';
+      return;
+    }
+
     this.creating = true;
     this.createError = null;
     
@@ -240,6 +294,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
               this.creating = false;
               this.closeCreateModal();
               this.loadSegments();
+              this.refreshEntitlements();
             },
             error: (error) => {
               // La colección se creó pero falló al agregar items
@@ -259,6 +314,7 @@ export class SegmentsComponent implements OnInit, OnDestroy {
           this.creating = false;
           this.closeCreateModal();
           this.loadSegments();
+          this.refreshEntitlements();
         }
       },
       error: (error) => {

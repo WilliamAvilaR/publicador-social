@@ -2,11 +2,16 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, RouterOutlet, NavigationEnd } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { filter } from 'rxjs/operators';
-import { Subscription } from 'rxjs';
+import { filter, switchMap } from 'rxjs/operators';
+import { of, Subscription } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserData, UserProfileData } from '../../../../core/models/auth.model';
+import { TenantService } from '../../../../core/services/tenant.service';
+import { SelectedTenant, TenantSummary, TenantEntitlementsResponse } from '../../../../core/models/tenant.model';
+import { TenantContextService } from '../../../../core/services/tenant-context.service';
+import { TenantEntitlementsService } from '../../../../core/services/tenant-entitlements.service';
+import { isAnyMenuFeatureStrict } from '../../../../core/utils/entitlements.utils';
 import { FacebookConnectComponent } from '../../../../shared/components/facebook-connect/facebook-connect.component';
 import { validateAvatarUrl } from '../../../../shared/utils/validation.utils';
 
@@ -16,6 +21,8 @@ interface MenuItem {
   icon?: string; // SVG como string opcional
   hasSubmenu?: boolean; // Flag para identificar si tiene submenú
   children?: MenuItem[]; // Submenú
+  /** Si se define, el ítem es visible si alguna clave está habilitada en el plan. */
+  featureKeys?: string[];
 }
 
 @Component({
@@ -27,6 +34,14 @@ interface MenuItem {
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   user: UserData | UserProfileData | null = null;
+  tenants: TenantSummary[] = [];
+  currentTenant: SelectedTenant | null = null;
+  loadingTenants = false;
+  tenantsError: string | null = null;
+  /** Varios tenants y ninguno válido en contexto: bloquear hasta elegir (modal). */
+  showTenantPickerModal = false;
+  /** Valor del select del modal antes de confirmar. */
+  modalTenantSelectionId: number | null = null;
   sidebarCollapsed = false;
   showUserDropdown = false;
   showNotifications = false;
@@ -35,24 +50,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
   avatarUrlWithCache: string | null = null;
   private subscriptions = new Subscription();
 
-  menuItems: MenuItem[] = [
+  /** Entitlements del tenant actual (menú y redirecciones). */
+  entitlements: TenantEntitlementsResponse['data'] | null = null;
+
+  /** Definición completa del menú; `visibleMenuItems` aplica el plan. */
+  private readonly allMenuItems: MenuItem[] = [
     {
       label: 'Dashboard',
       route: '/dashboard',
+      featureKeys: ['module.dashboard'],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m4 12 8-8 8 8M6 10.5V19a1 1 0 0 0 1 1h3v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h3a1 1 0 0 0 1-1v-8.5"/>
       </svg>`
     },
     {
-      label: 'Publicaciones',
-      route: '/dashboard/publicaciones',
-      icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
-        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 18-7 3 7-18 7 18-7-3Zm0 0v-5"/>
-      </svg>`
-    },
-    {
       label: 'Programador',
       route: '/dashboard/programador',
+      featureKeys: ['module.scheduler'],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
       </svg>`
@@ -68,6 +82,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         {
           label: 'Páginas',
           route: '/dashboard/analiticas',
+          featureKeys: ['network.facebook.pages'],
           icon: `<svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
           </svg>`
@@ -75,6 +90,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         {
           label: 'Grupos',
           route: '/dashboard/analiticas',
+          featureKeys: ['network.facebook.groups'],
           icon: `<svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
           </svg>`
@@ -84,6 +100,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     {
       label: 'Mensajes',
       route: '/dashboard/mensajes',
+      featureKeys: ['module.messaging'],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
       </svg>`
@@ -91,6 +108,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     {
       label: 'Cuentas conectadas',
       route: '/dashboard/cuentas',
+      featureKeys: ['network.facebook.pages', 'network.facebook.groups'],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12h4m-2 2v-4M4 18v-1a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Zm8-10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
       </svg>`
@@ -98,6 +116,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     {
       label: 'Colecciones',
       route: '/dashboard/colecciones',
+      featureKeys: ['module.collections'],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2Z"/>
       </svg>`
@@ -105,6 +124,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     {
       label: 'Automatizaciones',
       route: '/dashboard/automatizaciones',
+      featureKeys: ['module.automation'],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 6c0 1.657-3.134 3-7 3S5 7.657 5 6m14 0c0-1.657-3.134-3-7-3S5 4.343 5 6m14 0v6M5 6v6m0 0c0 1.657 3.134 3 7 3s7-1.343 7-3M5 12v6c0 1.657 3.134 3 7 3s7-1.343 7-3v-6"/>
       </svg>`
@@ -112,6 +132,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     {
       label: 'Integraciones',
       route: '/dashboard/integraciones',
+      featureKeys: ['module.integrations'],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5v14m8-7h-2m0 0h-2m2 0v2m0-2v-2M3 11h6m-6 4h6m11 4H4c-.55228 0-1-.4477-1-1V6c0-.55228.44772-1 1-1h16c.5523 0 1 .44772 1 1v12c0 .5523-.4477 1-1 1Z"/>
       </svg>`
@@ -121,8 +142,75 @@ export class DashboardComponent implements OnInit, OnDestroy {
   constructor(
     private authService: AuthService,
     private router: Router,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private tenantService: TenantService,
+    private tenantContext: TenantContextService,
+    private tenantEntitlements: TenantEntitlementsService
   ) {}
+
+  /** Menú filtrado por `features` del plan actual. */
+  get visibleMenuItems(): MenuItem[] {
+    const features = this.entitlements?.features;
+    return this.allMenuItems
+      .map((item) => this.projectVisibleMenuItem(item, features))
+      .filter((item): item is MenuItem => item !== null);
+  }
+
+  private projectVisibleMenuItem(
+    item: MenuItem,
+    features: Record<string, boolean> | undefined
+  ): MenuItem | null {
+    if (item.hasSubmenu && item.children?.length) {
+      const children = item.children
+        .map((c) => (this.isMenuEntryVisible(c, features) ? c : null))
+        .filter((c): c is MenuItem => c !== null);
+      if (children.length === 0) return null;
+      if (item.featureKeys?.length && !isAnyMenuFeatureStrict(features, item.featureKeys)) {
+        return null;
+      }
+      return { ...item, children };
+    }
+    if (!this.isMenuEntryVisible(item, features)) return null;
+    return item;
+  }
+
+  private isMenuEntryVisible(
+    item: MenuItem,
+    features: Record<string, boolean> | undefined
+  ): boolean {
+    if (!item.featureKeys?.length) return true;
+    return isAnyMenuFeatureStrict(features, item.featureKeys);
+  }
+
+  /**
+   * Si el usuario cae en una ruta cuyo módulo no está en el plan, vuelve al inicio del dashboard.
+   */
+  private maybeRedirectIfRouteBlocked(): void {
+    const features = this.entitlements?.features;
+    if (!features) return;
+
+    const path = this.router.url.split('?')[0];
+    const gates: { prefix: string; keys: string[] }[] = [
+      { prefix: '/dashboard/programador', keys: ['module.scheduler'] },
+      { prefix: '/dashboard/colecciones', keys: ['module.collections'] },
+      { prefix: '/dashboard/cuentas', keys: ['network.facebook.pages', 'network.facebook.groups'] },
+      { prefix: '/dashboard/mensajes', keys: ['module.messaging'] },
+      { prefix: '/dashboard/analiticas', keys: ['network.facebook.pages', 'network.facebook.groups'] },
+      { prefix: '/dashboard/paginas', keys: ['network.facebook.pages'] },
+      { prefix: '/dashboard/grupos', keys: ['network.facebook.groups'] },
+      { prefix: '/dashboard/automatizaciones', keys: ['module.automation'] },
+      { prefix: '/dashboard/integraciones', keys: ['module.integrations'] }
+    ];
+
+    for (const g of gates) {
+      if (path === g.prefix || path.startsWith(g.prefix + '/')) {
+        if (!isAnyMenuFeatureStrict(features, g.keys)) {
+          this.router.navigate(['/dashboard']);
+        }
+        return;
+      }
+    }
+  }
 
   ngOnInit() {
     // Verificar autenticación
@@ -142,6 +230,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     // Inicializar avatar URL
     this.updateAvatarUrl();
+
+    const entitlementsSubscription = this.tenantEntitlements.entitlements$.subscribe((e) => {
+      this.entitlements = e;
+      this.maybeRedirectIfRouteBlocked();
+    });
+    this.subscriptions.add(entitlementsSubscription);
+
+    const tenantSubscription = this.tenantContext.currentTenant$
+      .pipe(
+        switchMap((tenant) => {
+          this.currentTenant = tenant;
+          if (!tenant) {
+            return of(null);
+          }
+          return this.tenantEntitlements.refreshCurrentEntitlements();
+        })
+      )
+      .subscribe();
+    this.subscriptions.add(tenantSubscription);
+
+    // Cargar tenants del usuario
+    this.loadTenants();
 
     // Si el usuario no tiene avatarUrl, obtener perfil completo del servidor
     const userProfile = this.user as UserProfileData;
@@ -169,7 +279,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .subscribe(() => {
         this.updateActiveSection();
         // Auto-expandir submenú de Analíticas si estamos en esa ruta
-        const analyticsItem = this.menuItems.find(item => item.label === 'Analíticas');
+        const analyticsItem = this.allMenuItems.find(item => item.label === 'Analíticas');
         if (analyticsItem && this.router.url.startsWith('/dashboard/analiticas')) {
           if (!this.expandedMenuItems.has('Analíticas')) {
             this.expandedMenuItems.add('Analíticas');
@@ -186,7 +296,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     // Auto-expandir submenú de Analíticas si estamos en esa ruta al iniciar
     if (this.router.url.startsWith('/dashboard/analiticas')) {
-      const analyticsItem = this.menuItems.find(item => item.label === 'Analíticas');
+      const analyticsItem = this.allMenuItems.find(item => item.label === 'Analíticas');
       if (analyticsItem) {
         this.expandedMenuItems.add('Analíticas');
       }
@@ -239,6 +349,75 @@ export class DashboardComponent implements OnInit, OnDestroy {
     document.removeEventListener('click', this.handleDocumentClick);
   }
 
+  /**
+   * Carga la lista de tenants del usuario autenticado.
+   */
+  private loadTenants(): void {
+    this.loadingTenants = true;
+    this.tenantsError = null;
+
+    const sub = this.tenantService.getUserTenants().subscribe({
+      next: (response) => {
+        const tenants = this.tenantService.getTenantsListFromResponse(response);
+        this.tenants = tenants;
+        this.loadingTenants = false;
+
+        const { needsWorkspaceChoice } = this.tenantService.reconcileContextForDashboardLoad(tenants);
+        this.showTenantPickerModal = needsWorkspaceChoice;
+        if (needsWorkspaceChoice && tenants.length > 0) {
+          this.modalTenantSelectionId = tenants[0].tenantId;
+        }
+      },
+      error: (error) => {
+        console.error('Error al cargar tenants del usuario:', error);
+        this.tenantsError = 'No se pudieron cargar tus workspaces. Intenta nuevamente más tarde.';
+        this.loadingTenants = false;
+      }
+    });
+
+    this.subscriptions.add(sub);
+  }
+
+  /**
+   * Maneja el cambio de tenant desde el selector del header.
+   */
+  onHeaderTenantChange(event: Event): void {
+    const v = (event.target as HTMLSelectElement).value;
+    this.onTenantChange(v);
+  }
+
+  onTenantChange(tenantIdValue: string): void {
+    const tenantId = Number(tenantIdValue);
+    if (!tenantId || isNaN(tenantId)) {
+      return;
+    }
+
+    const selected = this.tenants.find(t => t.tenantId === tenantId);
+    if (!selected) {
+      return;
+    }
+
+    this.tenantService.setCurrentTenantFromSummary(selected);
+  }
+
+  onModalTenantSelect(event: Event): void {
+    const v = (event.target as HTMLSelectElement).value;
+    const id = Number(v);
+    this.modalTenantSelectionId = !isNaN(id) ? id : null;
+  }
+
+  confirmWorkspaceFromModal(): void {
+    if (this.modalTenantSelectionId == null) {
+      return;
+    }
+    const selected = this.tenants.find(t => t.tenantId === this.modalTenantSelectionId);
+    if (!selected) {
+      return;
+    }
+    this.tenantService.setCurrentTenantFromSummary(selected);
+    this.showTenantPickerModal = false;
+  }
+
   private handleDocumentClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
 
@@ -265,7 +444,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     // Buscar en items principales y submenús
-    for (const item of this.menuItems) {
+    for (const item of this.allMenuItems) {
       if (item.hasSubmenu && item.children) {
         // Verificar si alguna subopción está activa (por ruta o query params)
         const activeChild = item.children.find(child => {

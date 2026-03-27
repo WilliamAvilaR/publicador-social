@@ -55,6 +55,7 @@ export interface RegisterRequest {
   password: string;
   telephone: string;
   rol: string;
+  tenantName: string;
 }
 
 export interface RegisterResponse {
@@ -179,3 +180,80 @@ export interface DeleteAvatarResponse {
     previusPageUrl: string;
   };
 }
+
+// ===== Invitaciones a tenants =====
+
+export interface CreateInvitationRequest {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  roleInTenant?: string;
+}
+
+export interface CreateInvitationResponse {
+  data: {
+    invitationId: number;
+    email: string;
+    expiresAt: string;
+    acceptLink: string;
+    message: string;
+  };
+}
+
+export type TenantInvitationStatus = 'Pending' | 'Accepted' | 'Expired' | 'Cancelled';
+
+export interface TenantInvitationDto {
+  invitationId: number;
+  email: string;
+  status: TenantInvitationStatus | string;
+  roleInTenant: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+  createdAt: string;
+  invitedByUserId: number;
+  firstName: string | null;
+  lastName: string | null;
+}
+
+export interface TenantInvitationListDto {
+  invitations: TenantInvitationDto[];
+  count: number;
+}
+
+export interface GetTenantInvitationsResponse {
+  data: TenantInvitationListDto;
+  meta?: unknown;
+  requiresReauth?: boolean;
+}
+
+export interface ValidateInvitationResponse {
+  data: {
+    valid: boolean;
+    email: string | null;
+    tenantName: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    expiresAt: string | null;
+    errorMessage: string | null;
+  };
+}
+
+export interface AcceptInvitationRequest {
+  token: string;
+  password: string;
+  confirmPassword?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+// La respuesta de aceptar invitación es igual a LoginResponse en la parte de data
+export interface AcceptInvitationResponse {
+  data: {
+    token: string;
+    idUsuario: number;
+    email: string;
+    rol: string;
+    fullName: string;
+  };
+}
+

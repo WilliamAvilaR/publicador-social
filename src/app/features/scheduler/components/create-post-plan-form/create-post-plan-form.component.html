@@ -146,11 +146,17 @@
     </div>
   </div>
 
+  <div class="error-message-container" *ngIf="!errorMessage && limitGateErrorMessage">
+    <div class="error-alert">
+      {{ limitGateErrorMessage }}
+    </div>
+  </div>
+
   <div class="form-actions">
     <button type="button" class="btn btn-secondary" (click)="onCancel()" [disabled]="isLoading">
       Cancelar
     </button>
-    <button type="submit" class="btn btn-primary" [disabled]="isLoading || postPlanForm.invalid">
+    <button type="submit" class="btn btn-primary" [disabled]="isLoading || postPlanForm.invalid || !canCreatePostPlan">
       <span *ngIf="isLoading" class="spinner-small"></span>
       {{ isLoading ? 'Creando...' : 'Crear Plan de Publicación' }}
     </button>

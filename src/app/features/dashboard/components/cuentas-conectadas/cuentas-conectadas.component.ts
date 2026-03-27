@@ -2,6 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FacebookOAuthService } from '../../../../core/services/facebook-oauth.service';
+import { TenantEntitlementsResponse } from '../../../../core/models/tenant.model';
+import { TenantEntitlementsService } from '../../../../core/services/tenant-entitlements.service';
+import { canUseLimit, getLimitValue, isFeatureEnabled } from '../../../../core/utils/entitlements.utils';
 import { FacebookConnectComponent } from '../../../../shared/components/facebook-connect/facebook-connect.component';
 import { FacebookGroupsService } from '../../../facebook/services/facebook-groups.service';
 import { FacebookPage, FacebookGroup } from '../../../facebook/models/facebook.model';
@@ -20,6 +23,9 @@ export class CuentasConectadasComponent implements OnInit {
   loadingGroups = false;
   error: string | null = null;
   groupsError: string | null = null;
+  entitlements: TenantEntitlementsResponse['data'] | null = null;
+  entitlementsLoading = false;
+  entitlementsError: string | null = null;
   imageErrors: Set<string> = new Set();
   groupImageErrors: Set<number> = new Set();
   updatingStatus: Set<string> = new Set();
@@ -32,12 +38,131 @@ export class CuentasConectadasComponent implements OnInit {
 
   constructor(
     private facebookService: FacebookOAuthService,
-    private groupsService: FacebookGroupsService
+    private groupsService: FacebookGroupsService,
+    private tenantEntitlements: TenantEntitlementsService
   ) {}
 
   ngOnInit(): void {
     this.loadConnectedPages();
     this.loadGroups();
+    this.refreshEntitlements();
+  }
+
+  private refreshEntitlements(): void {
+    this.entitlementsLoading = true;
+    this.entitlementsError = null;
+
+    this.tenantEntitlements.refreshCurrentEntitlements().subscribe((data) => {
+      this.entitlements = data;
+      this.entitlementsLoading = false;
+    });
+  }
+
+  private refreshEntitlementsAndReloadLists(): void {
+    this.refreshEntitlements();
+    this.loadConnectedPages();
+    this.loadGroups();
+  }
+
+  private getIntegrationLimit(): number | null | undefined {
+    return getLimitValue(this.entitlements?.limits, ['limit.integrations']);
+  }
+
+  private getFacebookPagesLimit(): number | null | undefined {
+    return getLimitValue(this.entitlements?.limits, ['limit.facebook.pages']);
+  }
+
+  private getFacebookGroupsLimit(): number | null | undefined {
+    return getLimitValue(this.entitlements?.limits, ['limit.facebook.groups']);
+  }
+
+  private getCurrentFacebookIntegrationUsage(): number {
+    if (!this.entitlements) return 0;
+    return (this.entitlements.currentUsage.facebookPages ?? 0) + (this.entitlements.currentUsage.facebookGroups ?? 0);
+  }
+
+  private getCurrentFacebookPagesUsage(): number {
+    if (!this.entitlements) return 0;
+    return this.entitlements.currentUsage.facebookPages ?? 0;
+  }
+
+  private getCurrentFacebookGroupsUsage(): number {
+    if (!this.entitlements) return 0;
+    return this.entitlements.currentUsage.facebookGroups ?? 0;
+  }
+
+  isPageActivationAllowed(page: FacebookPage): boolean {
+    // Desactivar siempre permitido; el enforcement estricto aplica al activar/crear.
+    if (page.isActive) return true;
+
+    if (!this.entitlements) return true; // sin entitlements cargados: no bloquear para no romper UX
+
+    if (!isFeatureEnabled(this.entitlements.features, 'network.facebook.pages')) return false;
+
+    const pageLimit = this.getFacebookPagesLimit();
+    if (!canUseLimit(this.getCurrentFacebookPagesUsage(), pageLimit, 1)) return false;
+
+    const integrationsLimit = this.getIntegrationLimit();
+    if (!canUseLimit(this.getCurrentFacebookIntegrationUsage(), integrationsLimit, 1)) return false;
+
+    return true;
+  }
+
+  isGroupActivationAllowed(group: FacebookGroup): boolean {
+    if (group.isActive) return true;
+    if (!this.entitlements) return true;
+
+    if (!isFeatureEnabled(this.entitlements.features, 'network.facebook.groups')) return false;
+
+    const groupLimit = this.getFacebookGroupsLimit();
+    if (!canUseLimit(this.getCurrentFacebookGroupsUsage(), groupLimit, 1)) return false;
+
+    const integrationsLimit = this.getIntegrationLimit();
+    if (!canUseLimit(this.getCurrentFacebookIntegrationUsage(), integrationsLimit, 1)) return false;
+
+    return true;
+  }
+
+  getPageActivationGateReason(page: FacebookPage): string | null {
+    if (page.isActive) return null;
+    if (!this.entitlements) return null;
+
+    if (!isFeatureEnabled(this.entitlements.features, 'network.facebook.pages')) {
+      return 'Tu plan no permite activar Facebook Pages.';
+    }
+
+    const pageLimit = this.getFacebookPagesLimit();
+    if (!canUseLimit(this.getCurrentFacebookPagesUsage(), pageLimit, 1)) {
+      return 'Has alcanzado el límite de Pages activas. Actualiza tu plan.';
+    }
+
+    const integrationsLimit = this.getIntegrationLimit();
+    if (!canUseLimit(this.getCurrentFacebookIntegrationUsage(), integrationsLimit, 1)) {
+      return 'Has alcanzado el límite de integraciones activas. Actualiza tu plan.';
+    }
+
+    return null;
+  }
+
+  getGroupActivationGateReason(group: FacebookGroup): string | null {
+    if (group.isActive) return null;
+    if (!this.entitlements) return null;
+
+    if (!isFeatureEnabled(this.entitlements.features, 'network.facebook.groups')) {
+      return 'Tu plan no permite activar Facebook Groups.';
+    }
+
+    const groupLimit = this.getFacebookGroupsLimit();
+    if (!canUseLimit(this.getCurrentFacebookGroupsUsage(), groupLimit, 1)) {
+      return 'Has alcanzado el límite de Groups activas. Actualiza tu plan.';
+    }
+
+    const integrationsLimit = this.getIntegrationLimit();
+    if (!canUseLimit(this.getCurrentFacebookIntegrationUsage(), integrationsLimit, 1)) {
+      return 'Has alcanzado el límite de integraciones activas. Actualiza tu plan.';
+    }
+
+    return null;
   }
 
   loadConnectedPages(): void {
@@ -61,6 +186,7 @@ export class CuentasConectadasComponent implements OnInit {
   onConnectSuccess(): void {
     // Recargar la lista después de conectar
     this.loadConnectedPages();
+    this.refreshEntitlements();
   }
 
   onImageError(pageId: string): void {
@@ -82,6 +208,12 @@ export class CuentasConectadasComponent implements OnInit {
       return;
     }
 
+    if (newStatus && !this.isPageActivationAllowed(page)) {
+      const reason = this.getPageActivationGateReason(page);
+      alert(reason || 'No puedes activar esta página con tu plan actual.');
+      return;
+    }
+
     this.updatingStatus.add(page.facebookPageId);
 
     this.facebookService.updatePageStatus(page.facebookPageId, newStatus).subscribe({
@@ -92,6 +224,9 @@ export class CuentasConectadasComponent implements OnInit {
           this.pages[index] = response.data;
         }
         this.updatingStatus.delete(page.facebookPageId);
+
+        // Backend puede desactivar recursos adicionales globalmente; refrescar UI.
+        this.refreshEntitlementsAndReloadLists();
       },
       error: (error) => {
         this.updatingStatus.delete(page.facebookPageId);
@@ -169,6 +304,9 @@ export class CuentasConectadasComponent implements OnInit {
         this.groupUrl = '';
         this.showAddGroupForm = false;
         this.addingGroup = false;
+
+        // Backend puede desactivar recursos adicionales globalmente; refrescar UI.
+        this.refreshEntitlementsAndReloadLists();
       },
       error: (error) => {
         this.addingGroup = false;
@@ -203,6 +341,12 @@ export class CuentasConectadasComponent implements OnInit {
       return;
     }
 
+    if (newStatus && !this.isGroupActivationAllowed(group)) {
+      const reason = this.getGroupActivationGateReason(group);
+      alert(reason || 'No puedes activar este grupo con tu plan actual.');
+      return;
+    }
+
     this.updatingGroupStatus.add(group.facebookGroupId);
 
     this.groupsService.updateGroupStatus(group.facebookGroupId, newStatus).subscribe({
@@ -213,6 +357,9 @@ export class CuentasConectadasComponent implements OnInit {
           this.groups[index] = response.data;
         }
         this.updatingGroupStatus.delete(group.facebookGroupId);
+
+        // Backend puede desactivar recursos adicionales globalmente; refrescar UI.
+        this.refreshEntitlementsAndReloadLists();
       },
       error: (error) => {
         this.updatingGroupStatus.delete(group.facebookGroupId);
