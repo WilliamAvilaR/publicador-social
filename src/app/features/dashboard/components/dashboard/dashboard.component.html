@@ -143,8 +143,54 @@
     <!-- Rutas hijas solo tras cargar tenants y, si aplica, tras elegir workspace en el modal -->
     <main class="main-content">
       <div *ngIf="loadingTenants" class="tenant-shell-loading">Cargando workspaces…</div>
-      <router-outlet *ngIf="!loadingTenants && !showTenantPickerModal"></router-outlet>
+      <div *ngIf="tenantsError && !loadingTenants" class="tenant-load-error" role="alert">
+        <p class="tenant-load-error-text">{{ tenantsError }}</p>
+        <button type="button" class="tenant-load-error-retry" (click)="retryLoadTenants()">
+          Reintentar
+        </button>
+      </div>
+      <router-outlet *ngIf="canShowDashboardRoutes"></router-outlet>
     </main>
+  </div>
+
+  <!-- Sin organizaciones activas: crear espacio propio (POST /api/tenants/personal) -->
+  <div
+    class="tenant-picker-overlay no-orgs-overlay"
+    *ngIf="showNoOrganizationsPanel"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="no-orgs-title">
+    <div class="tenant-picker-panel no-orgs-panel">
+      <h2 id="no-orgs-title" class="tenant-picker-title">Sin organización activa</h2>
+      <p class="tenant-picker-hint">
+        No tienes acceso a ninguna organización activa. Puedes crear la tuya para seguir usando la plataforma.
+      </p>
+      <label class="tenant-picker-label" for="personal-tenant-name">Nombre de la organización (opcional)</label>
+      <input
+        id="personal-tenant-name"
+        type="text"
+        class="no-orgs-input"
+        maxlength="200"
+        [disabled]="creatingPersonalTenant"
+        [(ngModel)]="personalTenantName"
+        placeholder="Ej. Mi agencia"
+        autocomplete="organization" />
+      <p *ngIf="personalTenantError" class="no-orgs-error" role="alert">{{ personalTenantError }}</p>
+      <button
+        type="button"
+        class="tenant-picker-confirm"
+        [disabled]="creatingPersonalTenant"
+        (click)="createPersonalOrganization()">
+        {{ creatingPersonalTenant ? 'Creando…' : 'Crear mi organización' }}
+      </button>
+      <button
+        type="button"
+        class="no-orgs-secondary"
+        [disabled]="creatingPersonalTenant"
+        (click)="logout()">
+        Cerrar sesión
+      </button>
+    </div>
   </div>
 
   <!-- Elección obligatoria de workspace (varios tenants, sin selección válida guardada) -->

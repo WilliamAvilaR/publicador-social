@@ -22,6 +22,29 @@ export interface GetTenantsResponse {
   success?: boolean;
 }
 
+/** POST /api/tenants/personal — cuerpo opcional (CreatePersonalTenantDto) */
+export interface CreatePersonalTenantDto {
+  tenantName?: string;
+}
+
+/** data tras crear organización propia (JWT nuevo incluye claims del tenant) */
+export interface PersonalTenantCreatedData {
+  tenantId: number;
+  tenantName: string;
+  slug: string;
+  token: string;
+  idUsuario: number;
+  email: string;
+  rol: string;
+  fullName: string;
+}
+
+export interface CreatePersonalTenantResponse {
+  data: PersonalTenantCreatedData;
+  meta?: unknown;
+  requiresReauth?: boolean;
+}
+
 // 2. GET /api/tenants/current
 export interface CurrentTenantContext {
   message: string;

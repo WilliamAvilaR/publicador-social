@@ -2,10 +2,13 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
+  CreatePersonalTenantDto,
+  CreatePersonalTenantResponse,
   GetCurrentTenantResponse,
   GetTenantInfoResponse,
   GetTenantsResponse,
   GetTenantRolesResponse,
+  PersonalTenantCreatedData,
   TenantEntitlementsResponse,
   TenantWorkspaceResponse,
   SelectedTenant,
@@ -35,6 +38,31 @@ export class TenantService {
    */
   getUserTenants(): Observable<GetTenantsResponse> {
     return this.http.get<GetTenantsResponse>(this.baseUrl);
+  }
+
+  /**
+   * POST /api/tenants/personal
+   * Customer autenticado sin membresías activas: crea su organización y devuelve JWT nuevo.
+   */
+  createPersonalTenant(body: CreatePersonalTenantDto = {}): Observable<CreatePersonalTenantResponse> {
+    return this.http.post<CreatePersonalTenantResponse>(`${this.baseUrl}/personal`, body);
+  }
+
+  /**
+   * Normaliza respuesta camelCase o PascalCase del alta de tenant personal.
+   */
+  normalizePersonalTenantCreatedData(raw: unknown): PersonalTenantCreatedData {
+    const r = raw as Record<string, unknown>;
+    return {
+      tenantId: Number(r['tenantId'] ?? r['TenantId']),
+      tenantName: String(r['tenantName'] ?? r['TenantName'] ?? ''),
+      slug: String(r['slug'] ?? r['Slug'] ?? ''),
+      token: String(r['token'] ?? r['Token'] ?? ''),
+      idUsuario: Number(r['idUsuario'] ?? r['IdUsuario']),
+      email: String(r['email'] ?? r['Email'] ?? ''),
+      rol: String(r['rol'] ?? r['Rol'] ?? ''),
+      fullName: String(r['fullName'] ?? r['FullName'] ?? '')
+    };
   }
 
   /**

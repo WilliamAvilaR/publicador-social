@@ -18,6 +18,26 @@ interface GroupWithSnapshot extends FacebookGroup {
   loadingSnapshot?: boolean;
 }
 
+interface DashboardMetricCard {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: 'neutral' | 'success' | 'warning' | 'danger';
+}
+
+interface DashboardResultCard {
+  label: string;
+  value: string;
+  delta: string;
+  trend: 'up' | 'down' | 'neutral';
+}
+
+interface DashboardAction {
+  label: string;
+  description: string;
+  route: string;
+}
+
 @Component({
   selector: 'app-dashboard-overview',
   standalone: true,
@@ -33,6 +53,24 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
   error: string | null = null;
   syncing = false;
   syncProgress: string = '';
+  readonly todayWorkCards: DashboardMetricCard[] = [
+    { label: 'Publicaciones programadas hoy', value: '12', hint: '4 en la tarde, 8 en la noche', tone: 'neutral' },
+    { label: 'Borradores pendientes', value: '5', hint: '2 listos para revisión', tone: 'warning' },
+    { label: 'Mensajes pendientes', value: '18', hint: '7 sin responder > 2h', tone: 'warning' },
+    { label: 'Elementos urgentes', value: '3', hint: '2 comentarios y 1 mención crítica', tone: 'danger' }
+  ];
+  readonly resultsCards: DashboardResultCard[] = [
+    { label: 'Alcance', value: '128.4K', delta: '+12.6% vs semana pasada', trend: 'up' },
+    { label: 'Engagement', value: '4.8%', delta: '+0.7 pts', trend: 'up' },
+    { label: 'Crecimiento', value: '+342', delta: 'nuevos seguidores netos', trend: 'up' },
+    { label: 'Top contenido', value: 'Post: Lanzamiento de campaña', delta: '32K alcance | 2.1K interacciones', trend: 'neutral' }
+  ];
+  readonly quickActions: DashboardAction[] = [
+    { label: 'Crear publicación', description: 'Ir al programador y crear contenido', route: '/dashboard/programador' },
+    { label: 'Abrir mensajes', description: 'Atender conversaciones pendientes', route: '/dashboard/mensajes' },
+    { label: 'Conectar cuenta', description: 'Agregar nueva página o grupo', route: '/dashboard/cuentas' },
+    { label: 'Ver analítica', description: 'Revisar rendimiento por canal', route: '/dashboard/analiticas' }
+  ];
   private subscriptions = new Subscription();
 
   constructor(
@@ -47,6 +85,56 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+  }
+
+  get connectedAccountsCount(): number {
+    return this.pages.length + this.groups.length;
+  }
+
+  get activeAccountsCount(): number {
+    const activePages = this.pages.filter(page => page.isActive).length;
+    const activeGroups = this.groups.filter(group => group.isActive).length;
+    return activePages + activeGroups;
+  }
+
+  get errorAccountsCount(): number {
+    const inactivePages = this.pages.filter(page => !page.isActive).length;
+    const inactiveGroups = this.groups.filter(group => !group.isActive).length;
+    return inactivePages + inactiveGroups;
+  }
+
+  get automationsActiveCount(): number {
+    // Placeholder de diseño hasta conectar el módulo de automatizaciones.
+    return 6;
+  }
+
+  get systemHealthCards(): DashboardMetricCard[] {
+    return [
+      {
+        label: 'Cuentas activas',
+        value: String(this.activeAccountsCount),
+        hint: `${this.connectedAccountsCount} cuentas conectadas`,
+        tone: 'success'
+      },
+      {
+        label: 'Cuentas con error',
+        value: String(this.errorAccountsCount),
+        hint: this.lastSyncLog?.pagesFailed ? `${this.lastSyncLog.pagesFailed} fallaron en última sync` : 'Sin fallos críticos reportados',
+        tone: this.errorAccountsCount > 0 ? 'danger' : 'neutral'
+      },
+      {
+        label: 'Páginas/grupos conectados',
+        value: String(this.connectedAccountsCount),
+        hint: `${this.pages.length} páginas y ${this.groups.length} grupos`,
+        tone: 'neutral'
+      },
+      {
+        label: 'Automatizaciones activas',
+        value: String(this.automationsActiveCount),
+        hint: 'Valor hardcodeado para prototipo visual',
+        tone: 'warning'
+      }
+    ];
   }
 
   /**
@@ -283,5 +371,11 @@ export class DashboardOverviewComponent implements OnInit, OnDestroy {
       default:
         return 'status-unknown';
     }
+  }
+
+  getResultTrendClass(trend: DashboardResultCard['trend']): string {
+    if (trend === 'up') return 'trend-up';
+    if (trend === 'down') return 'trend-down';
+    return 'trend-neutral';
   }
 }

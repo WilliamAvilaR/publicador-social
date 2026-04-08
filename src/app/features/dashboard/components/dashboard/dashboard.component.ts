@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterModule, RouterOutlet, NavigationEnd } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { filter, switchMap } from 'rxjs/operators';
@@ -14,6 +15,7 @@ import { TenantEntitlementsService } from '../../../../core/services/tenant-enti
 import { isAnyMenuFeatureStrict } from '../../../../core/utils/entitlements.utils';
 import { FacebookConnectComponent } from '../../../../shared/components/facebook-connect/facebook-connect.component';
 import { validateAvatarUrl } from '../../../../shared/utils/validation.utils';
+import { extractErrorMessage } from '../../../../shared/utils/error.utils';
 
 interface MenuItem {
   label: string;
@@ -28,7 +30,7 @@ interface MenuItem {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, RouterOutlet, FacebookConnectComponent],
+  imports: [CommonModule, FormsModule, RouterModule, RouterOutlet, FacebookConnectComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
@@ -40,6 +42,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   tenantsError: string | null = null;
   /** Varios tenants y ninguno válido en contexto: bloquear hasta elegir (modal). */
   showTenantPickerModal = false;
+  /** Alta de organización propia (POST /api/tenants/personal). */
+  personalTenantName = '';
+  creatingPersonalTenant = false;
+  personalTenantError: string | null = null;
   /** Valor del select del modal antes de confirmar. */
   modalTenantSelectionId: number | null = null;
   sidebarCollapsed = false;
@@ -100,7 +106,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     {
       label: 'Mensajes',
       route: '/dashboard/mensajes',
-      featureKeys: ['module.messaging'],
+      featureKeys: ['module.inbox'],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
       </svg>`
@@ -124,7 +130,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     {
       label: 'Automatizaciones',
       route: '/dashboard/automatizaciones',
-      featureKeys: ['module.automation'],
+      featureKeys: ['module.automations'],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 6c0 1.657-3.134 3-7 3S5 7.657 5 6m14 0c0-1.657-3.134-3-7-3S5 4.343 5 6m14 0v6M5 6v6m0 0c0 1.657 3.134 3 7 3s7-1.343 7-3M5 12v6c0 1.657 3.134 3 7 3s7-1.343 7-3v-6"/>
       </svg>`
@@ -132,7 +138,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     {
       label: 'Integraciones',
       route: '/dashboard/integraciones',
-      featureKeys: ['module.integrations'],
+      featureKeys: [
+        'network.facebook.pages',
+        'network.facebook.groups',
+        'network.linkedin',
+        'network.tiktok',
+        'network.twitter',
+        'network.instagram'
+      ],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5v14m8-7h-2m0 0h-2m2 0v2m0-2v-2M3 11h6m-6 4h6m11 4H4c-.55228 0-1-.4477-1-1V6c0-.55228.44772-1 1-1h16c.5523 0 1 .44772 1 1v12c0 .5523-.4477 1-1 1Z"/>
       </svg>`
@@ -149,6 +162,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ) {}
 
   /** Menú filtrado por `features` del plan actual. */
+  /** Sin workspaces tras GET exitoso: pantalla para crear organización propia. */
+  get showNoOrganizationsPanel(): boolean {
+    return (
+      !this.loadingTenants &&
+      !this.tenantsError &&
+      this.tenants.length === 0 &&
+      !this.showTenantPickerModal
+    );
+  }
+
+  /** Rutas hijas solo con al menos un tenant y sin error de carga inicial. */
+  get canShowDashboardRoutes(): boolean {
+    return (
+      !this.loadingTenants &&
+      !this.showTenantPickerModal &&
+      !this.tenantsError &&
+      this.tenants.length > 0
+    );
+  }
+
   get visibleMenuItems(): MenuItem[] {
     const features = this.entitlements?.features;
     return this.allMenuItems
@@ -194,12 +227,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
       { prefix: '/dashboard/programador', keys: ['module.scheduler'] },
       { prefix: '/dashboard/colecciones', keys: ['module.collections'] },
       { prefix: '/dashboard/cuentas', keys: ['network.facebook.pages', 'network.facebook.groups'] },
-      { prefix: '/dashboard/mensajes', keys: ['module.messaging'] },
+      { prefix: '/dashboard/mensajes', keys: ['module.inbox'] },
       { prefix: '/dashboard/analiticas', keys: ['network.facebook.pages', 'network.facebook.groups'] },
       { prefix: '/dashboard/paginas', keys: ['network.facebook.pages'] },
       { prefix: '/dashboard/grupos', keys: ['network.facebook.groups'] },
-      { prefix: '/dashboard/automatizaciones', keys: ['module.automation'] },
-      { prefix: '/dashboard/integraciones', keys: ['module.integrations'] }
+      { prefix: '/dashboard/automatizaciones', keys: ['module.automations'] },
+      {
+        prefix: '/dashboard/integraciones',
+        keys: [
+          'network.facebook.pages',
+          'network.facebook.groups',
+          'network.linkedin',
+          'network.tiktok',
+          'network.twitter',
+          'network.instagram'
+        ]
+      }
     ];
 
     for (const g of gates) {
@@ -375,6 +418,71 @@ export class DashboardComponent implements OnInit, OnDestroy {
       }
     });
 
+    this.subscriptions.add(sub);
+  }
+
+  retryLoadTenants(): void {
+    this.tenantsError = null;
+    this.loadTenants();
+  }
+
+  /**
+   * Crea la organización del usuario (Customer sin membresías activas).
+   */
+  createPersonalOrganization(): void {
+    if (this.creatingPersonalTenant) {
+      return;
+    }
+    this.personalTenantError = null;
+
+    const trimmed = this.personalTenantName.trim();
+    if (trimmed.length > 200) {
+      this.personalTenantError = 'El nombre no puede superar 200 caracteres.';
+      return;
+    }
+
+    const body = trimmed.length > 0 ? { tenantName: trimmed } : {};
+
+    this.creatingPersonalTenant = true;
+    const sub = this.tenantService.createPersonalTenant(body).subscribe({
+      next: (response) => {
+        const d = this.tenantService.normalizePersonalTenantCreatedData(response.data);
+        if (!d.token || !d.idUsuario) {
+          this.creatingPersonalTenant = false;
+          this.personalTenantError = 'Respuesta del servidor incompleta. Intenta de nuevo.';
+          return;
+        }
+        this.authService.setAuthData(d.token, {
+          token: d.token,
+          idUsuario: d.idUsuario,
+          email: d.email,
+          rol: d.rol,
+          fullName: d.fullName
+        });
+        this.refreshUserData();
+
+        const profileSub = this.authService.getProfile().subscribe({
+          next: (profileResponse) => {
+            this.authService.updateUserData(profileResponse.data);
+            this.refreshUserData();
+          },
+          error: () => {
+            /* continuar con datos básicos del alta */
+          }
+        });
+        this.subscriptions.add(profileSub);
+
+        this.creatingPersonalTenant = false;
+        this.loadTenants();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.creatingPersonalTenant = false;
+        this.personalTenantError = extractErrorMessage(
+          error,
+          'No se pudo crear la organización. Intenta de nuevo.'
+        );
+      }
+    });
     this.subscriptions.add(sub);
   }
 

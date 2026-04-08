@@ -1,9 +1,8 @@
 <div class="dashboard-overview">
-  <!-- Header con botón de sincronización -->
   <div class="overview-header">
     <div>
-      <h1>Resumen del Dashboard</h1>
-      <p class="subtitle">Vista general de tus páginas y métricas</p>
+      <h1>Panel principal</h1>
+      <p class="subtitle">Salud del sistema, prioridades de hoy, resultados y acciones rápidas</p>
     </div>
     <button
       class="sync-btn"
@@ -16,12 +15,10 @@
     </button>
   </div>
 
-  <!-- Mensaje de progreso de sincronización -->
   <div *ngIf="syncProgress" class="sync-progress" [class.error]="syncProgress.includes('Error')">
     {{ syncProgress }}
   </div>
 
-  <!-- Estado de última sincronización -->
   <div class="sync-status-card" *ngIf="lastSyncLog">
     <div class="status-info">
       <span class="status-label">Última sincronización:</span>
@@ -40,161 +37,150 @@
     </div>
   </div>
 
-  <!-- Loading State -->
   <div *ngIf="loading" class="loading-state">
     <div class="spinner-large"></div>
     <p>Cargando datos del dashboard...</p>
   </div>
 
-  <!-- Error State -->
   <div *ngIf="!loading && error" class="error-state">
     <p>{{ error }}</p>
     <button (click)="loadDashboardData()" class="retry-btn">Reintentar</button>
   </div>
 
-  <!-- Páginas con Snapshots -->
-  <div *ngIf="!loading && !error && pages.length > 0" class="section-container">
-    <h2 class="section-title">📄 Páginas de Facebook</h2>
-    <div class="pages-grid">
-      <div *ngFor="let page of pages" class="page-card" [class.inactive]="!page.isActive">
-        <div class="page-header">
-          <div class="page-avatar">
-            <img
-              *ngIf="page.pictureUrl"
-              [src]="page.pictureUrl"
-              [alt]="page.name"
-              class="avatar-img">
-            <div *ngIf="!page.pictureUrl" class="avatar-placeholder">
-              {{ page.name.charAt(0).toUpperCase() }}
-            </div>
-          </div>
-          <div class="page-info">
-            <h3>{{ page.name }}</h3>
-            <p class="page-id">ID: {{ page.facebookPageId }}</p>
-            <span class="page-status-badge" [class.active]="page.isActive">
-              {{ page.isActive ? 'Activa' : 'Inactiva' }}
-            </span>
-          </div>
-        </div>
+  <div *ngIf="!loading && !error" class="dashboard-sections">
+    <section class="section-container">
+      <h2 class="section-title">Salud del sistema</h2>
+      <div class="metrics-grid">
+        <article
+          *ngFor="let card of systemHealthCards"
+          class="metric-card"
+          [ngClass]="card.tone || 'neutral'">
+          <p class="metric-label">{{ card.label }}</p>
+          <p class="metric-value">{{ card.value }}</p>
+          <p class="metric-hint" *ngIf="card.hint">{{ card.hint }}</p>
+        </article>
+      </div>
+    </section>
 
-        <!-- Snapshot Data -->
-        <div class="snapshot-section" *ngIf="page.isActive">
-          <div *ngIf="page.loadingSnapshot" class="snapshot-loading">
-            <div class="spinner-small"></div>
-            <span>Cargando métricas...</span>
-          </div>
+    <section class="section-container">
+      <h2 class="section-title">Trabajo de hoy</h2>
+      <div class="metrics-grid">
+        <article
+          *ngFor="let card of todayWorkCards"
+          class="metric-card"
+          [ngClass]="card.tone || 'neutral'">
+          <p class="metric-label">{{ card.label }}</p>
+          <p class="metric-value">{{ card.value }}</p>
+          <p class="metric-hint" *ngIf="card.hint">{{ card.hint }}</p>
+        </article>
+      </div>
+    </section>
 
-          <div *ngIf="!page.loadingSnapshot && page.snapshot" class="snapshot-data">
-            <div class="metric-item">
-              <span class="metric-label">👥 Fans</span>
-              <span class="metric-value">{{ page.snapshot.fanCount | number }}</span>
+    <section class="section-container">
+      <h2 class="section-title">Resultados</h2>
+      <div class="results-grid">
+        <article *ngFor="let result of resultsCards" class="result-card">
+          <p class="metric-label">{{ result.label }}</p>
+          <p class="result-value">{{ result.value }}</p>
+          <p class="result-delta" [ngClass]="getResultTrendClass(result.trend)">
+            {{ result.delta }}
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-container">
+      <h2 class="section-title">Acciones rápidas</h2>
+      <div class="actions-grid">
+        <a *ngFor="let action of quickActions" [routerLink]="action.route" class="action-card">
+          <div class="action-header">{{ action.label }}</div>
+          <p class="action-description">{{ action.description }}</p>
+        </a>
+      </div>
+    </section>
+
+    <section class="section-container" *ngIf="pages.length > 0 || groups.length > 0">
+      <h2 class="section-title">Detalle de cuentas conectadas</h2>
+      <div class="pages-grid">
+        <article *ngFor="let page of pages" class="page-card" [class.inactive]="!page.isActive">
+          <div class="page-header">
+            <div class="page-avatar">
+              <img
+                *ngIf="page.pictureUrl"
+                [src]="page.pictureUrl"
+                [alt]="page.name"
+                class="avatar-img">
+              <div *ngIf="!page.pictureUrl" class="avatar-placeholder">
+                {{ page.name.charAt(0).toUpperCase() }}
+              </div>
             </div>
-            <div class="metric-item">
-              <span class="metric-label">👤 Seguidores</span>
-              <span class="metric-value">{{ page.snapshot.followersCount | number }}</span>
-            </div>
-            <div class="metric-meta">
-              <span class="meta-text">
-                Actualizado: {{ getTimeAgo(page.snapshot.snapshotAt) }}
+            <div class="page-info">
+              <h3>{{ page.name }}</h3>
+              <p class="page-id">ID: {{ page.facebookPageId }}</p>
+              <span class="page-status-badge" [class.active]="page.isActive">
+                {{ page.isActive ? 'Activa' : 'Inactiva' }}
               </span>
             </div>
           </div>
-
-          <div *ngIf="!page.loadingSnapshot && !page.snapshot" class="no-snapshot">
-            <p>No hay datos disponibles</p>
-            <button class="sync-page-btn" (click)="syncAnalytics()">
-              Sincronizar ahora
-            </button>
-          </div>
-        </div>
-
-        <div *ngIf="!page.isActive" class="inactive-message">
-          <p>Esta página está inactiva</p>
-        </div>
-
-        <!-- Botón para ver detalles completos -->
-        <div class="page-actions">
-          <a
-            [routerLink]="['/dashboard/paginas', page.facebookPageId]"
-            class="view-details-btn">
-            Ver detalles completos →
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Grupos con Snapshots -->
-  <div *ngIf="!loading && !error && groups.length > 0" class="section-container">
-    <h2 class="section-title">👥 Grupos de Facebook</h2>
-    <div class="pages-grid">
-      <div *ngFor="let group of groups" class="page-card" [class.inactive]="!group.isActive">
-        <div class="page-header">
-          <div class="page-avatar">
-            <img
-              *ngIf="group.pictureUrl"
-              [src]="group.pictureUrl"
-              [alt]="group.name"
-              class="avatar-img">
-            <div *ngIf="!group.pictureUrl" class="avatar-placeholder">
-              {{ group.name.charAt(0).toUpperCase() }}
+          <div class="snapshot-section" *ngIf="page.isActive">
+            <div *ngIf="page.loadingSnapshot" class="snapshot-loading">
+              <div class="spinner-small"></div>
+              <span>Cargando métricas...</span>
+            </div>
+            <div *ngIf="!page.loadingSnapshot && page.snapshot" class="snapshot-data">
+              <div class="metric-item">
+                <span class="metric-label">Fans</span>
+                <span class="metric-value">{{ page.snapshot.fanCount | number }}</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Seguidores</span>
+                <span class="metric-value">{{ page.snapshot.followersCount | number }}</span>
+              </div>
             </div>
           </div>
-          <div class="page-info">
-            <h3>{{ group.name }}</h3>
-            <p class="page-id">ID: {{ group.facebookGroupId }}</p>
-            <span class="page-status-badge" [class.active]="group.isActive">
-              {{ group.isActive ? 'Activo' : 'Inactivo' }}
-            </span>
-          </div>
-        </div>
+        </article>
 
-        <!-- Snapshot Data -->
-        <div class="snapshot-section" *ngIf="group.isActive">
-          <div *ngIf="group.loadingSnapshot" class="snapshot-loading">
-            <div class="spinner-small"></div>
-            <span>Cargando métricas...</span>
-          </div>
-
-          <div *ngIf="!group.loadingSnapshot && group.snapshot" class="snapshot-data">
-            <div class="metric-item">
-              <span class="metric-label">👥 Miembros</span>
-              <span class="metric-value">{{ group.snapshot.memberCount | number }}</span>
+        <article *ngFor="let group of groups" class="page-card" [class.inactive]="!group.isActive">
+          <div class="page-header">
+            <div class="page-avatar">
+              <img
+                *ngIf="group.pictureUrl"
+                [src]="group.pictureUrl"
+                [alt]="group.name"
+                class="avatar-img">
+              <div *ngIf="!group.pictureUrl" class="avatar-placeholder">
+                {{ group.name.charAt(0).toUpperCase() }}
+              </div>
             </div>
-            <div class="metric-item">
-              <span class="metric-label">📝 Publicaciones</span>
-              <span class="metric-value">{{ group.snapshot.postCount | number }}</span>
-            </div>
-            <div class="metric-meta">
-              <span class="meta-text">
-                Actualizado: {{ getTimeAgo(group.snapshot.snapshotAt) }}
+            <div class="page-info">
+              <h3>{{ group.name }}</h3>
+              <p class="page-id">ID: {{ group.facebookGroupId }}</p>
+              <span class="page-status-badge" [class.active]="group.isActive">
+                {{ group.isActive ? 'Activo' : 'Inactivo' }}
               </span>
             </div>
           </div>
-
-          <div *ngIf="!group.loadingSnapshot && !group.snapshot" class="no-snapshot">
-            <p>No hay datos disponibles</p>
-            <p class="no-snapshot-hint">Los datos se sincronizarán automáticamente</p>
+          <div class="snapshot-section" *ngIf="group.isActive">
+            <div *ngIf="group.loadingSnapshot" class="snapshot-loading">
+              <div class="spinner-small"></div>
+              <span>Cargando métricas...</span>
+            </div>
+            <div *ngIf="!group.loadingSnapshot && group.snapshot" class="snapshot-data">
+              <div class="metric-item">
+                <span class="metric-label">Miembros</span>
+                <span class="metric-value">{{ group.snapshot.memberCount | number }}</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Publicaciones</span>
+                <span class="metric-value">{{ group.snapshot.postCount | number }}</span>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div *ngIf="!group.isActive" class="inactive-message">
-          <p>Este grupo está inactivo</p>
-        </div>
-
-        <!-- Botón para ver detalles completos -->
-        <div class="page-actions">
-          <a
-            [routerLink]="['/dashboard/grupos', group.facebookGroupId]"
-            class="view-details-btn">
-            Ver detalles completos →
-          </a>
-        </div>
+        </article>
       </div>
-    </div>
+    </section>
   </div>
 
-  <!-- Empty State -->
   <div *ngIf="!loading && !error && pages.length === 0 && groups.length === 0" class="empty-state">
     <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
