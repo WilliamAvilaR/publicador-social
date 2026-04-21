@@ -1,0 +1,238 @@
+<div class="gestor-archivos">
+  <header class="topbar">
+    <div class="left">
+      <h1>Gestor de archivos</h1>
+      <span class="mode-badge" *ngIf="selectionMode">Modo selección</span>
+    </div>
+    <div class="right">
+      <input
+        type="search"
+        class="search"
+        [(ngModel)]="q"
+        (keyup.enter)="onSearch()"
+        placeholder="Buscar archivos..." />
+      <button type="button" class="btn" (click)="onSearch()">Buscar</button>
+      <select class="sort" [(ngModel)]="statusFilter" (change)="onChangeStatus()">
+        <option value="active">Activos</option>
+        <option value="archived">Archivados</option>
+      </select>
+      <select class="sort" [(ngModel)]="sortMode" (change)="onChangeSort()">
+        <option value="smart">Orden inteligente</option>
+        <option value="recently_used">Más recientes usados</option>
+        <option value="most_used">Más usados</option>
+        <option value="recently_uploaded">Más recientes subidos</option>
+      </select>
+      <label class="btn primary upload-btn">
+        {{ uploading ? 'Subiendo...' : 'Subir archivo' }}
+        <input type="file" (change)="onUploadInput($event)" accept="image/*,video/*" [disabled]="uploading" />
+      </label>
+    </div>
+  </header>
+
+  <section class="storage-card">
+    <div class="storage-header">
+      <h3>Almacenamiento</h3>
+      <span *ngIf="storageLoading">Calculando...</span>
+    </div>
+    <p>
+      {{ formatBytes(usedBytes) }} / {{ isUnlimited ? 'Ilimitado' : formatBytes(limitBytes) }}
+      <span *ngIf="!isUnlimited">({{ usedPercent() }}%)</span>
+    </p>
+    <div class="storage-bar" *ngIf="!isUnlimited">
+      <div class="storage-fill" [style.width.%]="usedPercent()"></div>
+    </div>
+  </section>
+
+  <section class="url-import">
+    <h3>Importar por URL</h3>
+    <div class="url-row">
+      <input type="url" [(ngModel)]="urlDraft" placeholder="https://..." />
+      <input type="text" [(ngModel)]="urlName" placeholder="Nombre opcional" />
+      <input type="text" [(ngModel)]="urlTagsDraft" placeholder="Tags (a,b,c)" />
+      <button type="button" class="btn" (click)="previewUrl()" [disabled]="urlPreviewLoading">
+        {{ urlPreviewLoading ? 'Validando...' : 'Previsualizar' }}
+      </button>
+      <button type="button" class="btn secondary" (click)="useUrlInComposer()" [disabled]="!urlDraft.trim()">
+        Usar URL en publicación
+      </button>
+      <button
+        type="button"
+        class="btn primary"
+        (click)="importUrlToLibrary()"
+        [disabled]="!urlDraft.trim() || importingUrl">
+        {{ importingUrl ? 'Importando...' : 'Guardar como activo' }}
+      </button>
+    </div>
+    <p class="error" *ngIf="urlPreviewError">{{ urlPreviewError }}</p>
+    <p class="error" *ngIf="importUrlError">{{ importUrlError }}</p>
+    <div class="url-preview" *ngIf="urlPreviewImageSrc">
+      <img *ngIf="!urlPreviewIsVideo" [src]="urlPreviewImageSrc" alt="Preview URL" loading="lazy" />
+      <video *ngIf="urlPreviewIsVideo" [src]="urlPreviewImageSrc" controls></video>
+    </div>
+  </section>
+
+  <section class="integration-card">
+    <h3>Importar desde integración</h3>
+    <div class="url-row">
+      <select [(ngModel)]="integrationProvider">
+        <option value="google-drive">Google Drive</option>
+        <option value="onedrive">OneDrive</option>
+        <option value="canva">Canva</option>
+      </select>
+      <button type="button" class="btn" (click)="startOAuth()">Conectar OAuth</button>
+      <input type="url" [(ngModel)]="integrationImportUrl" placeholder="Download URL del proveedor" />
+      <input type="text" [(ngModel)]="integrationImportName" placeholder="Nombre opcional" />
+      <input type="text" [(ngModel)]="integrationImportTags" placeholder="Tags (a,b,c)" />
+      <button type="button" class="btn primary" (click)="importFromProvider()" [disabled]="importingExternal">
+        {{ importingExternal ? 'Importando...' : 'Importar proveedor' }}
+      </button>
+    </div>
+    <p class="error" *ngIf="integrationStartError">{{ integrationStartError }}</p>
+    <p class="error" *ngIf="integrationImportError">{{ integrationImportError }}</p>
+  </section>
+
+  <section class="batch-bar" *ngIf="assets.length > 0">
+    <label>
+      <input
+        type="checkbox"
+        [checked]="selectedIds.size === assets.length"
+        (change)="toggleSelectAllCurrentPage()" />
+      Seleccionar todo (página)
+    </label>
+    <button type="button" class="btn danger" [disabled]="!selectedIds.size" (click)="runBatchDelete()">
+      Eliminar seleccionados
+    </button>
+    <button type="button" class="btn" [disabled]="!selectedIds.size" (click)="runBatchTag()">
+      Etiquetar seleccionados
+    </button>
+    <span class="muted">{{ selectedIds.size }} seleccionados</span>
+    <span class="warn" *ngIf="batchMessage">{{ batchMessage }}</span>
+  </section>
+  <section class="batch-results" *ngIf="bulkResultItems.length">
+    <h4>Resultado batch</h4>
+    <ul>
+      <li *ngFor="let r of bulkResultItems">
+        #{{ r.mediaId }} -
+        <span *ngIf="r.ok">OK</span>
+        <span *ngIf="!r.ok">Error {{ r.status }} {{ r.code }}: {{ r.message }}</span>
+      </li>
+    </ul>
+  </section>
+
+  <section class="detail-backdrop" *ngIf="showBatchTagModal" (click)="closeBatchTagModal()">
+    <article class="detail" (click)="$event.stopPropagation()">
+      <header>
+        <h3>Etiquetar seleccionados</h3>
+        <button type="button" class="btn" (click)="closeBatchTagModal()">Cerrar</button>
+      </header>
+      <p>Activos seleccionados: {{ selectedIds.size }}</p>
+      <input type="text" [(ngModel)]="batchTagsDraft" placeholder="tags separadas por coma" />
+      <p class="error" *ngIf="batchTagError">{{ batchTagError }}</p>
+      <div class="actions-row">
+        <button type="button" class="btn" (click)="closeBatchTagModal()">Cancelar</button>
+        <button type="button" class="btn primary" (click)="applyBatchTag()" [disabled]="batchTagSaving">
+          {{ batchTagSaving ? 'Aplicando...' : 'Aplicar tags' }}
+        </button>
+      </div>
+    </article>
+  </section>
+
+  <p class="error" *ngIf="uploadError">{{ uploadError }}</p>
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <section class="empty" *ngIf="!loading && !errorMessage && assets.length === 0">
+    <h2>Aún no tienes archivos</h2>
+    <p>Sube un archivo o importa por URL para empezar tu biblioteca.</p>
+    <div class="cta">
+      <label class="btn primary upload-btn">
+        Subir archivo
+        <input type="file" (change)="onUploadInput($event)" accept="image/*,video/*" />
+      </label>
+      <button type="button" class="btn secondary" (click)="q = ''; urlDraft = ''">Importar por URL</button>
+      <button type="button" class="btn ghost" disabled>Banco de imágenes (próximamente)</button>
+    </div>
+  </section>
+
+  <section class="grid" *ngIf="!loading && assets.length > 0">
+    <article class="card" *ngFor="let asset of assets">
+      <header class="card-head">
+        <label class="check">
+          <input
+            type="checkbox"
+            [checked]="selectedIds.has(asset.mediaId)"
+            (change)="toggleSelected(asset.mediaId)" />
+        </label>
+        <span class="badge" [class.video]="isVideo(asset)">{{ isVideo(asset) ? 'Video' : 'Imagen' }}</span>
+      </header>
+      <button type="button" class="thumb-btn" (click)="openDetail(asset)" [title]="asset.name">
+        <img
+          *ngIf="asset.thumbnailUrl || asset.publicUrl"
+          [src]="asset.thumbnailUrl || asset.publicUrl"
+          [alt]="asset.name"
+          loading="lazy" />
+        <div class="thumb-placeholder" *ngIf="!asset.thumbnailUrl && !asset.publicUrl">Sin preview</div>
+      </button>
+      <div class="meta">
+        <h4>{{ asset.name }}</h4>
+        <p>{{ asset.mimeType }}</p>
+      </div>
+      <footer class="actions">
+        <button type="button" class="btn tiny" (click)="openDetail(asset)">Abrir</button>
+        <button type="button" class="btn tiny" (click)="editAsset(asset)">Editar</button>
+        <button type="button" class="btn tiny" (click)="archiveAsset(asset)" [disabled]="asset.status === 'archived'">
+          Archivar
+        </button>
+        <button type="button" class="btn tiny danger" (click)="deleteAsset(asset)">Eliminar</button>
+        <button type="button" class="btn tiny secondary" (click)="useInComposer(asset)">
+          {{ selectionMode ? 'Seleccionar y volver' : 'Usar en publicación' }}
+        </button>
+      </footer>
+    </article>
+  </section>
+
+  <footer class="pagination" *ngIf="assets.length > 0">
+    <button type="button" class="btn" (click)="prevPage()" [disabled]="page <= 1">Anterior</button>
+    <span>Página {{ page }} / {{ totalPages }} · {{ totalCount }} registros</span>
+    <button type="button" class="btn" (click)="nextPage()" [disabled]="page >= totalPages">Siguiente</button>
+  </footer>
+
+  <section class="detail-backdrop" *ngIf="showDetail" (click)="closeDetail()">
+    <article class="detail" (click)="$event.stopPropagation()">
+      <header>
+        <h3>Detalle del activo</h3>
+        <button type="button" class="btn" (click)="closeDetail()">Cerrar</button>
+      </header>
+      <p class="error" *ngIf="detailError">{{ detailError }}</p>
+      <p *ngIf="detailLoading">Cargando detalle...</p>
+      <div *ngIf="!detailLoading && detailAsset">
+        <p><strong>ID:</strong> {{ detailAsset.mediaId }}</p>
+        <p><strong>Nombre:</strong> {{ detailAsset.name }}</p>
+        <p><strong>Tipo:</strong> {{ detailAsset.mimeType }}</p>
+        <p><strong>Fuente:</strong> {{ detailAsset.source || 'n/d' }}</p>
+        <p><strong>Estado:</strong> {{ detailAsset.status || 'active' }}</p>
+        <p><strong>Creado:</strong> {{ detailAsset.createdAt || 'n/d' }}</p>
+        <p><strong>Último uso:</strong> {{ detailAsset.lastUsedAt || 'n/d' }}</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="detail-backdrop" *ngIf="showEditModal" (click)="closeEditModal()">
+    <article class="detail" (click)="$event.stopPropagation()">
+      <header>
+        <h3>Editar activo</h3>
+        <button type="button" class="btn" (click)="closeEditModal()">Cerrar</button>
+      </header>
+      <label>Nombre</label>
+      <input type="text" [(ngModel)]="editNameDraft" />
+      <label>Tags</label>
+      <input type="text" [(ngModel)]="editTagsDraft" placeholder="tag1, tag2" />
+      <p class="error" *ngIf="editError">{{ editError }}</p>
+      <div class="actions-row">
+        <button type="button" class="btn" (click)="closeEditModal()">Cancelar</button>
+        <button type="button" class="btn primary" (click)="saveEditAsset()" [disabled]="editSaving">
+          {{ editSaving ? 'Guardando...' : 'Guardar cambios' }}
+        </button>
+      </div>
+    </article>
+  </section>
+</div>

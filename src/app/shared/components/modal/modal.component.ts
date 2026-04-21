@@ -11,7 +11,7 @@ import { CommonModule } from '@angular/common';
 export class ModalComponent implements OnInit, OnDestroy, OnChanges {
   @Input() title: string = '';
   @Input() show: boolean = false;
-  @Input() size: 'small' | 'medium' | 'large' = 'medium';
+  @Input() size: 'small' | 'medium' | 'large' | 'composer' = 'medium';
   @Input() closable: boolean = true;
   @Output() close = new EventEmitter<void>();
 

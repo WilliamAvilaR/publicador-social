@@ -1,0 +1,119 @@
+<div
+  class="media-panel-backdrop"
+  *ngIf="open"
+  (click)="onBackdropClick($event)"
+  role="presentation">
+  <div
+    class="media-panel-sheet"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="media-panel-title"
+    (click)="$event.stopPropagation()">
+    <header class="media-panel-header">
+      <h2 id="media-panel-title" class="media-panel-title">Medios</h2>
+      <button type="button" class="media-panel-close" (click)="closePanel()" aria-label="Cerrar">×</button>
+    </header>
+
+    <nav class="media-panel-tabs" role="tablist">
+      <button
+        type="button"
+        *ngFor="let t of tabs"
+        role="tab"
+        [attr.aria-selected]="activeTab === t.id"
+        class="media-tab"
+        [class.active]="activeTab === t.id"
+        (click)="setTab(t.id)">
+        {{ t.label }}
+      </button>
+    </nav>
+
+    <div class="media-panel-body">
+      <!-- Ordenador -->
+      <div *ngIf="activeTab === 'device'" class="media-tab-panel" role="tabpanel">
+        <p class="media-hint">Carga desde el ordenador o arrastra archivos aquí.</p>
+        <div
+          class="device-drop"
+          (dragover)="onDeviceDragOver($event)"
+          (drop)="onDeviceDrop($event)">
+          <input type="file" accept="image/*,video/*" class="sr-only" id="media-device-file" (change)="onDeviceFileInput($event)" />
+          <label for="media-device-file" class="device-browse">Examinar archivos</label>
+          <p class="device-drop-text">o suelta imagen o video en esta zona</p>
+          <div *ngIf="devicePreviewUrl" class="device-preview">
+            <img *ngIf="selectedDeviceFile?.type?.startsWith('image/')" [src]="devicePreviewUrl" alt="" class="preview-media" />
+            <video *ngIf="selectedDeviceFile?.type?.startsWith('video/')" [src]="devicePreviewUrl" controls class="preview-media"></video>
+          </div>
+          <p class="media-error" *ngIf="deviceError">{{ deviceError }}</p>
+        </div>
+        <footer class="media-panel-actions">
+          <button type="button" class="btn ghost" (click)="closePanel()">Cancelar</button>
+          <button type="button" class="btn primary" [disabled]="!selectedDeviceFile || deviceUploading" (click)="useDeviceUpload()">
+            <span *ngIf="deviceUploading" class="spinner-tiny"></span>
+            {{ deviceUploading ? 'Subiendo…' : 'Usar en la publicación' }}
+          </button>
+        </footer>
+      </div>
+
+      <!-- Biblioteca -->
+      <div *ngIf="activeTab === 'library'" class="media-tab-panel" role="tabpanel">
+        <p class="media-hint">Assets ya usados o cargados previamente (requiere API).</p>
+        <div *ngIf="libraryLoading" class="media-loading">Cargando…</div>
+        <p class="media-error" *ngIf="libraryError">{{ libraryError }}</p>
+        <ul class="library-grid" *ngIf="!libraryLoading && libraryItems.length">
+          <li *ngFor="let it of libraryItems" class="library-cell">
+            <button type="button" class="library-thumb-btn" (click)="useLibraryItem(it.id)">
+              <img *ngIf="it.thumb" [src]="it.thumb" alt="" class="library-thumb" />
+              <span class="library-name">{{ it.name }}</span>
+            </button>
+          </li>
+        </ul>
+        <p *ngIf="!libraryLoading && !libraryError && !libraryItems.length" class="media-muted">No hay elementos. Sube medios primero.</p>
+      </div>
+
+      <!-- Drive -->
+      <div *ngIf="activeTab === 'drive'" class="media-tab-panel" role="tabpanel">
+        <p class="media-hint">Seleccionar archivos desde Google Drive.</p>
+        <p class="media-muted">Requiere OAuth y endpoints de integración en el servidor.</p>
+        <button type="button" class="btn secondary" disabled>Conectar Drive</button>
+      </div>
+
+      <!-- Canva -->
+      <div *ngIf="activeTab === 'canva'" class="media-tab-panel" role="tabpanel">
+        <p class="media-hint">Importar diseños creados en Canva.</p>
+        <p class="media-muted">Requiere acuerdo de producto con Canva y API de importación.</p>
+        <button type="button" class="btn secondary" disabled>Abrir Canva</button>
+      </div>
+
+      <!-- URL externa -->
+      <div *ngIf="activeTab === 'url'" class="media-tab-panel" role="tabpanel">
+        <p class="media-hint">Pega un enlace público de imagen o video. Revisa la vista previa antes de confirmar.</p>
+        <label class="url-label" for="media-url-input">URL</label>
+        <input
+          id="media-url-input"
+          type="url"
+          class="url-input"
+          [(ngModel)]="urlDraft"
+          placeholder="https://…"
+          autocomplete="off" />
+        <div class="url-actions-row">
+          <button type="button" class="btn secondary" (click)="previewUrlClient()" [disabled]="urlPreviewLoading">
+            {{ urlPreviewLoading ? 'Comprobando…' : 'Previsualizar' }}
+          </button>
+          <button type="button" class="btn ghost" (click)="fallbackClientPreview(urlDraft.trim())" [disabled]="!urlDraft.trim()">
+            Vista previa en navegador
+          </button>
+        </div>
+        <p class="media-error" *ngIf="urlPreviewError && !urlPreviewImageSrc && !urlPreviewIsVideo">{{ urlPreviewError }}</p>
+        <div *ngIf="urlPreviewImageSrc && !urlPreviewIsVideo" class="url-preview-box">
+          <img [src]="urlPreviewImageSrc" alt="Vista previa" class="preview-media" (error)="urlPreviewError = 'No se pudo cargar la imagen (CORS o URL inválida).'" />
+        </div>
+        <div *ngIf="urlPreviewIsVideo" class="url-preview-box">
+          <video [src]="urlDraft.trim()" controls class="preview-media" (error)="urlPreviewError = 'No se pudo cargar el video.'"></video>
+        </div>
+        <footer class="media-panel-actions">
+          <button type="button" class="btn ghost" (click)="closePanel()">Cancelar</button>
+          <button type="button" class="btn primary" [disabled]="!urlDraft.trim()" (click)="useExternalUrl()">Usar en la publicación</button>
+        </footer>
+      </div>
+    </div>
+  </div>
+</div>

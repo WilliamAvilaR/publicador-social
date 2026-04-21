@@ -23,17 +23,18 @@
     </full-calendar>
   </div>
 
-  <!-- Modal para crear plan de publicación -->
+  <!-- Modal crear publicación (compositor 3 columnas) -->
   <app-modal
-    title="Crear Plan de Publicación"
+    title="Crear publicación"
     [show]="showCreatePlanModal"
-    size="large"
+    size="composer"
     (close)="closeCreatePlanModal()">
-    <app-create-post-plan-form
+    <app-post-composer
+      *ngIf="showCreatePlanModal"
       [initialDate]="selectedDate"
       (success)="onPlanCreated()"
       (cancel)="closeCreatePlanModal()">
-    </app-create-post-plan-form>
+    </app-post-composer>
   </app-modal>
 
   <!-- Modal para ver detalles del plan -->

@@ -128,6 +128,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       </svg>`
     },
     {
+      label: 'Gestor de archivos',
+      route: '/dashboard/archivos',
+      icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
+        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 0 1 2-2h4.586a1 1 0 0 1 .707.293L12 7h7a2 2 0 0 1 2 2v1H3V7Z"/>
+        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18l-1.1 8.2A2 2 0 0 1 17.92 20H6.08a2 2 0 0 1-1.98-1.8L3 10Z"/>
+      </svg>`
+    },
+    {
       label: 'Automatizaciones',
       route: '/dashboard/automatizaciones',
       featureKeys: ['module.automations'],

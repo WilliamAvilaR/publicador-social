@@ -57,6 +57,12 @@
   max-width: 800px;
 }
 
+.modal-composer {
+  max-width: min(1180px, 96vw);
+  width: 100%;
+  max-height: min(900px, 92vh);
+}
+
 .modal-header {
   display: flex;
   align-items: center;

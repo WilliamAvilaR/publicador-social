@@ -15,7 +15,7 @@ import { PostPlanListItem } from '../../models/post-plan.model';
 import { ProgramadorHeaderComponent } from '../programador-header/programador-header.component';
 import { ScheduledPostCardComponent } from '../scheduled-post-card/scheduled-post-card.component';
 import { ModalComponent } from '../../../../shared/components/modal/modal.component';
-import { CreatePostPlanFormComponent } from '../create-post-plan-form/create-post-plan-form.component';
+import { PostComposerComponent } from '../post-composer/post-composer.component';
 import { PostPlanDetailsComponent } from '../post-plan-details/post-plan-details.component';
 
 @Component({
@@ -27,7 +27,7 @@ import { PostPlanDetailsComponent } from '../post-plan-details/post-plan-details
     ProgramadorHeaderComponent,
     ScheduledPostCardComponent,
     ModalComponent,
-    CreatePostPlanFormComponent,
+    PostComposerComponent,
     PostPlanDetailsComponent
   ],
   templateUrl: './programador.component.html',

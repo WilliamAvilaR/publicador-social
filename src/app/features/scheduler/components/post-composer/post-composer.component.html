@@ -1,0 +1,326 @@
+<div class="post-composer">
+  <app-post-composer-media-panel
+    [open]="showMediaPanel"
+    (openChange)="onMediaPanelOpenChange($event)"
+    [initialTab]="mediaPanelInitialTab"
+    [pendingFile]="mediaPanelPendingFile"
+    (mediaApplied)="onMediaApplied($event)">
+  </app-post-composer-media-panel>
+  <!-- Stepper móvil -->
+  <div class="mobile-tabs" role="tablist">
+    <button
+      type="button"
+      class="mobile-tab"
+      [class.active]="mobileTab === 'accounts'"
+      (click)="mobileTab = 'accounts'">
+      Cuentas
+    </button>
+    <button
+      type="button"
+      class="mobile-tab"
+      [class.active]="mobileTab === 'editor'"
+      (click)="mobileTab = 'editor'">
+      Contenido
+    </button>
+    <button
+      type="button"
+      class="mobile-tab"
+      [class.active]="mobileTab === 'preview'"
+      (click)="mobileTab = 'preview'">
+      Vista previa
+    </button>
+  </div>
+
+  <form [formGroup]="postPlanForm" class="composer-form" novalidate (submit)="$event.preventDefault()">
+    <div class="composer-grid">
+      <!-- Columna izquierda: dónde publicar -->
+      <aside
+        class="col col-accounts"
+        [class.mobile-hidden]="mobileTab !== 'accounts'"
+        aria-label="Dónde publicar">
+        <h3 class="col-title">Dónde publicar</h3>
+        <p class="col-hint">Selecciona al menos una cuenta.</p>
+
+        <div *ngIf="loadingPages" class="state-box">
+          <span class="spinner-tiny"></span>
+          <span>Cargando páginas…</span>
+        </div>
+
+        <div *ngIf="!loadingPages && pages.length === 0" class="state-box muted">
+          No hay páginas de Facebook listas para publicar.
+        </div>
+
+        <ng-container *ngIf="!loadingPages && pages.length > 0">
+          <div class="network-group">
+            <div class="network-label">Facebook</div>
+            <div class="accounts-actions">
+              <button type="button" class="link-btn" (click)="selectAllPages()">Seleccionar todo</button>
+              <span class="sep">·</span>
+              <button type="button" class="link-btn" (click)="deselectAllPages()">Ninguna</button>
+            </div>
+            <ul class="account-list">
+              <li *ngFor="let page of pages" class="account-row">
+                <label class="account-label">
+                  <input
+                    type="checkbox"
+                    [checked]="isPageSelected(page.facebookPageId)"
+                    (change)="togglePageSelection(page.facebookPageId)" />
+                  <span class="avatar-wrap">
+                    <img
+                      *ngIf="page.pictureUrl"
+                      [src]="page.pictureUrl"
+                      [alt]="''"
+                      width="36"
+                      height="36"
+                      class="avatar" />
+                    <span *ngIf="!page.pictureUrl" class="avatar avatar-fallback">{{ page.name.charAt(0) }}</span>
+                  </span>
+                  <span class="account-meta">
+                    <span class="account-name">{{ page.name }}</span>
+                    <span class="account-status ok">Conectado</span>
+                  </span>
+                </label>
+              </li>
+            </ul>
+          </div>
+
+          <div class="network-group disabled-network">
+            <div class="network-label">Instagram</div>
+            <p class="soon-label">Próximamente</p>
+          </div>
+          <div class="network-group disabled-network">
+            <div class="network-label">LinkedIn</div>
+            <p class="soon-label">Próximamente</p>
+          </div>
+        </ng-container>
+
+        <p class="field-error" *ngIf="pagesSelectionError()">Selecciona al menos una cuenta.</p>
+      </aside>
+
+      <!-- Columna central: editor -->
+      <section
+        class="col col-editor"
+        [class.mobile-hidden]="mobileTab !== 'editor'"
+        aria-label="Crear contenido"
+        (dragover)="onDragOver($event)"
+        (drop)="onDrop($event)">
+        <h3 class="col-title">Crear contenido</h3>
+
+        <div class="editor-shell">
+          <div class="editor-frame" [class.editor-frame-invalid]="isFieldInvalid('message')">
+            <textarea
+              #messageTextarea
+              id="composer-message"
+              formControlName="message"
+              class="composer-textarea composer-textarea--embedded"
+              rows="10"
+              placeholder="¿Qué quieres publicar?"
+              [attr.aria-invalid]="isFieldInvalid('message')"></textarea>
+
+            <div class="editor-toolbar" role="toolbar" aria-label="Herramientas del editor">
+              <div class="emoji-panel-wrap toolbar-tool">
+                <button
+                  type="button"
+                  class="toolbar-btn"
+                  [class.toolbar-btn-active]="showEmojiPanel"
+                  (click)="toggleEmojiPanel(); $event.stopPropagation()"
+                  aria-haspopup="true"
+                  [attr.aria-expanded]="showEmojiPanel">
+                  <img
+                    class="toolbar-icon-img"
+                    src="assets/Icons/emoji.svg"
+                    width="18"
+                    height="18"
+                    alt=""
+                    aria-hidden="true" />
+                  <span class="toolbar-btn-label">Emoji</span>
+                </button>
+                <div class="emoji-panel" *ngIf="showEmojiPanel" (click)="$event.stopPropagation()">
+                  <button type="button" *ngFor="let em of quickEmojis" class="emoji-cell" (click)="addEmoji(em)">
+                    {{ em }}
+                  </button>
+                </div>
+              </div>
+
+              <span class="toolbar-sep" aria-hidden="true"></span>
+
+              <button type="button" class="toolbar-btn toolbar-tool" (click)="insertHashtag()">
+                <img
+                  class="toolbar-icon-img"
+                  src="assets/Icons/hashtag.svg"
+                  width="18"
+                  height="18"
+                  alt=""
+                  aria-hidden="true" />
+                <span class="toolbar-btn-label">Hashtag</span>
+              </button>
+
+              <button type="button" class="toolbar-btn toolbar-tool" (click)="insertMention()">
+                <img
+                  class="toolbar-icon-img"
+                  src="assets/Icons/arroba.svg"
+                  width="18"
+                  height="18"
+                  alt=""
+                  aria-hidden="true" />
+                <span class="toolbar-btn-label">Mención</span>
+              </button>
+
+              <button type="button" class="toolbar-btn toolbar-tool" (click)="openMediaPanel('device')">
+                <img
+                  class="toolbar-icon-img"
+                  src="assets/Icons/Media.svg"
+                  width="18"
+                  height="18"
+                  alt=""
+                  aria-hidden="true" />
+                <span class="toolbar-btn-label">Media</span>
+              </button>
+            </div>
+          </div>
+          <p class="drop-hint">Arrastra imagen o video aquí para abrir el panel de medios, o pulsa «Media».</p>
+
+          <div class="char-row">
+            <span [class.warn]="messageLength > charLimitActive">{{ messageLength }} / {{ charLimitActive }}</span>
+            <span class="error-text" *ngIf="isFieldInvalid('message')">{{ getFieldError('message') }}</span>
+          </div>
+
+          <div class="schedule-block">
+            <span class="schedule-label">Programación</span>
+            <div class="toggle-row">
+              <label class="toggle-opt">
+                <input type="radio" name="pm" [checked]="publishMode === 'now'" (change)="setPublishMode('now')" />
+                Publicar ahora
+              </label>
+              <label class="toggle-opt">
+                <input
+                  type="radio"
+                  name="pm"
+                  [checked]="publishMode === 'schedule'"
+                  (change)="setPublishMode('schedule')" />
+                Programar
+              </label>
+            </div>
+            <div class="schedule-fields" *ngIf="publishMode === 'schedule'">
+              <div class="field-row">
+                <label for="scheduledAt" class="mini-label">Fecha y hora</label>
+                <input
+                  type="datetime-local"
+                  id="scheduledAt"
+                  formControlName="scheduledAt"
+                  class="input"
+                  [class.invalid]="isFieldInvalid('scheduledAt')" />
+                <span class="error-text" *ngIf="isFieldInvalid('scheduledAt')">{{ getFieldError('scheduledAt') }}</span>
+              </div>
+              <div class="field-row">
+                <label for="timezone" class="mini-label">Zona horaria</label>
+                <select id="timezone" formControlName="timezone" class="input">
+                  <option *ngFor="let tz of timezones" [value]="tz.value">{{ tz.label }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="schedule-fields" *ngIf="publishMode === 'now'">
+              <p class="muted tiny">Se usará la fecha y hora actuales al publicar.</p>
+            </div>
+          </div>
+
+          <details class="more-block">
+            <summary>Enlaces y opciones</summary>
+            <div class="field-row">
+              <label for="linkUrl" class="mini-label">URL del enlace (opcional)</label>
+              <input type="url" id="linkUrl" formControlName="linkUrl" class="input" placeholder="https://…" />
+            </div>
+            <div class="field-row">
+              <label for="imageUrl" class="mini-label">URL de imagen pública (opcional)</label>
+              <input type="url" id="imageUrl" formControlName="imageUrl" class="input" placeholder="https://…" />
+            </div>
+            <div class="field-row">
+              <label for="dedupeKey" class="mini-label">Clave de deduplicación (opcional)</label>
+              <input type="text" id="dedupeKey" formControlName="dedupeKey" class="input" />
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <!-- Columna derecha: preview -->
+      <aside
+        class="col col-preview"
+        [class.mobile-hidden]="mobileTab !== 'preview'"
+        aria-label="Vista previa">
+        <h3 class="col-title">Vista previa</h3>
+
+        <div class="preview-tabs" role="tablist">
+          <button
+            type="button"
+            *ngFor="let net of placeholderNetworks"
+            class="preview-tab"
+            [class.active]="previewNetwork === net.id"
+            [disabled]="!net.available"
+            (click)="selectPreviewNetwork(net.id)">
+            {{ net.label }}
+            <span *ngIf="!net.available" class="tab-badge">Pronto</span>
+          </button>
+        </div>
+
+        <div class="preview-card" *ngIf="previewNetwork === 'facebook'">
+          <div class="fb-header">
+            <img
+              *ngIf="primaryPreviewPage?.pictureUrl"
+              [src]="primaryPreviewPage?.pictureUrl"
+              alt=""
+              width="40"
+              height="40"
+              class="fb-avatar" />
+            <span *ngIf="!primaryPreviewPage?.pictureUrl" class="fb-avatar fb-avatar-ph">
+              {{ (primaryPreviewPage?.name || '?').charAt(0) }}
+            </span>
+            <div class="fb-head-text">
+              <span class="fb-name">{{ primaryPreviewPage?.name || 'Selecciona una cuenta' }}</span>
+              <span class="fb-meta">Ahora · {{ publishMode === 'now' ? 'Publicación inmediata' : 'Programada' }}</span>
+            </div>
+          </div>
+          <p class="fb-body">{{ postPlanForm.get('message')?.value || 'Tu texto aparecerá aquí en tiempo real.' }}</p>
+          <div class="fb-image-wrap" *ngIf="previewImageSrc()">
+            <img [src]="previewImageSrc()!" alt="" class="fb-image" />
+          </div>
+        </div>
+
+        <div class="preview-placeholder" *ngIf="previewNetwork !== 'facebook'">
+          <p>Vista previa para {{ previewNetwork }} estará disponible cuando conectemos la red.</p>
+        </div>
+      </aside>
+    </div>
+
+    <div class="alerts" *ngIf="errorMessage || limitGateErrorMessage">
+      <div class="alert error" *ngIf="errorMessage">{{ errorMessage }}</div>
+      <div class="alert warn" *ngIf="!errorMessage && limitGateErrorMessage">{{ limitGateErrorMessage }}</div>
+    </div>
+
+    <footer class="composer-footer">
+      <div class="footer-left">
+        <button type="button" class="btn ghost" (click)="onSaveDraftClick()" [disabled]="isLoading">
+          Guardar borrador
+        </button>
+        <span class="draft-hint" *ngIf="draftSavedHint">Borrador guardado</span>
+      </div>
+      <div class="footer-right">
+        <button type="button" class="btn secondary" (click)="onCancel()" [disabled]="isLoading">Cancelar</button>
+        <button
+          type="button"
+          class="btn secondary"
+          (click)="onSubmitPublishMode('now')"
+          [disabled]="ctaDisabled()">
+          <span *ngIf="isLoading" class="spinner-tiny"></span>
+          Publicar ahora
+        </button>
+        <button
+          type="button"
+          class="btn primary"
+          (click)="onSubmitPublishMode('schedule')"
+          [disabled]="ctaDisabled()">
+          Programar publicación
+        </button>
+      </div>
+    </footer>
+  </form>
+</div>

@@ -1,5 +1,5 @@
 <div class="modal-backdrop" *ngIf="show" (click)="onBackdropClick($event)">
-  <div class="modal-container" [class]="'modal-' + size" (click)="$event.stopPropagation()">
+  <div class="modal-container" [ngClass]="'modal-' + size" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h2 class="modal-title">{{ title }}</h2>
       <button 

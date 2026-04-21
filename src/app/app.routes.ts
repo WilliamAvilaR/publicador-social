@@ -61,6 +61,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/segments/components/segments/segments.component').then(m => m.SegmentsComponent)
       },
       {
+        path: 'archivos',
+        loadComponent: () => import('./features/media/components/gestor-archivos/gestor-archivos.component').then(m => m.GestorArchivosComponent)
+      },
+      {
+        path: 'archivos/oauth-callback/:provider',
+        loadComponent: () => import('./features/media/components/gestor-archivos/gestor-archivos.component').then(m => m.GestorArchivosComponent)
+      },
+      {
         path: 'publicaciones',
         redirectTo: 'programador',
         pathMatch: 'full'
