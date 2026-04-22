@@ -108,19 +108,41 @@ export interface StorageSummaryDto {
 export interface IntegrationOAuthStartResponseDto {
   provider: string;
   authorizationUrl: string;
-  state: string;
-}
-
-export interface IntegrationOAuthCallbackResponseDto {
-  provider: string;
-  connected: boolean;
-  message: string;
+  state?: string;
 }
 
 export interface ExternalImportRequestDto {
-  downloadUrl: string;
+  fileId: string;
   name?: string;
   tags?: string[];
+}
+
+export interface IntegrationStatusResponseDto {
+  provider: string;
+  connected: boolean;
+  connectedAt?: string | null;
+  accountEmail?: string | null;
+}
+
+export interface IntegrationFileItemDto {
+  fileId: string;
+  name: string;
+  mimeType?: string;
+  thumbnailUrl?: string;
+  modifiedTime?: string;
+  sizeBytes?: number;
+}
+
+export interface IntegrationFilesQuery {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface IntegrationPickerTokenDto {
+  oauthToken: string;
+  apiKey?: string;
+  appId?: string;
 }
 
 @Injectable({
@@ -219,26 +241,45 @@ export class ComposerMediaService {
       .pipe(catchError((err) => throwError(() => err)));
   }
 
-  oauthCallback(
-    provider: string,
-    code: string,
-    state: string
-  ): Observable<ApiResponse<IntegrationOAuthCallbackResponseDto>> {
-    const params = new HttpParams().set('code', code).set('state', state);
-    return this.http
-      .get<ApiResponse<IntegrationOAuthCallbackResponseDto>>(
-        `/api/integrations/${encodeURIComponent(provider)}/oauth/callback`,
-        { params }
-      )
-      .pipe(catchError((err) => throwError(() => err)));
-  }
-
   importFromProvider(
     provider: string,
     body: ExternalImportRequestDto
   ): Observable<ApiResponse<MediaUploadResponseBody>> {
     return this.http
       .post<ApiResponse<MediaUploadResponseBody>>(`/api/integrations/${encodeURIComponent(provider)}/import`, body)
+      .pipe(catchError((err) => throwError(() => err)));
+  }
+
+  getIntegrationStatus(provider: string): Observable<ApiResponse<IntegrationStatusResponseDto>> {
+    return this.http
+      .get<ApiResponse<IntegrationStatusResponseDto>>(`/api/integrations/${encodeURIComponent(provider)}/status`)
+      .pipe(catchError((err) => throwError(() => err)));
+  }
+
+  disconnectIntegration(provider: string): Observable<ApiResponse<{ disconnected?: boolean }>> {
+    return this.http
+      .post<ApiResponse<{ disconnected?: boolean }>>(`/api/integrations/${encodeURIComponent(provider)}/disconnect`, {})
+      .pipe(catchError((err) => throwError(() => err)));
+  }
+
+  listIntegrationFiles(
+    provider: string,
+    query: IntegrationFilesQuery = {}
+  ): Observable<ApiResponse<IntegrationFileItemDto[]>> {
+    let params = new HttpParams()
+      .set('page', String(query.page ?? 1))
+      .set('pageSize', String(query.pageSize ?? 24));
+    if (query.q?.trim()) {
+      params = params.set('q', query.q.trim());
+    }
+    return this.http
+      .get<ApiResponse<IntegrationFileItemDto[]>>(`/api/integrations/${encodeURIComponent(provider)}/files`, { params })
+      .pipe(catchError((err) => throwError(() => err)));
+  }
+
+  getIntegrationPickerToken(provider: string): Observable<ApiResponse<IntegrationPickerTokenDto>> {
+    return this.http
+      .get<ApiResponse<IntegrationPickerTokenDto>>(`/api/integrations/${encodeURIComponent(provider)}/picker-token`)
       .pipe(catchError((err) => throwError(() => err)));
   }
 }

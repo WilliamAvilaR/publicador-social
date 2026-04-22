@@ -1,18 +1,33 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import {
   ComposerMediaService,
   MediaLibraryItemDto,
-  BulkOperationResultItem
+  BulkOperationResultItem,
+  IntegrationFileItemDto,
+  IntegrationPickerTokenDto
 } from '../../../scheduler/services/composer-media.service';
 import { extractErrorMessage } from '../../../../shared/utils/error.utils';
 import { MediaSelectionService } from '../../services/media-selection.service';
+import { GooglePickerService, PickedGoogleFile } from '../../services/google-picker.service';
 
 type SortMode = 'smart' | 'recently_used' | 'most_used' | 'recently_uploaded';
 type Provider = 'google-drive' | 'onedrive' | 'canva';
+type OAuthUiState = 'disconnected' | 'connecting' | 'verifying_callback' | 'connected' | 'error';
+interface DriveFileUiItem {
+  fileId: string;
+  name: string;
+  mimeType?: string;
+  thumbnailUrl?: string;
+  modifiedTime?: string;
+  sizeBytes?: number;
+}
+type DriveTypeFilter = 'all' | 'image' | 'video' | 'document' | 'other';
+type DriveViewMode = 'grid' | 'list';
 
 interface MediaAsset {
   mediaId: number;
@@ -27,7 +42,13 @@ interface MediaAsset {
   status?: 'active' | 'archived';
   isInUse?: boolean;
   tags?: string[];
+  sizeBytes?: number;
 }
+
+type ImportModal =
+  | null
+  | { kind: 'url' }
+  | { kind: 'integration'; provider: Provider };
 
 @Component({
   selector: 'app-gestor-archivos',
@@ -37,6 +58,8 @@ interface MediaAsset {
   styleUrl: './gestor-archivos.component.scss'
 })
 export class GestorArchivosComponent implements OnInit, OnDestroy {
+  @ViewChild('importMenuAnchor') importMenuAnchor?: ElementRef<HTMLElement>;
+
   q = '';
   sortMode: SortMode = 'smart';
   page = 1;
@@ -87,12 +110,31 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   // Integrations
   integrationProvider: Provider = 'google-drive';
   integrationStartError = '';
-  integrationImportUrl = '';
+  integrationFileId = '';
   integrationImportName = '';
   integrationImportTags = '';
   integrationImportError = '';
+  integrationImportSuccess = '';
   importingExternal = false;
   callbackProcessed = false;
+  oauthUiState: OAuthUiState = 'disconnected';
+  oauthUiMessage = '';
+  integrationStatusLoading = false;
+  integrationConnectedAt: string | null = null;
+  integrationAccountEmail: string | null = null;
+  driveFiles: DriveFileUiItem[] = [];
+  driveFilesLoading = false;
+  driveFilesError = '';
+  driveQuery = '';
+  drivePage = 1;
+  drivePageSize = 12;
+  driveTotalPages = 1;
+  selectedDriveFile: DriveFileUiItem | null = null;
+  driveTypeFilter: DriveTypeFilter = 'all';
+  driveViewMode: DriveViewMode = 'grid';
+  pickerLoading = false;
+  pickerError = '';
+  showDriveFallbackList = false;
 
   // Inline editors
   showEditModal = false;
@@ -107,16 +149,33 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   batchTagSaving = false;
   batchTagError = '';
 
+  /** Búsqueda al escribir (sin botón Buscar). */
+  private readonly searchInput$ = new Subject<string>();
+  private searchDebounceSub?: Subscription;
+
+  importMenuOpen = false;
+  importModal: ImportModal = null;
+  openCardMenuId: number | null = null;
+  batchArchiving = false;
+
   private readonly subscriptions = new Subscription();
 
   constructor(
     private readonly mediaApi: ComposerMediaService,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
-    private readonly mediaSelection: MediaSelectionService
+    private readonly mediaSelection: MediaSelectionService,
+    private readonly googlePicker: GooglePickerService
   ) {}
 
   ngOnInit(): void {
+    this.searchDebounceSub = this.searchInput$
+      .pipe(debounceTime(350), distinctUntilChanged())
+      .subscribe(() => {
+        this.page = 1;
+        this.loadAssets();
+      });
+
     const sub = this.route.queryParamMap.subscribe((params) => {
       this.selectionMode = params.get('mode') === 'select';
       const qpPage = Number(params.get('page') || '1');
@@ -125,6 +184,15 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
       this.q = qp ?? '';
       const status = params.get('status');
       this.statusFilter = status === 'archived' ? 'archived' : 'active';
+      const openImport = params.get('openImport');
+      if (openImport === 'google-drive' && this.importModal?.kind !== 'integration') {
+        this.openImportIntegration('google-drive', false);
+        this.router.navigate([], {
+          replaceUrl: true,
+          queryParams: { openImport: null },
+          queryParamsHandling: 'merge'
+        });
+      }
       this.loadAssets();
       this.loadStorageSummary();
     });
@@ -137,7 +205,92 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.searchDebounceSub?.unsubscribe();
     this.subscriptions.unsubscribe();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(ev: MouseEvent): void {
+    const target = ev.target as Node;
+    if (this.importMenuOpen && this.importMenuAnchor?.nativeElement?.contains(target)) {
+      return;
+    }
+    this.importMenuOpen = false;
+    if (this.openCardMenuId !== null) {
+      const t = ev.target as HTMLElement;
+      const inside = t?.closest?.(`[data-card-id="${this.openCardMenuId}"]`);
+      if (!inside) {
+        this.openCardMenuId = null;
+      }
+    }
+  }
+
+  onSearchInput(): void {
+    this.searchInput$.next(this.q.trim());
+  }
+
+  toggleImportMenu(): void {
+    this.importMenuOpen = !this.importMenuOpen;
+  }
+
+  openImportFromUrl(): void {
+    this.importMenuOpen = false;
+    this.resetUrlImportForm();
+    this.importModal = { kind: 'url' };
+  }
+
+  openImportIntegration(provider: Provider, autoConnectIfDisconnected = true): void {
+    this.importMenuOpen = false;
+    this.integrationProvider = provider;
+    this.integrationFileId = '';
+    this.integrationImportName = '';
+    this.integrationImportTags = '';
+    this.integrationImportError = '';
+    this.integrationImportSuccess = '';
+    this.integrationStartError = '';
+    this.driveFiles = [];
+    this.driveFilesError = '';
+    this.driveQuery = '';
+    this.drivePage = 1;
+    this.selectedDriveFile = null;
+    this.driveTypeFilter = 'all';
+    this.driveViewMode = 'grid';
+    this.pickerLoading = false;
+    this.pickerError = '';
+    this.showDriveFallbackList = false;
+    if (this.oauthUiState === 'error') {
+      this.oauthUiState = 'disconnected';
+      this.oauthUiMessage = '';
+    }
+    this.importModal = { kind: 'integration', provider };
+    this.refreshIntegrationStatus(provider, false, autoConnectIfDisconnected);
+  }
+
+  closeImportModal(): void {
+    this.importModal = null;
+    this.integrationStartError = '';
+    this.integrationImportError = '';
+    this.integrationImportSuccess = '';
+    this.pickerError = '';
+  }
+
+  private resetUrlImportForm(): void {
+    this.urlDraft = '';
+    this.urlName = '';
+    this.urlTagsDraft = '';
+    this.urlPreviewError = '';
+    this.importUrlError = '';
+    this.urlPreviewImageSrc = null;
+    this.urlPreviewIsVideo = false;
+  }
+
+  toggleCardMenu(mediaId: number, ev: Event): void {
+    ev.stopPropagation();
+    this.openCardMenuId = this.openCardMenuId === mediaId ? null : mediaId;
+  }
+
+  closeCardMenu(): void {
+    this.openCardMenuId = null;
   }
 
   loadAssets(): void {
@@ -185,7 +338,8 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
       source: typeof anyIt['source'] === 'string' ? anyIt['source'] : undefined,
       status: (anyIt['status'] as MediaAsset['status']) ?? 'active',
       isInUse: typeof anyIt['isInUse'] === 'boolean' ? anyIt['isInUse'] : false,
-      tags: Array.isArray(anyIt['tags']) ? (anyIt['tags'] as string[]) : []
+      tags: Array.isArray(anyIt['tags']) ? (anyIt['tags'] as string[]) : [],
+      sizeBytes: typeof anyIt['sizeBytes'] === 'number' ? anyIt['sizeBytes'] : undefined
     };
   }
 
@@ -212,18 +366,14 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     });
   }
 
-  onSearch(): void {
-    this.page = 1;
-    this.loadAssets();
-  }
-
   onChangeStatus(): void {
     this.page = 1;
     this.loadAssets();
   }
 
   onChangeSort(): void {
-    this.assets = this.applySort(this.assets);
+    this.page = 1;
+    this.loadAssets();
   }
 
   prevPage(): void {
@@ -264,6 +414,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   }
 
   openDetail(asset: MediaAsset): void {
+    this.closeCardMenu();
     this.showDetail = true;
     this.detailError = '';
     this.detailLoading = true;
@@ -286,6 +437,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   }
 
   useInComposer(asset: MediaAsset): void {
+    this.closeCardMenu();
     this.mediaSelection.setPendingSelection({
       mediaId: asset.mediaId,
       publicUrl: asset.publicUrl,
@@ -296,7 +448,31 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     this.router.navigate(['/dashboard/programador']);
   }
 
+  useSelectedInComposer(): void {
+    const id = Array.from(this.selectedIds)[0];
+    if (id == null) return;
+    const asset = this.assets.find((a) => a.mediaId === id);
+    if (!asset) return;
+    this.useInComposer(asset);
+  }
+
+  exitSelectionMode(): void {
+    this.router.navigate(['/dashboard/archivos'], {
+      queryParams: { mode: null, q: this.q || null, page: this.page > 1 ? this.page : null, status: this.statusFilter },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
+  }
+
   toggleSelected(mediaId: number): void {
+    if (this.selectionMode) {
+      if (this.selectedIds.has(mediaId)) {
+        this.selectedIds.clear();
+      } else {
+        this.selectedIds = new Set([mediaId]);
+      }
+      return;
+    }
     if (this.selectedIds.has(mediaId)) {
       this.selectedIds.delete(mediaId);
     } else {
@@ -310,6 +486,37 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
       return;
     }
     this.selectedIds = new Set(this.assets.map((a) => a.mediaId));
+  }
+
+  runBatchArchive(): void {
+    if (!this.selectedIds.size) return;
+    this.batchMessage = '';
+    this.bulkResultItems = [];
+    this.batchArchiving = true;
+    const ids = Array.from(this.selectedIds);
+    let ok = 0;
+    let fail = 0;
+    let i = 0;
+    const step = (): void => {
+      if (i >= ids.length) {
+        this.batchArchiving = false;
+        this.batchMessage = `Archivar: ${ok} correctos${fail ? `, ${fail} fallidos` : ''}.`;
+        this.loadAssets();
+        return;
+      }
+      const id = ids[i++];
+      this.mediaApi.archiveMedia(id).subscribe({
+        next: () => {
+          ok++;
+          step();
+        },
+        error: () => {
+          fail++;
+          step();
+        }
+      });
+    };
+    step();
   }
 
   runBatchDelete(): void {
@@ -420,11 +627,8 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.importingUrl = false;
-          this.urlDraft = '';
-          this.urlName = '';
-          this.urlTagsDraft = '';
-          this.urlPreviewImageSrc = null;
-          this.urlPreviewError = '';
+          this.closeImportModal();
+          this.resetUrlImportForm();
           this.loadAssets();
           this.loadStorageSummary();
         },
@@ -442,6 +646,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
       this.urlPreviewError = 'Pega una URL antes de continuar.';
       return;
     }
+    this.closeImportModal();
     this.mediaSelection.setPendingSelection({
       mediaId: null,
       publicUrl: url,
@@ -453,6 +658,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   }
 
   archiveAsset(asset: MediaAsset): void {
+    this.closeCardMenu();
     const sub = this.mediaApi.archiveMedia(asset.mediaId).subscribe({
       next: () => {
         this.loadAssets();
@@ -465,6 +671,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   }
 
   deleteAsset(asset: MediaAsset): void {
+    this.closeCardMenu();
     if (!confirm(`Eliminar "${asset.name}"?`)) return;
     const sub = this.mediaApi.deleteMedia(asset.mediaId).subscribe({
       next: () => {
@@ -479,6 +686,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   }
 
   editAsset(asset: MediaAsset): void {
+    this.closeCardMenu();
     this.editingAsset = asset;
     this.editNameDraft = asset.name;
     this.editTagsDraft = (asset.tags || []).join(', ');
@@ -536,18 +744,34 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   }
 
   startOAuth(): void {
+    if (this.oauthUiState === 'connecting' || this.oauthUiState === 'verifying_callback') {
+      console.log('[drive] startOAuth bloqueado por estado', this.oauthUiState);
+      return;
+    }
+    console.log('[drive] startOAuth init', { provider: this.integrationProvider });
     this.integrationStartError = '';
+    this.integrationImportSuccess = '';
+    this.oauthUiState = 'connecting';
+    this.oauthUiMessage = 'Conectando con Google...';
     const sub = this.mediaApi.startOAuth(this.integrationProvider).subscribe({
       next: (res) => {
         const url = res.data.authorizationUrl;
+        console.log('[drive] startOAuth response', { hasAuthorizationUrl: !!url, state: res.data.state });
         if (!url) {
           this.integrationStartError = 'El backend no devolvió authorizationUrl.';
+          this.oauthUiState = 'error';
+          this.oauthUiMessage = 'No se pudo completar la conexión. Intenta nuevamente.';
+          console.log('[drive] startOAuth error: authorizationUrl faltante');
           return;
         }
+        console.log('[drive] redirecting to google auth', { url });
         window.open(url, '_self');
       },
       error: (err) => {
         this.integrationStartError = extractErrorMessage(err, 'No se pudo iniciar OAuth del proveedor.');
+        this.oauthUiState = 'error';
+        this.oauthUiMessage = 'No se pudo completar la conexión. Intenta nuevamente.';
+        console.log('[drive] startOAuth request error', err);
       }
     });
     this.subscriptions.add(sub);
@@ -555,63 +779,337 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
 
   private tryProcessOAuthCallback(pathParams: ParamMap): void {
     if (this.callbackProcessed) return;
-    const code = this.route.snapshot.queryParamMap.get('code');
-    const state = this.route.snapshot.queryParamMap.get('state');
     const provider = pathParams.get('provider') ?? this.route.snapshot.queryParamMap.get('provider');
-    if (!code || !state || !provider) return;
+    const onCallbackRoute = this.router.url.includes('/oauth-callback/');
+    console.log('[drive] callback detected', { provider, onCallbackRoute });
+    if (!provider || !onCallbackRoute) return;
     this.callbackProcessed = true;
-    const sub = this.mediaApi.oauthCallback(provider, code, state).subscribe({
-      next: () => {
-        this.batchMessage = `Conexión con ${provider} completada.`;
-        this.router.navigate(['/dashboard/archivos'], {
-          replaceUrl: true,
-          queryParams: {
-            mode: this.selectionMode ? 'select' : null,
-            status: this.statusFilter
-          },
-          queryParamsHandling: 'merge'
-        });
-      },
-      error: (err) => {
-        this.batchMessage = extractErrorMessage(err, `No se pudo completar callback OAuth de ${provider}.`);
-      }
-    });
-    this.subscriptions.add(sub);
+    this.oauthUiState = 'verifying_callback';
+    this.oauthUiMessage = 'Validando autorizacion...';
+    this.importModal = { kind: 'integration', provider: provider as Provider };
+    // Backend-first: callback se resuelve en backend y frontend solo refresca status.
+    this.refreshIntegrationStatus(provider as Provider, true);
   }
 
   importFromProvider(): void {
-    const downloadUrl = this.integrationImportUrl.trim();
-    if (!downloadUrl) {
-      this.integrationImportError = 'Ingresa una URL de descarga.';
+    const fileId = this.integrationFileId.trim();
+    if (!fileId) {
+      this.integrationImportError = 'Ingresa el fileId de Google Drive.';
+      console.log('[drive] import blocked: fileId vacío');
       return;
     }
+    console.log('[drive] import request init', {
+      provider: this.integrationProvider,
+      fileId,
+      hasName: !!this.integrationImportName.trim(),
+      tagsCount: this.integrationImportTags.split(',').map((t) => t.trim()).filter(Boolean).length
+    });
     this.importingExternal = true;
     this.integrationImportError = '';
+    this.integrationImportSuccess = '';
     const tags = this.integrationImportTags
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean);
     const sub = this.mediaApi
       .importFromProvider(this.integrationProvider, {
-        downloadUrl,
+        fileId,
         name: this.integrationImportName.trim() || undefined,
         tags: tags.length ? tags : undefined
       })
       .subscribe({
         next: () => {
+          console.log('[drive] import request success', { provider: this.integrationProvider });
           this.importingExternal = false;
-          this.integrationImportUrl = '';
+          this.oauthUiState = 'connected';
+          this.oauthUiMessage = 'Google Drive conectado correctamente.';
+          this.integrationImportSuccess = 'Archivo importado correctamente.';
+          this.integrationFileId = '';
           this.integrationImportName = '';
           this.integrationImportTags = '';
+          this.selectedDriveFile = null;
+          this.loadDriveFiles(false);
           this.loadAssets();
           this.loadStorageSummary();
         },
         error: (err) => {
+          console.log('[drive] import request error', err);
           this.importingExternal = false;
+          this.integrationImportSuccess = '';
           this.integrationImportError = extractErrorMessage(err, 'No se pudo importar desde integración.');
+          if (this.getHttpStatus(err) === 412) {
+            this.oauthUiState = 'disconnected';
+            this.oauthUiMessage = 'Integracion no conectada. Conecta Google Drive para continuar.';
+          }
         }
       });
     this.subscriptions.add(sub);
+  }
+
+  private getHttpStatus(err: unknown): number | null {
+    const anyErr = err as { status?: number } | null;
+    return typeof anyErr?.status === 'number' ? anyErr.status : null;
+  }
+
+  private mapOAuthErrorMessage(err: unknown): string {
+    const status = this.getHttpStatus(err);
+    if (status === 401) return 'Sesion expirada. Inicia sesion nuevamente.';
+    if (status === 403) return 'Sin acceso al tenant activo. Verifica permisos e intenta otra vez.';
+    if (status === 400) return 'Autorizacion invalida o expirada. Reinicia la conexion.';
+    if (status === 502) return 'Google no respondio correctamente. Reintenta la conexion.';
+    return 'No se pudo completar la conexion. Intenta nuevamente.';
+  }
+
+  refreshIntegrationStatus(
+    provider: Provider = this.integrationProvider,
+    fromCallback = false,
+    autoConnectIfDisconnected = false
+  ): void {
+    this.integrationStatusLoading = true;
+    const sub = this.mediaApi.getIntegrationStatus(provider).subscribe({
+      next: (res) => {
+        const data = res.data;
+        this.integrationStatusLoading = false;
+        this.integrationConnectedAt = data.connectedAt ?? null;
+        this.integrationAccountEmail = data.accountEmail ?? null;
+        this.oauthUiState = data.connected ? 'connected' : 'disconnected';
+        this.oauthUiMessage = data.connected
+          ? 'Google Drive conectado correctamente.'
+          : 'Aun no hay conexion activa con Google Drive.';
+        if (!data.connected && autoConnectIfDisconnected && provider === 'google-drive') {
+          this.startOAuth();
+        }
+        if (data.connected && provider === 'google-drive') {
+          this.loadDriveFiles(true);
+          this.openGooglePickerAuto();
+        } else {
+          this.driveFiles = [];
+          this.selectedDriveFile = null;
+          this.integrationFileId = '';
+        }
+        if (fromCallback) {
+          this.batchMessage = data.connected
+            ? `Conexión con ${provider} completada.`
+            : `No se confirmó conexión activa con ${provider}.`;
+          this.router.navigate(['/dashboard/archivos'], {
+            replaceUrl: true,
+            queryParams: {
+              mode: this.selectionMode ? 'select' : null,
+              status: this.statusFilter,
+              openImport: provider === 'google-drive' && data.connected ? 'google-drive' : null,
+              code: null,
+              state: null,
+              iss: null,
+              scope: null
+            },
+            queryParamsHandling: 'merge'
+          });
+        }
+      },
+      error: (err) => {
+        this.integrationStatusLoading = false;
+        this.oauthUiState = 'error';
+        this.oauthUiMessage = this.mapOAuthErrorMessage(err);
+        if (fromCallback) {
+          this.batchMessage = extractErrorMessage(err, `No se pudo confirmar estado de ${provider}.`);
+          this.callbackProcessed = false;
+        }
+      }
+    });
+    this.subscriptions.add(sub);
+  }
+
+  disconnectDrive(): void {
+    const sub = this.mediaApi.disconnectIntegration(this.integrationProvider).subscribe({
+      next: () => {
+        this.integrationFileId = '';
+        this.integrationImportName = '';
+        this.integrationImportTags = '';
+        this.integrationImportError = '';
+        this.integrationImportSuccess = '';
+        this.oauthUiState = 'disconnected';
+        this.oauthUiMessage = 'Integracion desconectada.';
+        this.integrationConnectedAt = null;
+        this.integrationAccountEmail = null;
+        this.driveFiles = [];
+        this.selectedDriveFile = null;
+        this.integrationFileId = '';
+      },
+      error: (err) => {
+        this.integrationImportError = extractErrorMessage(err, 'No se pudo desconectar la integracion.');
+      }
+    });
+    this.subscriptions.add(sub);
+  }
+
+  loadDriveFiles(resetPage = false): void {
+    if (this.integrationProvider !== 'google-drive') return;
+    if (this.oauthUiState !== 'connected') return;
+    if (resetPage) {
+      this.drivePage = 1;
+    }
+    this.driveFilesLoading = true;
+    this.driveFilesError = '';
+    const sub = this.mediaApi
+      .listIntegrationFiles('google-drive', {
+        q: this.driveQuery,
+        page: this.drivePage,
+        pageSize: this.drivePageSize
+      })
+      .subscribe({
+        next: (res) => {
+          const list = Array.isArray(res.data) ? res.data : [];
+          this.driveFiles = list.map((x) => this.mapDriveFile(x));
+          this.driveTotalPages = Math.max(1, Number(res.meta?.totalPages ?? 1));
+          this.driveFilesLoading = false;
+          this.showDriveFallbackList = true;
+        },
+        error: (err) => {
+          this.driveFilesLoading = false;
+          if (this.getHttpStatus(err) === 412) {
+            this.oauthUiState = 'disconnected';
+            this.oauthUiMessage = 'Integracion no conectada. Vuelve a conectar Google Drive.';
+          }
+          this.driveFilesError = extractErrorMessage(err, 'No se pudo cargar el listado de Google Drive.');
+        }
+      });
+    this.subscriptions.add(sub);
+  }
+
+  searchDriveFiles(): void {
+    this.loadDriveFiles(true);
+  }
+
+  prevDrivePage(): void {
+    if (this.drivePage <= 1) return;
+    this.drivePage--;
+    this.loadDriveFiles(false);
+  }
+
+  nextDrivePage(): void {
+    if (this.drivePage >= this.driveTotalPages) return;
+    this.drivePage++;
+    this.loadDriveFiles(false);
+  }
+
+  selectDriveFile(file: DriveFileUiItem): void {
+    this.selectedDriveFile = file;
+    this.integrationFileId = file.fileId;
+    this.integrationImportError = '';
+    this.integrationImportSuccess = '';
+    if (!this.integrationImportName.trim()) {
+      this.integrationImportName = file.name;
+    }
+  }
+
+  onDriveFileDoubleClick(file: DriveFileUiItem): void {
+    this.selectDriveFile(file);
+    this.importFromProvider();
+  }
+
+  openGooglePickerAuto(): void {
+    if (this.integrationProvider !== 'google-drive') return;
+    if (this.oauthUiState !== 'connected') return;
+    if (this.pickerLoading) return;
+    this.openGooglePicker(false);
+  }
+
+  openGooglePicker(forceFallbackOnError = true): void {
+    this.pickerLoading = true;
+    this.pickerError = '';
+    const sub = this.mediaApi.getIntegrationPickerToken('google-drive').subscribe({
+      next: (res) => {
+        const token = res.data;
+        this.resolvePickerApiKey(token)
+          .then((apiKey) =>
+            this.googlePicker.openPicker({
+              apiKey,
+              oauthToken: token.oauthToken,
+              appId: token.appId || undefined
+            })
+          )
+          .then((picked) => {
+            this.pickerLoading = false;
+            if (!picked) return;
+            this.applyPickedFileAndImport(picked);
+          })
+          .catch((err: unknown) => {
+            this.pickerLoading = false;
+            this.pickerError = extractErrorMessage(err as any, 'No se pudo abrir Google Picker.');
+            if (forceFallbackOnError) {
+              this.showDriveFallbackList = true;
+            }
+          });
+      },
+      error: (err) => {
+        this.pickerLoading = false;
+        this.pickerError = extractErrorMessage(err, 'No se pudo obtener token para Google Picker.');
+        if (forceFallbackOnError) {
+          this.showDriveFallbackList = true;
+        }
+      }
+    });
+    this.subscriptions.add(sub);
+  }
+
+  private resolvePickerApiKey(token: IntegrationPickerTokenDto): Promise<string> {
+    if (token.apiKey?.trim()) return Promise.resolve(token.apiKey.trim());
+    const fromWindow = (window as unknown as { __GOOGLE_PICKER_API_KEY__?: string }).__GOOGLE_PICKER_API_KEY__;
+    if (typeof fromWindow === 'string' && fromWindow.trim()) return Promise.resolve(fromWindow.trim());
+    return Promise.reject(new Error('No hay apiKey para Google Picker.'));
+  }
+
+  private applyPickedFileAndImport(file: PickedGoogleFile): void {
+    if (!file.fileId) return;
+    this.integrationFileId = file.fileId;
+    if (!this.integrationImportName.trim()) {
+      this.integrationImportName = file.name?.trim() || 'Archivo de Google Drive';
+    }
+    this.importFromProvider();
+  }
+
+  setDriveTypeFilter(filter: DriveTypeFilter): void {
+    this.driveTypeFilter = filter;
+  }
+
+  setDriveViewMode(mode: DriveViewMode): void {
+    this.driveViewMode = mode;
+  }
+
+  get visibleDriveFiles(): DriveFileUiItem[] {
+    return this.driveFiles.filter((f) => this.matchesDriveTypeFilter(f));
+  }
+
+  private matchesDriveTypeFilter(file: DriveFileUiItem): boolean {
+    if (this.driveTypeFilter === 'all') return true;
+    const mime = (file.mimeType || '').toLowerCase();
+    if (this.driveTypeFilter === 'image') return mime.startsWith('image/');
+    if (this.driveTypeFilter === 'video') return mime.startsWith('video/');
+    if (this.driveTypeFilter === 'document') {
+      return (
+        mime.includes('pdf') ||
+        mime.includes('document') ||
+        mime.includes('sheet') ||
+        mime.includes('presentation') ||
+        mime.includes('text/')
+      );
+    }
+    return !mime.startsWith('image/') && !mime.startsWith('video/');
+  }
+
+  private mapDriveFile(it: IntegrationFileItemDto): DriveFileUiItem {
+    const anyIt = it as unknown as Record<string, unknown>;
+    const fileId =
+      (typeof anyIt['fileId'] === 'string' ? anyIt['fileId'] : undefined) ??
+      (typeof anyIt['id'] === 'string' ? anyIt['id'] : '');
+    return {
+      fileId,
+      name: typeof anyIt['name'] === 'string' ? anyIt['name'] : 'Sin nombre',
+      mimeType: typeof anyIt['mimeType'] === 'string' ? anyIt['mimeType'] : undefined,
+      thumbnailUrl: typeof anyIt['thumbnailUrl'] === 'string' ? anyIt['thumbnailUrl'] : undefined,
+      modifiedTime: typeof anyIt['modifiedTime'] === 'string' ? anyIt['modifiedTime'] : undefined,
+      sizeBytes: typeof anyIt['sizeBytes'] === 'number' ? anyIt['sizeBytes'] : undefined
+    };
   }
 
   usedPercent(): number {
@@ -637,5 +1135,31 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
 
   isVideo(asset: MediaAsset): boolean {
     return asset.mimeType.startsWith('video/');
+  }
+
+  formatMimeShort(mime: string): string {
+    if (!mime || mime === 'application/octet-stream') return 'Archivo';
+    const [type, sub] = mime.split('/');
+    if (!sub) return mime;
+    if (type === 'image' || type === 'video') return sub.toUpperCase();
+    return sub;
+  }
+
+  formatAssetSize(asset: MediaAsset): string {
+    if (asset.sizeBytes == null) return '';
+    return this.formatBytes(asset.sizeBytes);
+  }
+
+  integrationTitle(provider: Provider): string {
+    switch (provider) {
+      case 'google-drive':
+        return 'Google Drive';
+      case 'onedrive':
+        return 'OneDrive';
+      case 'canva':
+        return 'Canva';
+      default:
+        return provider;
+    }
   }
 }
