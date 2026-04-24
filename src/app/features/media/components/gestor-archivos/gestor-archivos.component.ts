@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import {
@@ -9,7 +10,8 @@ import {
   MediaLibraryItemDto,
   BulkOperationResultItem,
   IntegrationFileItemDto,
-  IntegrationPickerTokenDto
+  IntegrationPickerTokenDto,
+  MediaFolderDto
 } from '../../../scheduler/services/composer-media.service';
 import { extractErrorMessage } from '../../../../shared/utils/error.utils';
 import { MediaSelectionService } from '../../services/media-selection.service';
@@ -45,10 +47,17 @@ interface MediaAsset {
   sizeBytes?: number;
 }
 
+interface MediaFolderNode extends MediaFolderDto {
+  children: MediaFolderNode[];
+}
+
 type ImportModal =
   | null
   | { kind: 'url' }
   | { kind: 'integration'; provider: Provider };
+
+/** Vista de cuadrícula: tarjetas más grandes o más compactas + pageSize alineado al backend. */
+type GridDensity = 'comfortable' | 'standard' | 'compact';
 
 @Component({
   selector: 'app-gestor-archivos',
@@ -60,16 +69,37 @@ type ImportModal =
 export class GestorArchivosComponent implements OnInit, OnDestroy {
   @ViewChild('importMenuAnchor') importMenuAnchor?: ElementRef<HTMLElement>;
 
+  private static readonly GRID_DENSITY_STORAGE_KEY = 'gestor-archivos.gridDensity';
+
   q = '';
   sortMode: SortMode = 'smart';
   page = 1;
   pageSize = 24;
+  /** Densidad de la cuadrícula (persistida en localStorage). */
+  gridDensity: GridDensity = 'standard';
   totalPages = 1;
   totalCount = 0;
 
   assets: MediaAsset[] = [];
   loading = false;
   errorMessage = '';
+  selectedFolderId: number | null = null;
+  folderTree: MediaFolderNode[] = [];
+  folderLookup = new Map<number, MediaFolderNode>();
+  foldersLoading = false;
+  folderError = '';
+  folderActionError = '';
+  breadcrumbItems: MediaFolderDto[] = [];
+  breadcrumbLoading = false;
+  showFolderModal = false;
+  folderModalMode: 'create-root' | 'create-child' | 'rename' | 'move' = 'create-root';
+  folderFormName = '';
+  folderFormParentId: number | null = null;
+  folderModalTarget: MediaFolderNode | null = null;
+  folderSaving = false;
+  dragOverFolderId: number | null = null;
+  draggingMediaIds = new Set<number>();
+  movingMedia = false;
 
   // Modo selección (viene del compositor)
   selectionMode = false;
@@ -135,6 +165,8 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   pickerLoading = false;
   pickerError = '';
   showDriveFallbackList = false;
+  selectedPickerFileName = '';
+  selectedPickerMimeType = '';
 
   // Inline editors
   showEditModal = false;
@@ -157,6 +189,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   importModal: ImportModal = null;
   openCardMenuId: number | null = null;
   batchArchiving = false;
+  deletingFolderId: number | null = null;
 
   private readonly subscriptions = new Subscription();
 
@@ -169,6 +202,8 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.restoreGridDensity();
+
     this.searchDebounceSub = this.searchInput$
       .pipe(debounceTime(350), distinctUntilChanged())
       .subscribe(() => {
@@ -184,6 +219,8 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
       this.q = qp ?? '';
       const status = params.get('status');
       this.statusFilter = status === 'archived' ? 'archived' : 'active';
+      const folderIdParam = Number(params.get('folderId'));
+      this.selectedFolderId = Number.isFinite(folderIdParam) && folderIdParam > 0 ? folderIdParam : null;
       const openImport = params.get('openImport');
       if (openImport === 'google-drive' && this.importModal?.kind !== 'integration') {
         this.openImportIntegration('google-drive', false);
@@ -195,6 +232,8 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
       }
       this.loadAssets();
       this.loadStorageSummary();
+      this.loadFolders();
+      this.loadBreadcrumb();
     });
     this.subscriptions.add(sub);
 
@@ -207,6 +246,51 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.searchDebounceSub?.unsubscribe();
     this.subscriptions.unsubscribe();
+  }
+
+  setGridDensity(density: GridDensity): void {
+    if (this.gridDensity === density) {
+      return;
+    }
+    this.applyGridDensity(density, true);
+    this.page = 1;
+    this.loadAssets();
+  }
+
+  private restoreGridDensity(): void {
+    try {
+      const raw = localStorage.getItem(GestorArchivosComponent.GRID_DENSITY_STORAGE_KEY);
+      if (raw === 'comfortable' || raw === 'standard' || raw === 'compact') {
+        this.applyGridDensity(raw, false);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    this.applyGridDensity('standard', false);
+  }
+
+  private applyGridDensity(density: GridDensity, persist: boolean): void {
+    this.gridDensity = density;
+    this.pageSize = this.pageSizeForDensity(density);
+    if (persist) {
+      try {
+        localStorage.setItem(GestorArchivosComponent.GRID_DENSITY_STORAGE_KEY, density);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  private pageSizeForDensity(density: GridDensity): number {
+    switch (density) {
+      case 'comfortable':
+        return 18;
+      case 'compact':
+        return 36;
+      default:
+        return 24;
+    }
   }
 
   @HostListener('document:click', ['$event'])
@@ -258,6 +342,8 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     this.pickerLoading = false;
     this.pickerError = '';
     this.showDriveFallbackList = false;
+    this.selectedPickerFileName = '';
+    this.selectedPickerMimeType = '';
     if (this.oauthUiState === 'error') {
       this.oauthUiState = 'disconnected';
       this.oauthUiMessage = '';
@@ -272,6 +358,8 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     this.integrationImportError = '';
     this.integrationImportSuccess = '';
     this.pickerError = '';
+    this.selectedPickerFileName = '';
+    this.selectedPickerMimeType = '';
   }
 
   private resetUrlImportForm(): void {
@@ -302,7 +390,8 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
         pageSize: this.pageSize,
         q: this.q,
         status: this.statusFilter,
-        sort: this.sortMode === 'smart' ? undefined : this.sortMode
+        sort: this.sortMode === 'smart' ? undefined : this.sortMode,
+        folderId: this.selectedFolderId
       })
       .subscribe({
       next: (res) => {
@@ -371,6 +460,335 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     this.loadAssets();
   }
 
+  selectFolder(folderId: number | null): void {
+    this.selectedFolderId = folderId;
+    this.page = 1;
+    this.folderActionError = '';
+    this.updateFolderQueryParam();
+    this.loadBreadcrumb();
+    this.loadAssets();
+  }
+
+  private updateFolderQueryParam(): void {
+    this.router.navigate([], {
+      replaceUrl: true,
+      queryParams: { folderId: this.selectedFolderId ?? null, page: this.page > 1 ? this.page : null },
+      queryParamsHandling: 'merge'
+    });
+  }
+
+  loadFolders(): void {
+    this.foldersLoading = true;
+    this.folderError = '';
+    const sub = this.mediaApi.listFolders().subscribe({
+      next: (res) => {
+        const folders = Array.isArray(res.data) ? res.data : [];
+        this.rebuildFolderTree(folders);
+        this.foldersLoading = false;
+        if (this.selectedFolderId != null && !this.folderLookup.has(this.selectedFolderId)) {
+          this.selectedFolderId = null;
+          this.updateFolderQueryParam();
+          this.loadAssets();
+          this.breadcrumbItems = [];
+          this.folderActionError = 'La carpeta seleccionada ya no existe.';
+        }
+      },
+      error: (err) => {
+        this.foldersLoading = false;
+        this.folderError = extractErrorMessage(err, 'No se pudo cargar el árbol de carpetas.');
+      }
+    });
+    this.subscriptions.add(sub);
+  }
+
+  private rebuildFolderTree(folders: MediaFolderDto[]): void {
+    const nodes = new Map<number, MediaFolderNode>();
+    folders.forEach((folder) => nodes.set(folder.folderId, { ...folder, children: [] }));
+    const roots: MediaFolderNode[] = [];
+    nodes.forEach((node) => {
+      if (node.parentFolderId == null) {
+        roots.push(node);
+        return;
+      }
+      const parent = nodes.get(node.parentFolderId);
+      if (parent) {
+        parent.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+    const sortTree = (list: MediaFolderNode[]): void => {
+      list.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+      list.forEach((x) => sortTree(x.children));
+    };
+    sortTree(roots);
+    this.folderTree = roots;
+    this.folderLookup = nodes;
+  }
+
+  loadBreadcrumb(): void {
+    if (this.selectedFolderId == null) {
+      this.breadcrumbItems = [];
+      return;
+    }
+    this.breadcrumbLoading = true;
+    const sub = this.mediaApi.getFolderAncestors(this.selectedFolderId).subscribe({
+      next: (res) => {
+        this.breadcrumbLoading = false;
+        this.breadcrumbItems = Array.isArray(res.data) ? res.data : [];
+      },
+      error: (err) => {
+        this.breadcrumbLoading = false;
+        const status = this.getHttpStatus(err);
+        if (status === 404) {
+          this.selectedFolderId = null;
+          this.breadcrumbItems = [];
+          this.updateFolderQueryParam();
+          this.loadAssets();
+          this.folderActionError = this.mapFolderError(err);
+          return;
+        }
+        this.folderActionError = extractErrorMessage(err, 'No se pudo cargar el breadcrumb.');
+      }
+    });
+    this.subscriptions.add(sub);
+  }
+
+  openCreateRootFolder(): void {
+    this.folderModalMode = 'create-root';
+    this.folderModalTarget = null;
+    this.folderFormName = '';
+    this.folderFormParentId = null;
+    this.folderActionError = '';
+    this.showFolderModal = true;
+  }
+
+  openCreateChildFolder(parent: MediaFolderNode): void {
+    this.folderModalMode = 'create-child';
+    this.folderModalTarget = parent;
+    this.folderFormName = '';
+    this.folderFormParentId = parent.folderId;
+    this.folderActionError = '';
+    this.showFolderModal = true;
+  }
+
+  openRenameFolder(folder: MediaFolderNode): void {
+    this.folderModalMode = 'rename';
+    this.folderModalTarget = folder;
+    this.folderFormName = folder.name;
+    this.folderFormParentId = folder.parentFolderId;
+    this.folderActionError = '';
+    this.showFolderModal = true;
+  }
+
+  openMoveFolder(folder: MediaFolderNode): void {
+    this.folderModalMode = 'move';
+    this.folderModalTarget = folder;
+    this.folderFormName = folder.name;
+    this.folderFormParentId = folder.parentFolderId;
+    this.folderActionError = '';
+    this.showFolderModal = true;
+  }
+
+  closeFolderModal(): void {
+    if (this.folderSaving) return;
+    this.showFolderModal = false;
+    this.folderModalTarget = null;
+    this.folderFormName = '';
+    this.folderFormParentId = null;
+  }
+
+  saveFolderModal(): void {
+    const name = this.folderFormName.trim();
+    if (!name) {
+      this.folderActionError = 'El nombre de la carpeta es obligatorio.';
+      return;
+    }
+    this.folderSaving = true;
+    this.folderActionError = '';
+    if (this.folderModalMode === 'create-root' || this.folderModalMode === 'create-child') {
+      const sub = this.mediaApi.createFolder({ parentFolderId: this.folderFormParentId ?? null, name }).subscribe({
+        next: (res) => {
+          this.folderSaving = false;
+          this.closeFolderModal();
+          this.loadFolders();
+          this.selectFolder(res.data.folderId);
+        },
+        error: (err) => {
+          this.folderSaving = false;
+          this.folderActionError = this.mapFolderError(err);
+        }
+      });
+      this.subscriptions.add(sub);
+      return;
+    }
+    if (!this.folderModalTarget) {
+      this.folderSaving = false;
+      return;
+    }
+    const sub = this.mediaApi
+      .updateFolder(this.folderModalTarget.folderId, { parentFolderId: this.folderFormParentId ?? null, name })
+      .subscribe({
+        next: () => {
+          this.folderSaving = false;
+          this.closeFolderModal();
+          this.loadFolders();
+          this.loadBreadcrumb();
+        },
+        error: (err) => {
+          this.folderSaving = false;
+          this.folderActionError = this.mapFolderError(err);
+        }
+      });
+    this.subscriptions.add(sub);
+  }
+
+  deleteFolder(folder: MediaFolderNode): void {
+    if (!confirm(`Eliminar carpeta "${folder.name}"?`)) return;
+    this.deletingFolderId = folder.folderId;
+    this.folderActionError = '';
+    const sub = this.mediaApi.deleteFolder(folder.folderId).subscribe({
+      next: () => {
+        this.deletingFolderId = null;
+        if (this.selectedFolderId === folder.folderId) {
+          this.selectFolder(null);
+        } else {
+          this.loadFolders();
+        }
+      },
+      error: (err) => {
+        this.deletingFolderId = null;
+        this.folderActionError = this.mapFolderError(err);
+      }
+    });
+    this.subscriptions.add(sub);
+  }
+
+  folderParentOptions(excludeFolderId?: number): MediaFolderNode[] {
+    return Array.from(this.folderLookup.values())
+      .filter((x) => x.folderId !== excludeFolderId)
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }
+
+  private mapFolderError(err: unknown): string {
+    const http = err as HttpErrorResponse;
+    const code = String((http?.error as { code?: string } | null)?.code ?? '').toUpperCase();
+    const folderErrorMessages: Record<string, string> = {
+      MEDIA_FOLDER_NOT_FOUND: 'La carpeta no existe o fue eliminada.',
+      MEDIA_FOLDER_PARENT_NOT_FOUND: 'La carpeta padre indicada no existe.',
+      MEDIA_FOLDER_NAME_DUPLICATE: 'Ya existe una carpeta con ese nombre en el mismo nivel.',
+      MEDIA_FOLDER_CYCLE: 'No puedes mover una carpeta dentro de sí misma o de sus descendientes.',
+      MEDIA_FOLDER_HAS_CONTENT: 'Vacía la carpeta o mueve su contenido antes de eliminar.',
+      MEDIA_FOLDER_MAX_DEPTH_EXCEEDED: 'Se alcanzó la profundidad máxima de carpetas permitida.',
+      MEDIA_FOLDER_TENANT_MISMATCH: 'La carpeta no pertenece al tenant activo.'
+    };
+    if (folderErrorMessages[code]) return folderErrorMessages[code];
+    return extractErrorMessage(http, 'No se pudo completar la operación de carpeta.');
+  }
+
+  private mapMoveMediaError(err: unknown): string {
+    const http = err as HttpErrorResponse;
+    const code = String((http?.error as { code?: string } | null)?.code ?? '').toUpperCase();
+    const moveErrorMessages: Record<string, string> = {
+      MEDIA_NOT_FOUND: 'El archivo ya no existe.',
+      MEDIA_FOLDER_NOT_FOUND: 'La carpeta destino no existe.',
+      MEDIA_FOLDER_TENANT_MISMATCH: 'No tienes acceso a la carpeta destino para este tenant.',
+      MEDIA_TENANT_MISMATCH: 'No tienes acceso a uno o más archivos seleccionados.'
+    };
+    if (moveErrorMessages[code]) return moveErrorMessages[code];
+    return extractErrorMessage(http, 'No se pudo mover el contenido.');
+  }
+
+  onCardDragStart(ev: DragEvent, asset: MediaAsset): void {
+    if (this.selectionMode) return;
+    const ids = this.selectedIds.has(asset.mediaId) && this.selectedIds.size > 0
+      ? Array.from(this.selectedIds)
+      : [asset.mediaId];
+    this.draggingMediaIds = new Set(ids);
+    if (ev.dataTransfer) {
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('application/x-media-ids', JSON.stringify(ids));
+      ev.dataTransfer.setData('text/plain', ids.join(','));
+    }
+  }
+
+  onCardDragEnd(): void {
+    this.dragOverFolderId = null;
+    this.draggingMediaIds.clear();
+  }
+
+  onFolderDragOver(ev: DragEvent, folderId: number | null): void {
+    if (!this.draggingMediaIds.size || this.movingMedia) return;
+    ev.preventDefault();
+    if (ev.dataTransfer) {
+      ev.dataTransfer.dropEffect = 'move';
+    }
+    this.dragOverFolderId = folderId;
+  }
+
+  onFolderDragLeave(folderId: number | null): void {
+    if (this.dragOverFolderId === folderId) {
+      this.dragOverFolderId = null;
+    }
+  }
+
+  onFolderDrop(ev: DragEvent, folderId: number | null): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.dragOverFolderId = null;
+    if (this.movingMedia) return;
+    let ids = Array.from(this.draggingMediaIds);
+    if (!ids.length) {
+      const raw = ev.dataTransfer?.getData('application/x-media-ids') || ev.dataTransfer?.getData('text/plain') || '';
+      ids = raw
+        .split(',')
+        .map((x) => Number(x.trim()))
+        .filter((x) => Number.isFinite(x) && x > 0);
+    }
+    ids = Array.from(new Set(ids));
+    if (!ids.length) return;
+    this.moveMediaToFolder(ids, folderId);
+  }
+
+  private moveMediaToFolder(mediaIds: number[], folderId: number | null): void {
+    this.movingMedia = true;
+    this.folderActionError = '';
+    this.batchMessage = '';
+    const done = (): void => {
+      this.movingMedia = false;
+      this.draggingMediaIds.clear();
+      this.selectedIds.clear();
+      this.loadAssets();
+      this.loadFolders();
+    };
+    const onError = (err: unknown): void => {
+      this.movingMedia = false;
+      this.folderActionError = this.mapMoveMediaError(err);
+      this.draggingMediaIds.clear();
+    };
+    if (mediaIds.length === 1) {
+      const sub = this.mediaApi.moveMedia(mediaIds[0], { folderId }).subscribe({
+        next: () => {
+          this.batchMessage = 'Archivo movido correctamente.';
+          done();
+        },
+        error: onError
+      });
+      this.subscriptions.add(sub);
+      return;
+    }
+    const sub = this.mediaApi.bulkMoveMedia({ mediaIds, folderId }).subscribe({
+      next: (res) => {
+        const data = res.data;
+        this.bulkResultItems = data.results || [];
+        this.batchMessage = `Mover: ${data.processed} procesados, ${data.failed} fallidos.`;
+        done();
+      },
+      error: onError
+    });
+    this.subscriptions.add(sub);
+  }
+
   onChangeSort(): void {
     this.page = 1;
     this.loadAssets();
@@ -400,17 +818,43 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     this.uploading = true;
     this.uploadError = '';
     const sub = this.mediaApi.uploadMedia(file).subscribe({
-      next: () => {
+      next: (res) => {
         this.uploading = false;
+        const status = res.data?.processingStatus;
+        if (status === 'pending') {
+          this.batchMessage = 'Archivo subido. Procesando miniatura/vista previa en segundo plano.';
+        } else if (status === 'failed') {
+          this.batchMessage = 'Archivo subido, pero falló el procesamiento de derivados.';
+        } else {
+          this.batchMessage = '';
+        }
         this.loadAssets();
         this.loadStorageSummary();
       },
       error: (err) => {
         this.uploading = false;
-        this.uploadError = extractErrorMessage(err, 'No se pudo subir el archivo.');
+        this.uploadError = this.mapUploadError(err);
       }
     });
     this.subscriptions.add(sub);
+  }
+
+  private mapUploadError(err: unknown): string {
+    const http = err as HttpErrorResponse;
+    const code = String((http?.error as { code?: string } | null)?.code ?? '').toUpperCase();
+    if (http?.status === 413 || code === 'MEDIA_TOO_LARGE') {
+      return 'El archivo supera el tamaño máximo permitido.';
+    }
+    if (http?.status === 415 || code === 'MEDIA_INVALID_TYPE') {
+      return 'Tipo de archivo no permitido.';
+    }
+    if (http?.status === 403 || code === 'MEDIA_QUOTA_EXCEEDED') {
+      return 'No hay espacio disponible en tu cuota de almacenamiento.';
+    }
+    if (http?.status === 400) {
+      return extractErrorMessage(http, 'Archivo inválido. Verifica formato y contenido.');
+    }
+    return extractErrorMessage(http, 'No se pudo subir el archivo.');
   }
 
   openDetail(asset: MediaAsset): void {
@@ -745,10 +1189,8 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
 
   startOAuth(): void {
     if (this.oauthUiState === 'connecting' || this.oauthUiState === 'verifying_callback') {
-      console.log('[drive] startOAuth bloqueado por estado', this.oauthUiState);
       return;
     }
-    console.log('[drive] startOAuth init', { provider: this.integrationProvider });
     this.integrationStartError = '';
     this.integrationImportSuccess = '';
     this.oauthUiState = 'connecting';
@@ -756,22 +1198,18 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     const sub = this.mediaApi.startOAuth(this.integrationProvider).subscribe({
       next: (res) => {
         const url = res.data.authorizationUrl;
-        console.log('[drive] startOAuth response', { hasAuthorizationUrl: !!url, state: res.data.state });
         if (!url) {
           this.integrationStartError = 'El backend no devolvió authorizationUrl.';
           this.oauthUiState = 'error';
           this.oauthUiMessage = 'No se pudo completar la conexión. Intenta nuevamente.';
-          console.log('[drive] startOAuth error: authorizationUrl faltante');
           return;
         }
-        console.log('[drive] redirecting to google auth', { url });
         window.open(url, '_self');
       },
       error: (err) => {
         this.integrationStartError = extractErrorMessage(err, 'No se pudo iniciar OAuth del proveedor.');
         this.oauthUiState = 'error';
         this.oauthUiMessage = 'No se pudo completar la conexión. Intenta nuevamente.';
-        console.log('[drive] startOAuth request error', err);
       }
     });
     this.subscriptions.add(sub);
@@ -781,7 +1219,6 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     if (this.callbackProcessed) return;
     const provider = pathParams.get('provider') ?? this.route.snapshot.queryParamMap.get('provider');
     const onCallbackRoute = this.router.url.includes('/oauth-callback/');
-    console.log('[drive] callback detected', { provider, onCallbackRoute });
     if (!provider || !onCallbackRoute) return;
     this.callbackProcessed = true;
     this.oauthUiState = 'verifying_callback';
@@ -794,16 +1231,9 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   importFromProvider(): void {
     const fileId = this.integrationFileId.trim();
     if (!fileId) {
-      this.integrationImportError = 'Ingresa el fileId de Google Drive.';
-      console.log('[drive] import blocked: fileId vacío');
+      this.integrationImportError = 'Selecciona un archivo para importar.';
       return;
     }
-    console.log('[drive] import request init', {
-      provider: this.integrationProvider,
-      fileId,
-      hasName: !!this.integrationImportName.trim(),
-      tagsCount: this.integrationImportTags.split(',').map((t) => t.trim()).filter(Boolean).length
-    });
     this.importingExternal = true;
     this.integrationImportError = '';
     this.integrationImportSuccess = '';
@@ -819,7 +1249,6 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
       })
       .subscribe({
         next: () => {
-          console.log('[drive] import request success', { provider: this.integrationProvider });
           this.importingExternal = false;
           this.oauthUiState = 'connected';
           this.oauthUiMessage = 'Google Drive conectado correctamente.';
@@ -827,13 +1256,14 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
           this.integrationFileId = '';
           this.integrationImportName = '';
           this.integrationImportTags = '';
+          this.selectedPickerFileName = '';
+          this.selectedPickerMimeType = '';
           this.selectedDriveFile = null;
           this.loadDriveFiles(false);
           this.loadAssets();
           this.loadStorageSummary();
         },
         error: (err) => {
-          console.log('[drive] import request error', err);
           this.importingExternal = false;
           this.integrationImportSuccess = '';
           this.integrationImportError = extractErrorMessage(err, 'No se pudo importar desde integración.');
@@ -879,10 +1309,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
         if (!data.connected && autoConnectIfDisconnected && provider === 'google-drive') {
           this.startOAuth();
         }
-        if (data.connected && provider === 'google-drive') {
-          this.loadDriveFiles(true);
-          this.openGooglePickerAuto();
-        } else {
+        if (!(data.connected && provider === 'google-drive')) {
           this.driveFiles = [];
           this.selectedDriveFile = null;
           this.integrationFileId = '';
@@ -1007,14 +1434,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     this.importFromProvider();
   }
 
-  openGooglePickerAuto(): void {
-    if (this.integrationProvider !== 'google-drive') return;
-    if (this.oauthUiState !== 'connected') return;
-    if (this.pickerLoading) return;
-    this.openGooglePicker(false);
-  }
-
-  openGooglePicker(forceFallbackOnError = true): void {
+  openGooglePicker(): void {
     this.pickerLoading = true;
     this.pickerError = '';
     const sub = this.mediaApi.getIntegrationPickerToken('google-drive').subscribe({
@@ -1036,17 +1456,11 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
           .catch((err: unknown) => {
             this.pickerLoading = false;
             this.pickerError = extractErrorMessage(err as any, 'No se pudo abrir Google Picker.');
-            if (forceFallbackOnError) {
-              this.showDriveFallbackList = true;
-            }
           });
       },
       error: (err) => {
         this.pickerLoading = false;
         this.pickerError = extractErrorMessage(err, 'No se pudo obtener token para Google Picker.');
-        if (forceFallbackOnError) {
-          this.showDriveFallbackList = true;
-        }
       }
     });
     this.subscriptions.add(sub);
@@ -1062,10 +1476,13 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   private applyPickedFileAndImport(file: PickedGoogleFile): void {
     if (!file.fileId) return;
     this.integrationFileId = file.fileId;
+    this.selectedPickerFileName = file.name?.trim() || 'Archivo seleccionado';
+    this.selectedPickerMimeType = file.mimeType?.trim() || '';
+    this.integrationImportError = '';
+    this.integrationImportSuccess = '';
     if (!this.integrationImportName.trim()) {
       this.integrationImportName = file.name?.trim() || 'Archivo de Google Drive';
     }
-    this.importFromProvider();
   }
 
   setDriveTypeFilter(filter: DriveTypeFilter): void {
@@ -1161,5 +1578,39 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
       default:
         return provider;
     }
+  }
+
+  oauthStateLabel(): string {
+    switch (this.oauthUiState) {
+      case 'disconnected':
+        return 'Sin conexión';
+      case 'connecting':
+        return 'Conectando...';
+      case 'verifying_callback':
+        return 'Comprobando...';
+      case 'connected':
+        return 'Conectado';
+      case 'error':
+        return 'Error de conexión';
+      default:
+        return '';
+    }
+  }
+
+  connectAccountButtonLabel(): string {
+    if (this.oauthUiState === 'connecting') return 'Conectando...';
+    if (this.oauthUiState === 'verifying_callback') return 'Comprobando...';
+    if (this.oauthUiState === 'error') return 'Volver a conectar con Google';
+    return 'Conectar con Google';
+  }
+
+  integrationImportFooterHint(): string {
+    if (this.oauthUiState !== 'connected') {
+      return 'Aún no hay conexión activa con Google Drive.';
+    }
+    if (!this.integrationFileId.trim()) {
+      return 'Aún no has seleccionado un archivo.';
+    }
+    return '1 archivo listo para importar';
   }
 }

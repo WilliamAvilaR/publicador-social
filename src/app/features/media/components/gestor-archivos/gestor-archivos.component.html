@@ -1,4 +1,7 @@
-<div class="gestor-archivos" [class.selection-layout]="selectionMode">
+<div
+  class="gestor-archivos"
+  [class.selection-layout]="selectionMode"
+  [ngClass]="'density-' + gridDensity">
   <!-- Zona 1: intención (subir / importar / buscar) -->
   <ng-container *ngIf="!selectionMode">
     <header class="zone-actions">
@@ -34,7 +37,11 @@
 
         <label class="btn primary upload-btn">
           {{ uploading ? 'Subiendo…' : 'Subir' }}
-          <input type="file" (change)="onUploadInput($event)" accept="image/*,video/*" [disabled]="uploading" />
+          <input
+            type="file"
+            (change)="onUploadInput($event)"
+            accept="image/*,video/*,application/pdf,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
+            [disabled]="uploading" />
         </label>
 
         <div class="import-dropdown">
@@ -75,6 +82,58 @@
             <option value="recently_uploaded">Más recientes subidos</option>
           </select>
         </label>
+        <div class="density-group" role="group" aria-label="Densidad de la cuadrícula">
+          <div class="density-seg">
+            <button
+              type="button"
+              class="density-btn"
+              [class.active]="gridDensity === 'compact'"
+              [attr.aria-pressed]="gridDensity === 'compact'"
+              (click)="setGridDensity('compact')"
+              data-density-tip="Pequeño"
+              aria-label="Pequeño. Vista compacta, 36 archivos por página.">
+              <svg class="density-ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                <circle cx="4" cy="4" r="1.35" fill="currentColor" />
+                <circle cx="10" cy="4" r="1.35" fill="currentColor" />
+                <circle cx="16" cy="4" r="1.35" fill="currentColor" />
+                <circle cx="4" cy="10" r="1.35" fill="currentColor" />
+                <circle cx="10" cy="10" r="1.35" fill="currentColor" />
+                <circle cx="16" cy="10" r="1.35" fill="currentColor" />
+                <circle cx="4" cy="16" r="1.35" fill="currentColor" />
+                <circle cx="10" cy="16" r="1.35" fill="currentColor" />
+                <circle cx="16" cy="16" r="1.35" fill="currentColor" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="density-btn"
+              [class.active]="gridDensity === 'standard'"
+              [attr.aria-pressed]="gridDensity === 'standard'"
+              (click)="setGridDensity('standard')"
+              data-density-tip="Estándar"
+              aria-label="Estándar. Vista equilibrada, 24 archivos por página.">
+              <svg class="density-ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                <rect x="3" y="3" width="6" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.25" />
+                <rect x="11" y="3" width="6" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.25" />
+                <rect x="3" y="11" width="6" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.25" />
+                <rect x="11" y="11" width="6" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.25" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="density-btn"
+              [class.active]="gridDensity === 'comfortable'"
+              [attr.aria-pressed]="gridDensity === 'comfortable'"
+              (click)="setGridDensity('comfortable')"
+              data-density-tip="Cómodo"
+              aria-label="Cómodo. Tarjetas grandes, 18 archivos por página.">
+              <svg class="density-ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                <rect x="3" y="5" width="14" height="4.5" rx="2.25" fill="currentColor" />
+                <rect x="3" y="11.5" width="14" height="4.5" rx="2.25" fill="currentColor" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
   </ng-container>
@@ -88,6 +147,8 @@
 
   <p class="error" *ngIf="uploadError">{{ uploadError }}</p>
   <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="error" *ngIf="folderError">{{ folderError }}</p>
+  <p class="error" *ngIf="folderActionError">{{ folderActionError }}</p>
   <p class="warn inline-msg" *ngIf="batchMessage && !selectionMode">{{ batchMessage }}</p>
 
   <!-- Batch: solo con selección y fuera de modo selección -->
@@ -113,23 +174,88 @@
     </ul>
   </section>
 
-  <!-- Zona 2: contenido -->
-  <section class="empty-state" *ngIf="!loading && !errorMessage && assets.length === 0">
-    <h2 class="empty-title">No tienes archivos aún</h2>
-    <p class="empty-desc">Sube algo o impórtalo por URL para empezar tu biblioteca.</p>
-    <div class="empty-cta">
-      <label class="btn primary upload-btn">
-        Subir archivo
-        <input type="file" (change)="onUploadInput($event)" accept="image/*,video/*" />
-      </label>
-      <button type="button" class="btn secondary" (click)="openImportFromUrl()">Importar desde URL</button>
-    </div>
-  </section>
+  <!-- Zona 2: layout con carpetas -->
+  <section class="media-layout">
+    <aside class="folders-panel">
+      <div class="folders-head">
+        <h3>Carpetas</h3>
+        <button type="button" class="btn tiny" (click)="openCreateRootFolder()">+ Nueva</button>
+      </div>
 
-  <p class="loading-line" *ngIf="loading">Cargando…</p>
+      <button
+        type="button"
+        class="folder-item root"
+        [class.drop-target]="dragOverFolderId === null"
+        [class.active]="selectedFolderId == null"
+        (click)="selectFolder(null)"
+        (dragover)="onFolderDragOver($event, null)"
+        (dragleave)="onFolderDragLeave(null)"
+        (drop)="onFolderDrop($event, null)">
+        Biblioteca
+      </button>
 
-  <section class="grid" *ngIf="!loading && assets.length > 0">
-    <article class="card" *ngFor="let asset of assets" [attr.data-card-id]="asset.mediaId">
+      <p class="loading-line" *ngIf="foldersLoading">Cargando carpetas…</p>
+      <ul class="folder-tree" *ngIf="!foldersLoading">
+        <ng-container *ngFor="let node of folderTree">
+          <ng-container
+            [ngTemplateOutlet]="folderNodeTpl"
+            [ngTemplateOutletContext]="{ $implicit: node }"></ng-container>
+        </ng-container>
+      </ul>
+    </aside>
+
+    <div class="media-main">
+      <div class="breadcrumb-bar">
+        <span class="crumb-root" (click)="selectFolder(null)">Biblioteca</span>
+        <ng-container *ngIf="breadcrumbLoading">
+          <span class="crumb-sep">/</span>
+          <span class="crumb-loading">Cargando...</span>
+        </ng-container>
+        <ng-container *ngFor="let folder of breadcrumbItems">
+          <span class="crumb-sep">/</span>
+          <button type="button" class="crumb-link" (click)="selectFolder(folder.folderId)">{{ folder.name }}</button>
+        </ng-container>
+      </div>
+
+      <div class="folder-actions" *ngIf="selectedFolderId != null && folderLookup.get(selectedFolderId) as current">
+        <button type="button" class="btn tiny" (click)="openCreateChildFolder(current)">+ Subcarpeta</button>
+        <button type="button" class="btn tiny" (click)="openRenameFolder(current)">Renombrar</button>
+        <button type="button" class="btn tiny" (click)="openMoveFolder(current)">Mover</button>
+        <button
+          type="button"
+          class="btn tiny danger"
+          (click)="deleteFolder(current)"
+          [disabled]="deletingFolderId === current.folderId">
+          {{ deletingFolderId === current.folderId ? 'Eliminando…' : 'Eliminar carpeta' }}
+        </button>
+      </div>
+
+      <section class="empty-state" *ngIf="!loading && !errorMessage && assets.length === 0">
+        <h2 class="empty-title">No tienes archivos aún</h2>
+        <p class="empty-desc">Sube algo o impórtalo por URL para empezar tu biblioteca.</p>
+        <div class="empty-cta">
+          <label class="btn primary upload-btn">
+            Subir archivo
+            <input
+              type="file"
+              (change)="onUploadInput($event)"
+              accept="image/*,video/*,application/pdf,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt" />
+          </label>
+          <button type="button" class="btn secondary" (click)="openImportFromUrl()">Importar desde URL</button>
+        </div>
+      </section>
+
+      <p class="loading-line" *ngIf="loading">Cargando…</p>
+
+      <section class="grid" *ngIf="!loading && assets.length > 0">
+    <article
+      class="card"
+      [class.dragging]="draggingMediaIds.has(asset.mediaId)"
+      *ngFor="let asset of assets"
+      [attr.data-card-id]="asset.mediaId"
+      [attr.draggable]="!selectionMode"
+      (dragstart)="onCardDragStart($event, asset)"
+      (dragend)="onCardDragEnd()">
       <div class="card-visual">
         <label class="card-check" *ngIf="!selectionMode" (click)="$event.stopPropagation()">
           <input
@@ -194,13 +320,15 @@
         </div>
       </div>
     </article>
-  </section>
+      </section>
 
-  <footer class="pagination" *ngIf="!loading && assets.length > 0">
-    <button type="button" class="btn" (click)="prevPage()" [disabled]="page <= 1">Anterior</button>
-    <span class="page-info">Página {{ page }} / {{ totalPages }} · {{ totalCount }}</span>
-    <button type="button" class="btn" (click)="nextPage()" [disabled]="page >= totalPages">Siguiente</button>
-  </footer>
+      <footer class="pagination" *ngIf="!loading && assets.length > 0">
+        <button type="button" class="btn" (click)="prevPage()" [disabled]="page <= 1">Anterior</button>
+        <span class="page-info">Página {{ page }} / {{ totalPages }} · {{ totalCount }}</span>
+        <button type="button" class="btn" (click)="nextPage()" [disabled]="page >= totalPages">Siguiente</button>
+      </footer>
+    </div>
+  </section>
 
   <!-- Barra modo selección -->
   <footer class="selection-bar" *ngIf="selectionMode">
@@ -249,158 +377,93 @@
 
   <!-- Modal: integración (Drive / OneDrive / Canva) -->
   <section class="detail-backdrop" *ngIf="importModal?.kind === 'integration'" (click)="closeImportModal()">
-    <article class="detail modal-import" (click)="$event.stopPropagation()">
+    <article class="detail modal-import modal-import--wide" (click)="$event.stopPropagation()">
       <header class="modal-head">
-        <h3>Importar · {{ integrationTitle(integrationProvider) }}</h3>
-        <button type="button" class="btn ghost" (click)="closeImportModal()">Cerrar</button>
+        <div>
+          <h3>Importar desde Google Drive</h3>
+          <p class="modal-help integration-lead">
+            Selecciona un archivo desde tu cuenta de Google e impórtalo a tu biblioteca.
+          </p>
+        </div>
+        <button type="button" class="btn ghost modal-close" (click)="closeImportModal()" aria-label="Cerrar">✕</button>
       </header>
-      <p class="modal-help">Conecta tu cuenta y selecciona visualmente el archivo en Drive.</p>
-      <p class="modal-help" *ngIf="integrationStatusLoading">Consultando estado de integracion...</p>
-      <div class="oauth-state" [class.connected]="oauthUiState === 'connected'" [class.error]="oauthUiState === 'error'">
-        <strong>Estado:</strong> {{ oauthUiState }}
-        <p *ngIf="oauthUiMessage">{{ oauthUiMessage }}</p>
-        <p *ngIf="integrationAccountEmail">Cuenta: {{ integrationAccountEmail }}</p>
-        <p *ngIf="integrationConnectedAt">Conectado desde: {{ integrationConnectedAt }}</p>
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="btn secondary" (click)="refreshIntegrationStatus()">Refrescar estado</button>
-        <button type="button" class="btn danger" (click)="disconnectDrive()" [disabled]="oauthUiState !== 'connected'">
+
+      <div class="oauth-state compact" [class.connected]="oauthUiState === 'connected'" [class.error]="oauthUiState === 'error'">
+        <div class="oauth-main">
+          <strong>{{ oauthUiState === 'connected' ? 'Google Drive conectado' : oauthStateLabel() }}</strong>
+          <p *ngIf="oauthUiState === 'connected' && integrationAccountEmail">
+            {{ integrationAccountEmail }} · conectado hace un momento
+          </p>
+          <p *ngIf="oauthUiState !== 'connected' && oauthUiMessage">{{ oauthUiMessage }}</p>
+        </div>
+        <button type="button" class="btn secondary btn-sm" (click)="disconnectDrive()" [disabled]="oauthUiState !== 'connected'">
           Desconectar
         </button>
       </div>
-      <button
-        type="button"
-        class="btn"
-        (click)="startOAuth()"
-        [disabled]="oauthUiState === 'connecting' || oauthUiState === 'verifying_callback'">
-        {{
-          oauthUiState === 'connecting'
-            ? 'Conectando...'
-            : oauthUiState === 'verifying_callback'
-              ? 'Validando...'
-              : 'Conectar con OAuth'
-        }}
-      </button>
-      <button type="button" class="btn secondary" *ngIf="oauthUiState === 'error'" (click)="startOAuth()">
-        Reintentar conexion
-      </button>
 
-      <div class="picker-actions" *ngIf="oauthUiState === 'connected'">
-        <button type="button" class="btn primary" (click)="openGooglePicker()" [disabled]="pickerLoading">
-          {{ pickerLoading ? 'Abriendo Picker…' : 'Elegir archivo con Google Picker' }}
-        </button>
-        <button type="button" class="btn secondary" (click)="showDriveFallbackList = !showDriveFallbackList">
-          {{ showDriveFallbackList ? 'Ocultar listado interno' : 'Usar listado interno (fallback)' }}
+      <div class="integration-connect-block" *ngIf="oauthUiState !== 'connected'">
+        <button
+          type="button"
+          class="btn primary integration-connect-primary"
+          (click)="startOAuth()"
+          [disabled]="oauthUiState === 'connecting' || oauthUiState === 'verifying_callback'">
+          {{ connectAccountButtonLabel() }}
         </button>
       </div>
-      <p class="error" *ngIf="pickerError">{{ pickerError }}</p>
 
-      <div class="drive-picker" *ngIf="oauthUiState === 'connected' && showDriveFallbackList">
-        <div class="drive-picker-toolbar">
-          <input
-            type="search"
-            class="field-input"
-            [(ngModel)]="driveQuery"
-            (keyup.enter)="searchDriveFiles()"
-            placeholder="Buscar archivos en Drive..." />
-          <button type="button" class="btn secondary" (click)="searchDriveFiles()">Buscar</button>
-          <button type="button" class="btn" (click)="loadDriveFiles(false)">Refrescar</button>
-          <button type="button" class="btn" (click)="setDriveViewMode('grid')" [class.primary]="driveViewMode === 'grid'">
-            Grid
-          </button>
-          <button type="button" class="btn" (click)="setDriveViewMode('list')" [class.primary]="driveViewMode === 'list'">
-            Lista
-          </button>
-        </div>
-        <div class="drive-type-chips">
-          <button type="button" class="chip" [class.active]="driveTypeFilter === 'all'" (click)="setDriveTypeFilter('all')">
-            Todo
-          </button>
-          <button
-            type="button"
-            class="chip"
-            [class.active]="driveTypeFilter === 'image'"
-            (click)="setDriveTypeFilter('image')">
-            Imágenes
-          </button>
-          <button
-            type="button"
-            class="chip"
-            [class.active]="driveTypeFilter === 'video'"
-            (click)="setDriveTypeFilter('video')">
-            Videos
-          </button>
-          <button
-            type="button"
-            class="chip"
-            [class.active]="driveTypeFilter === 'document'"
-            (click)="setDriveTypeFilter('document')">
-            Documentos
-          </button>
-          <button
-            type="button"
-            class="chip"
-            [class.active]="driveTypeFilter === 'other'"
-            (click)="setDriveTypeFilter('other')">
-            Otros
+      <section class="picker-cta-card" *ngIf="oauthUiState === 'connected'">
+        <button type="button" class="btn primary integration-pick-primary" (click)="openGooglePicker()" [disabled]="pickerLoading">
+          {{ pickerLoading ? 'Abriendo selector…' : 'Seleccionar archivo en Google Drive' }}
+        </button>
+        <p class="integration-picker-note">Se abrirá el selector oficial de Google.</p>
+        <p class="error integration-picker-error" *ngIf="pickerError">{{ pickerError }}</p>
+      </section>
+
+      <section class="selected-file-card" *ngIf="integrationFileId.trim()">
+        <p class="selected-file-title">Archivo seleccionado</p>
+        <div class="selected-file-row">
+          <div class="selected-file-thumb">GD</div>
+          <div class="selected-file-text">
+            <strong>{{ selectedPickerFileName || integrationImportName || 'Archivo seleccionado' }}</strong>
+            <small>{{ selectedPickerMimeType || 'Archivo de Google Drive' }}</small>
+          </div>
+          <button type="button" class="btn secondary btn-sm" (click)="openGooglePicker()" [disabled]="pickerLoading">
+            Cambiar archivo
           </button>
         </div>
-        <p class="modal-help" *ngIf="driveFilesLoading">Cargando archivos de Google Drive...</p>
-        <p class="error" *ngIf="driveFilesError">{{ driveFilesError }}</p>
-        <div class="drive-selection-bar" *ngIf="selectedDriveFile">
-          <span>Seleccionado: <strong>{{ selectedDriveFile.name }}</strong></span>
-          <button type="button" class="btn primary" (click)="importFromProvider()" [disabled]="importingExternal">
-            {{ importingExternal ? 'Importando…' : 'Importar seleccionado' }}
-          </button>
+      </section>
+
+      <section class="integration-optional-block" *ngIf="integrationFileId.trim()">
+        <p class="integration-optional-title">Detalles opcionales</p>
+        <div class="optional-grid">
+          <div>
+            <label class="field-label">Nombre en la biblioteca</label>
+            <input type="text" class="field-input" [(ngModel)]="integrationImportName" placeholder="Ej. Banner campaña abril" />
+          </div>
+          <div>
+            <label class="field-label">Etiquetas (separadas por coma)</label>
+            <input type="text" class="field-input" [(ngModel)]="integrationImportTags" placeholder="Ej. campaña, abril, instagram" />
+          </div>
         </div>
-        <div
-          class="drive-files-grid"
-          [class.list]="driveViewMode === 'list'"
-          *ngIf="!driveFilesLoading && visibleDriveFiles.length">
-          <button
-            type="button"
-            class="drive-file-card"
-            *ngFor="let file of visibleDriveFiles"
-            [class.selected]="selectedDriveFile?.fileId === file.fileId"
-            (click)="selectDriveFile(file)"
-            (dblclick)="onDriveFileDoubleClick(file)">
-            <img *ngIf="file.thumbnailUrl" [src]="file.thumbnailUrl" [alt]="file.name" loading="lazy" />
-            <div class="drive-file-placeholder" *ngIf="!file.thumbnailUrl">Archivo</div>
-            <div class="drive-file-meta">
-              <strong>{{ file.name }}</strong>
-              <small>{{ file.mimeType || 'n/d' }}</small>
-              <small *ngIf="file.sizeBytes != null">{{ formatBytes(file.sizeBytes) }}</small>
-              <small class="tip">Doble click para importar</small>
-            </div>
-          </button>
-        </div>
-        <p class="modal-help" *ngIf="!driveFilesLoading && !visibleDriveFiles.length && !driveFilesError">
-          No se encontraron archivos para este filtro.
-        </p>
-        <div class="drive-pagination" *ngIf="driveTotalPages > 1">
-          <button type="button" class="btn" (click)="prevDrivePage()" [disabled]="drivePage <= 1">Anterior</button>
-          <span>Página {{ drivePage }} / {{ driveTotalPages }}</span>
-          <button type="button" class="btn" (click)="nextDrivePage()" [disabled]="drivePage >= driveTotalPages">
-            Siguiente
-          </button>
-        </div>
-      </div>
-      <label class="field-label">Nombre (opcional)</label>
-      <input type="text" class="field-input" [(ngModel)]="integrationImportName" />
-      <label class="field-label">Tags (opcional)</label>
-      <input type="text" class="field-input" [(ngModel)]="integrationImportTags" />
+      </section>
+
       <p class="error" *ngIf="integrationStartError">{{ integrationStartError }}</p>
       <p class="error" *ngIf="integrationImportError">{{ integrationImportError }}</p>
       <p class="success" *ngIf="integrationImportSuccess">{{ integrationImportSuccess }}</p>
-      <div class="modal-actions">
-        <button
-          type="button"
-          class="btn primary"
-          (click)="importFromProvider()"
-          [disabled]="importingExternal || oauthUiState !== 'connected' || !integrationFileId.trim()">
-          {{ importingExternal ? 'Importando…' : 'Importar a la biblioteca' }}
-        </button>
-      </div>
+
+      <footer class="integration-footer">
+        <div class="integration-footer-status">{{ integrationImportFooterHint() }}</div>
+        <div class="integration-footer-actions">
+          <button type="button" class="btn secondary" (click)="closeImportModal()">Cancelar</button>
+          <button
+            type="button"
+            class="btn primary"
+            (click)="importFromProvider()"
+            [disabled]="importingExternal || oauthUiState !== 'connected' || !integrationFileId.trim()">
+            {{ importingExternal ? 'Importando…' : 'Importar a la biblioteca' }}
+          </button>
+        </div>
+      </footer>
     </article>
   </section>
 
@@ -461,4 +524,78 @@
       </div>
     </article>
   </section>
+
+  <section class="detail-backdrop" *ngIf="showFolderModal" (click)="closeFolderModal()">
+    <article class="detail" (click)="$event.stopPropagation()">
+      <header>
+        <h3 *ngIf="folderModalMode === 'create-root'">Nueva carpeta raíz</h3>
+        <h3 *ngIf="folderModalMode === 'create-child'">Nueva subcarpeta</h3>
+        <h3 *ngIf="folderModalMode === 'rename'">Renombrar carpeta</h3>
+        <h3 *ngIf="folderModalMode === 'move'">Mover carpeta</h3>
+        <button type="button" class="btn" (click)="closeFolderModal()">Cerrar</button>
+      </header>
+
+      <label>Nombre</label>
+      <input type="text" [(ngModel)]="folderFormName" />
+
+      <ng-container *ngIf="folderModalMode === 'move' || folderModalMode === 'rename'">
+        <label>Carpeta padre</label>
+        <select [(ngModel)]="folderFormParentId">
+          <option [ngValue]="null">Raíz</option>
+          <option
+            *ngFor="let option of folderParentOptions(folderModalTarget?.folderId)"
+            [ngValue]="option.folderId">
+            {{ option.name }}
+          </option>
+        </select>
+      </ng-container>
+
+      <p class="error" *ngIf="folderActionError">{{ folderActionError }}</p>
+
+      <div class="actions-row">
+        <button type="button" class="btn" (click)="closeFolderModal()">Cancelar</button>
+        <button type="button" class="btn primary" (click)="saveFolderModal()" [disabled]="folderSaving">
+          {{ folderSaving ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </div>
+    </article>
+  </section>
+
+  <ng-template #folderNodeTpl let-node>
+    <li>
+      <div class="folder-row" [style.paddingLeft.px]="8 + node.depth * 12">
+        <button
+          type="button"
+          class="folder-item"
+          [class.drop-target]="dragOverFolderId === node.folderId"
+          [class.active]="selectedFolderId === node.folderId"
+          (click)="selectFolder(node.folderId)"
+          (dragover)="onFolderDragOver($event, node.folderId)"
+          (dragleave)="onFolderDragLeave(node.folderId)"
+          (drop)="onFolderDrop($event, node.folderId)">
+          {{ node.name }}
+        </button>
+        <div class="folder-inline-actions">
+          <button type="button" class="icon-inline" title="Subcarpeta" (click)="openCreateChildFolder(node)">+</button>
+          <button type="button" class="icon-inline" title="Renombrar" (click)="openRenameFolder(node)">✎</button>
+          <button type="button" class="icon-inline" title="Mover" (click)="openMoveFolder(node)">⇄</button>
+          <button
+            type="button"
+            class="icon-inline danger"
+            title="Eliminar"
+            (click)="deleteFolder(node)"
+            [disabled]="deletingFolderId === node.folderId">
+            ×
+          </button>
+        </div>
+      </div>
+      <ul class="folder-tree" *ngIf="node.children.length">
+        <ng-container *ngFor="let child of node.children">
+          <ng-container
+            [ngTemplateOutlet]="folderNodeTpl"
+            [ngTemplateOutletContext]="{ $implicit: child }"></ng-container>
+        </ng-container>
+      </ul>
+    </li>
+  </ng-template>
 </div>

@@ -8,6 +8,7 @@ import {
   SimpleChanges
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ComposerMediaService } from '../../../services/composer-media.service';
@@ -175,13 +176,28 @@ export class PostComposerMediaPanelComponent implements OnChanges, OnDestroy {
       },
       error: (err) => {
         this.deviceUploading = false;
-        this.deviceError = extractErrorMessage(
-          err,
-          'No se pudo subir el archivo. Revisa tipo, tamaño permitido o cuota de almacenamiento.'
-        );
+        this.deviceError = this.mapUploadError(err);
       }
     });
     this.subs.add(sub);
+  }
+
+  private mapUploadError(err: unknown): string {
+    const http = err as HttpErrorResponse;
+    const code = String((http?.error as { code?: string } | null)?.code ?? '').toUpperCase();
+    if (http?.status === 413 || code === 'MEDIA_TOO_LARGE') {
+      return 'El archivo supera el tamaño máximo permitido.';
+    }
+    if (http?.status === 415 || code === 'MEDIA_INVALID_TYPE') {
+      return 'Tipo de archivo no permitido.';
+    }
+    if (http?.status === 403 || code === 'MEDIA_QUOTA_EXCEEDED') {
+      return 'No hay espacio disponible en tu cuota de almacenamiento.';
+    }
+    if (http?.status === 400) {
+      return extractErrorMessage(http, 'Archivo inválido. Verifica formato y contenido.');
+    }
+    return extractErrorMessage(http, 'No se pudo subir el archivo. Revisa tipo, tamaño permitido o cuota de almacenamiento.');
   }
 
   /** Previsualizar URL en cliente (sin proxy). Opcionalmente intenta preview en servidor. */

@@ -14,13 +14,18 @@ export interface ApiResponse<T> {
   };
 }
 
-/** Respuesta sugerida para POST /api/media/upload (ver docs/composer-media-api-contract.md). */
+/** Contrato maduro para POST /api/media/upload. */
 export interface MediaUploadResponseBody {
   mediaId: number;
-  publicUrl?: string;
+  publicUrl: string;
+  thumbnailUrl?: string | null;
+  previewUrl?: string | null;
+  hasThumbnail?: boolean;
+  hasPreview?: boolean;
+  processingStatus?: 'pending' | 'completed' | 'failed';
   mimeType: string;
-  width?: number;
-  height?: number;
+  width?: number | null;
+  height?: number | null;
 }
 
 /** Ítem de biblioteca (GET /api/media). */
@@ -46,12 +51,43 @@ export interface MediaLibraryListQuery {
   q?: string;
   status?: 'active' | 'archived';
   sort?: 'smart' | 'recently_used' | 'most_used' | 'recently_uploaded';
+  folderId?: number | null;
+}
+
+export interface MediaFolderDto {
+  folderId: number;
+  parentFolderId: number | null;
+  name: string;
+  normalizedName: string;
+  depth: number;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface CreateMediaFolderRequestDto {
+  parentFolderId: number | null;
+  name: string;
+}
+
+export interface UpdateMediaFolderRequestDto {
+  parentFolderId: number | null;
+  name: string;
 }
 
 export interface MediaUpdateRequest {
   name?: string;
   status?: 'active' | 'archived';
   tags?: string[];
+}
+
+export interface MoveMediaRequestDto {
+  folderId: number | null;
+}
+
+export interface BulkMoveMediaRequestDto {
+  mediaIds: number[];
+  folderId: number | null;
 }
 
 /** POST /api/media/preview-url */
@@ -176,7 +212,46 @@ export class ComposerMediaService {
     if (query.sort) {
       params = params.set('sort', query.sort);
     }
+    if (typeof query.folderId === 'number') {
+      params = params.set('folderId', String(query.folderId));
+    }
     return this.http.get<ApiResponse<MediaLibraryItemDto[]>>(this.base, { params }).pipe(
+      catchError((err) => throwError(() => err))
+    );
+  }
+
+  listFolders(): Observable<ApiResponse<MediaFolderDto[]>> {
+    return this.http.get<ApiResponse<MediaFolderDto[]>>(`${this.base}/folders`).pipe(
+      catchError((err) => throwError(() => err))
+    );
+  }
+
+  createFolder(body: CreateMediaFolderRequestDto): Observable<ApiResponse<MediaFolderDto>> {
+    return this.http.post<ApiResponse<MediaFolderDto>>(`${this.base}/folders`, body).pipe(
+      catchError((err) => throwError(() => err))
+    );
+  }
+
+  getFolder(folderId: number): Observable<ApiResponse<MediaFolderDto>> {
+    return this.http.get<ApiResponse<MediaFolderDto>>(`${this.base}/folders/${folderId}`).pipe(
+      catchError((err) => throwError(() => err))
+    );
+  }
+
+  updateFolder(folderId: number, body: UpdateMediaFolderRequestDto): Observable<ApiResponse<MediaFolderDto>> {
+    return this.http.patch<ApiResponse<MediaFolderDto>>(`${this.base}/folders/${folderId}`, body).pipe(
+      catchError((err) => throwError(() => err))
+    );
+  }
+
+  deleteFolder(folderId: number): Observable<ApiResponse<{ deleted: boolean }>> {
+    return this.http.delete<ApiResponse<{ deleted: boolean }>>(`${this.base}/folders/${folderId}`).pipe(
+      catchError((err) => throwError(() => err))
+    );
+  }
+
+  getFolderAncestors(folderId: number): Observable<ApiResponse<MediaFolderDto[]>> {
+    return this.http.get<ApiResponse<MediaFolderDto[]>>(`${this.base}/folders/${folderId}/ancestors`).pipe(
       catchError((err) => throwError(() => err))
     );
   }
@@ -213,6 +288,18 @@ export class ComposerMediaService {
 
   updateMedia(id: number, body: MediaUpdateRequest): Observable<ApiResponse<MediaLibraryItemDto>> {
     return this.http.patch<ApiResponse<MediaLibraryItemDto>>(`${this.base}/${id}`, body).pipe(
+      catchError((err) => throwError(() => err))
+    );
+  }
+
+  moveMedia(mediaId: number, body: MoveMediaRequestDto): Observable<ApiResponse<MediaLibraryItemDto>> {
+    return this.http.post<ApiResponse<MediaLibraryItemDto>>(`${this.base}/${mediaId}/move`, body).pipe(
+      catchError((err) => throwError(() => err))
+    );
+  }
+
+  bulkMoveMedia(body: BulkMoveMediaRequestDto): Observable<ApiResponse<BulkOperationResultDto>> {
+    return this.http.post<ApiResponse<BulkOperationResultDto>>(`${this.base}/bulk-move`, body).pipe(
       catchError((err) => throwError(() => err))
     );
   }

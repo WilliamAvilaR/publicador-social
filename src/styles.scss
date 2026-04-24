@@ -133,3 +133,16 @@ body {
 * {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
+
+/* Google Picker siempre por encima de modales de la app */
+.picker-dialog-bg,
+.picker-dialog,
+.picker {
+  z-index: 2147483000 !important;
+}
+
+iframe[src*="picker"],
+iframe[src*="docs.google.com/picker"],
+iframe[title*="Picker"] {
+  z-index: 2147483001 !important;
+}

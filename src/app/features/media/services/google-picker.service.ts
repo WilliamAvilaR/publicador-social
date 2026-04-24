@@ -64,8 +64,10 @@ export class GooglePickerService {
             .setOAuthToken(params.oauthToken)
             .addView(view)
             .setCallback((data: any) => {
-              if (data?.action === pickerNs.Action.PICKED) {
-                const doc = data.docs?.[0];
+              const action = data?.action;
+              const docs = Array.isArray(data?.docs) ? data.docs : [];
+              if (action === pickerNs.Action.PICKED || docs.length > 0) {
+                const doc = docs[0];
                 resolve(
                   doc
                     ? {
