@@ -367,7 +367,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   }
 
   clearToast(): void {
-    this.clearToast();
+    this.batchMessage = '';
     if (this.toastTimeoutId) {
       clearTimeout(this.toastTimeoutId);
       this.toastTimeoutId = null;
@@ -1824,7 +1824,12 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   }
 
   onFolderColorInputChange(value: string): void {
-    this.folderFormColorHex = this.normalizeFolderColor(value);
+    const raw = String(value ?? '').trim().toUpperCase();
+    if (!raw) {
+      this.folderFormColorHex = '';
+      return;
+    }
+    this.folderFormColorHex = raw.startsWith('#') ? raw : `#${raw}`;
   }
 
   selectPaletteFolderColor(colorHex: string): void {
@@ -1833,6 +1838,15 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
 
   isPaletteFolderColorSelected(colorHex: string): boolean {
     return this.folderFormColorHex === this.normalizeFolderColor(colorHex);
+  }
+
+  folderNameCharCount(): number {
+    return this.folderFormName.trim().length;
+  }
+
+  focusCustomColorInput(input: HTMLInputElement): void {
+    input.focus();
+    input.select();
   }
 
   folderColorHexOrDefault(colorHex?: string | null): string {

@@ -608,19 +608,34 @@
   </section>
 
   <section class="detail-backdrop" *ngIf="showFolderModal" (click)="closeFolderModal()">
-    <article class="detail" (click)="$event.stopPropagation()">
-      <header>
-        <h3 *ngIf="folderModalMode === 'create-root'">Nueva carpeta raíz</h3>
-        <h3 *ngIf="folderModalMode === 'create-child'">Nueva subcarpeta</h3>
-        <h3 *ngIf="folderModalMode === 'rename'">Renombrar carpeta</h3>
-        <h3 *ngIf="folderModalMode === 'move'">Mover carpeta</h3>
-        <button type="button" class="btn" (click)="closeFolderModal()">Cerrar</button>
+    <article class="detail folder-modal" (click)="$event.stopPropagation()">
+      <header class="folder-modal-head">
+        <div class="folder-modal-title-wrap">
+          <span class="folder-modal-icon" aria-hidden="true"></span>
+          <div>
+            <h3 *ngIf="folderModalMode === 'create-root'">Nueva carpeta</h3>
+            <h3 *ngIf="folderModalMode === 'create-child'">Nueva subcarpeta</h3>
+            <h3 *ngIf="folderModalMode === 'rename'">Renombrar carpeta</h3>
+            <h3 *ngIf="folderModalMode === 'move'">Mover carpeta</h3>
+            <p class="folder-modal-location">
+              Ubicación:
+              <strong>{{ folderFormParentId == null ? 'Biblioteca raíz' : (folderLookup.get(folderFormParentId)?.name || 'Carpeta') }}</strong>
+            </p>
+          </div>
+        </div>
+        <button type="button" class="folder-modal-close" (click)="closeFolderModal()" aria-label="Cerrar">×</button>
       </header>
 
-      <label>Nombre</label>
-      <input type="text" [(ngModel)]="folderFormName" />
+      <div class="folder-modal-body">
+      <label class="folder-field-label">Nombre de la carpeta *</label>
+      <div class="folder-name-wrap">
+        <input type="text" [(ngModel)]="folderFormName" maxlength="100" placeholder="Escribe el nombre de la carpeta" />
+        <span class="folder-name-count">{{ folderNameCharCount() }} / 100</span>
+      </div>
+      <p class="folder-field-help">Máximo 100 caracteres. El nombre debe ser único en esta ubicación.</p>
 
-      <label>Color</label>
+      <label class="folder-field-label">Color de la carpeta</label>
+      <p class="folder-field-help">Elige un color para identificar tu carpeta fácilmente.</p>
       <div class="folder-color-palette">
         <button
           type="button"
@@ -630,20 +645,44 @@
           [class.active]="isPaletteFolderColorSelected(color)"
           (click)="selectPaletteFolderColor(color)"
           [attr.aria-label]="'Seleccionar color ' + color"></button>
+        <button
+          type="button"
+          class="folder-color-swatch custom-trigger"
+          (click)="focusCustomColorInput(folderCustomHexInput)"
+          aria-label="Usar color personalizado">
+          +
+        </button>
       </div>
-      <p class="folder-color-help">O elige un color personalizado:</p>
-      <div class="folder-color-row">
-        <input type="color" [(ngModel)]="folderFormColorHex" (ngModelChange)="onFolderColorInputChange($event)" />
-        <input
-          type="text"
-          [(ngModel)]="folderFormColorHex"
-          (ngModelChange)="onFolderColorInputChange($event)"
-          placeholder="#64748B"
-          maxlength="7" />
+
+      <div class="folder-modal-grid">
+        <div>
+          <label class="folder-field-label">Color personalizado (opcional)</label>
+          <div class="folder-color-row">
+            <input type="color" [(ngModel)]="folderFormColorHex" (ngModelChange)="onFolderColorInputChange($event)" />
+            <input
+              #folderCustomHexInput
+              type="text"
+              [(ngModel)]="folderFormColorHex"
+              (ngModelChange)="onFolderColorInputChange($event)"
+              placeholder="#64748B"
+              maxlength="7" />
+          </div>
+        </div>
+
+        <div class="folder-preview-card">
+          <p class="folder-preview-label">Vista previa</p>
+          <div class="folder-preview-main">
+            <span
+              class="folder-icon-mask grid"
+              aria-hidden="true"
+              [style.backgroundColor]="folderColorHexOrDefault(folderFormColorHex)"></span>
+            <strong>{{ folderFormName.trim() || 'Clientes' }}</strong>
+          </div>
+        </div>
       </div>
 
       <ng-container *ngIf="folderModalMode === 'move' || folderModalMode === 'rename'">
-        <label>Carpeta padre</label>
+        <label class="folder-field-label">Carpeta padre</label>
         <select [(ngModel)]="folderFormParentId">
           <option [ngValue]="null">Raíz</option>
           <option
@@ -655,11 +694,13 @@
       </ng-container>
 
       <p class="error" *ngIf="folderActionError">{{ folderActionError }}</p>
+      <p class="folder-modal-footnote">Solo los miembros del equipo con acceso podrán ver esta carpeta.</p>
+      </div>
 
-      <div class="actions-row">
+      <div class="actions-row folder-modal-actions folder-modal-footer">
         <button type="button" class="btn" (click)="closeFolderModal()">Cancelar</button>
         <button type="button" class="btn primary" (click)="saveFolderModal()" [disabled]="folderSaving">
-          {{ folderSaving ? 'Guardando…' : 'Guardar' }}
+          {{ folderSaving ? 'Guardando…' : 'Guardar carpeta' }}
         </button>
       </div>
     </article>
