@@ -58,6 +58,8 @@ type ImportModal =
 
 /** Vista de cuadrícula: tarjetas más grandes o más compactas + pageSize alineado al backend. */
 type GridDensity = 'comfortable' | 'standard' | 'compact';
+type FolderMenuContext = 'tree' | 'grid';
+type ToastTone = 'success' | 'error' | 'warn' | 'info';
 
 @Component({
   selector: 'app-gestor-archivos',
@@ -70,6 +72,21 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   @ViewChild('importMenuAnchor') importMenuAnchor?: ElementRef<HTMLElement>;
 
   private static readonly GRID_DENSITY_STORAGE_KEY = 'gestor-archivos.gridDensity';
+  private static readonly DEFAULT_FOLDER_COLOR_HEX = '#64748B';
+  readonly folderColorPalette: string[] = [
+    '#64748B',
+    '#EF4444',
+    '#F97316',
+    '#EAB308',
+    '#22C55E',
+    '#14B8A6',
+    '#06B6D4',
+    '#3B82F6',
+    '#6366F1',
+    '#8B5CF6',
+    '#D946EF',
+    '#EC4899'
+  ];
 
   q = '';
   sortMode: SortMode = 'smart';
@@ -86,6 +103,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   selectedFolderId: number | null = null;
   folderTree: MediaFolderNode[] = [];
   folderLookup = new Map<number, MediaFolderNode>();
+  expandedFolderIds = new Set<number>();
   foldersLoading = false;
   folderError = '';
   folderActionError = '';
@@ -95,11 +113,14 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   folderModalMode: 'create-root' | 'create-child' | 'rename' | 'move' = 'create-root';
   folderFormName = '';
   folderFormParentId: number | null = null;
+  folderFormColorHex = GestorArchivosComponent.DEFAULT_FOLDER_COLOR_HEX;
   folderModalTarget: MediaFolderNode | null = null;
   folderSaving = false;
   dragOverFolderId: number | null = null;
   draggingMediaIds = new Set<number>();
+  draggingFolderId: number | null = null;
   movingMedia = false;
+  movingFolder = false;
 
   // Modo selección (viene del compositor)
   selectionMode = false;
@@ -129,6 +150,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   // Batch UI
   selectedIds = new Set<number>();
   batchMessage = '';
+  batchMessageTone: ToastTone = 'info';
   bulkResultItems: BulkOperationResultItem[] = [];
 
   // Quota
@@ -184,10 +206,13 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   /** Búsqueda al escribir (sin botón Buscar). */
   private readonly searchInput$ = new Subject<string>();
   private searchDebounceSub?: Subscription;
+  private toastTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   importMenuOpen = false;
   importModal: ImportModal = null;
   openCardMenuId: number | null = null;
+  openFolderMenuId: number | null = null;
+  openFolderMenuContext: FolderMenuContext | null = null;
   batchArchiving = false;
   deletingFolderId: number | null = null;
 
@@ -245,6 +270,10 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.searchDebounceSub?.unsubscribe();
+    if (this.toastTimeoutId) {
+      clearTimeout(this.toastTimeoutId);
+      this.toastTimeoutId = null;
+    }
     this.subscriptions.unsubscribe();
   }
 
@@ -307,10 +336,42 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
         this.openCardMenuId = null;
       }
     }
+    if (this.openFolderMenuId !== null) {
+      const t = ev.target as HTMLElement;
+      const inside = t?.closest?.(`[data-folder-id="${this.openFolderMenuId}"]`);
+      if (!inside) {
+        this.openFolderMenuId = null;
+        this.openFolderMenuContext = null;
+      }
+    }
   }
 
   onSearchInput(): void {
     this.searchInput$.next(this.q.trim());
+  }
+
+  showToast(message: string, tone: ToastTone = 'info', durationMs = 2800): void {
+    const text = message.trim();
+    if (!text) {
+      this.clearToast();
+      return;
+    }
+    this.batchMessage = text;
+    this.batchMessageTone = tone;
+    if (this.toastTimeoutId) {
+      clearTimeout(this.toastTimeoutId);
+    }
+    this.toastTimeoutId = setTimeout(() => {
+      this.clearToast();
+    }, durationMs);
+  }
+
+  clearToast(): void {
+    this.clearToast();
+    if (this.toastTimeoutId) {
+      clearTimeout(this.toastTimeoutId);
+      this.toastTimeoutId = null;
+    }
   }
 
   toggleImportMenu(): void {
@@ -377,8 +438,42 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     this.openCardMenuId = this.openCardMenuId === mediaId ? null : mediaId;
   }
 
+  onAssetContextMenu(ev: MouseEvent, mediaId: number): void {
+    if (this.selectionMode) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.openFolderMenuId = null;
+    this.openFolderMenuContext = null;
+    this.openCardMenuId = mediaId;
+  }
+
   closeCardMenu(): void {
     this.openCardMenuId = null;
+  }
+
+  toggleFolderMenu(folderId: number, context: FolderMenuContext, ev: Event): void {
+    ev.stopPropagation();
+    this.openCardMenuId = null;
+    const isSameMenu = this.openFolderMenuId === folderId && this.openFolderMenuContext === context;
+    if (isSameMenu) {
+      this.openFolderMenuId = null;
+      this.openFolderMenuContext = null;
+      return;
+    }
+    this.openFolderMenuId = folderId;
+    this.openFolderMenuContext = context;
+  }
+
+  onFolderContextMenu(ev: MouseEvent, folder: MediaFolderNode, context: FolderMenuContext): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.openCardMenuId = null;
+    this.openFolderMenuId = folder.folderId;
+    this.openFolderMenuContext = context;
+  }
+
+  isFolderMenuOpen(folderId: number, context: FolderMenuContext): boolean {
+    return this.openFolderMenuId === folderId && this.openFolderMenuContext === context;
   }
 
   loadAssets(): void {
@@ -462,6 +557,9 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
 
   selectFolder(folderId: number | null): void {
     this.selectedFolderId = folderId;
+    this.expandFolderPath(folderId);
+    this.openFolderMenuId = null;
+    this.openCardMenuId = null;
     this.page = 1;
     this.folderActionError = '';
     this.updateFolderQueryParam();
@@ -524,6 +622,40 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     sortTree(roots);
     this.folderTree = roots;
     this.folderLookup = nodes;
+    this.expandedFolderIds = new Set(roots.map((x) => x.folderId));
+    this.expandFolderPath(this.selectedFolderId);
+  }
+
+  toggleFolderExpanded(folder: MediaFolderNode, ev: Event): void {
+    ev.stopPropagation();
+    if (!folder.children.length) return;
+    if (this.expandedFolderIds.has(folder.folderId)) {
+      this.expandedFolderIds.delete(folder.folderId);
+    } else {
+      this.expandedFolderIds.add(folder.folderId);
+    }
+  }
+
+  isFolderExpanded(folder: MediaFolderNode): boolean {
+    return this.expandedFolderIds.has(folder.folderId);
+  }
+
+  private expandFolderPath(folderId: number | null): void {
+    if (folderId == null) return;
+    let current = this.folderLookup.get(folderId);
+    while (current) {
+      this.expandedFolderIds.add(current.folderId);
+      if (current.parentFolderId == null) break;
+      current = this.folderLookup.get(current.parentFolderId);
+    }
+  }
+
+  folderTreeCounter(folder: MediaFolderNode): number {
+    let count = folder.children.length;
+    for (const child of folder.children) {
+      count += this.folderTreeCounter(child);
+    }
+    return count;
   }
 
   loadBreadcrumb(): void {
@@ -559,33 +691,40 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     this.folderModalTarget = null;
     this.folderFormName = '';
     this.folderFormParentId = null;
+    this.folderFormColorHex = GestorArchivosComponent.DEFAULT_FOLDER_COLOR_HEX;
     this.folderActionError = '';
     this.showFolderModal = true;
   }
 
   openCreateChildFolder(parent: MediaFolderNode): void {
+    this.openFolderMenuId = null;
     this.folderModalMode = 'create-child';
     this.folderModalTarget = parent;
     this.folderFormName = '';
     this.folderFormParentId = parent.folderId;
+    this.folderFormColorHex = GestorArchivosComponent.DEFAULT_FOLDER_COLOR_HEX;
     this.folderActionError = '';
     this.showFolderModal = true;
   }
 
   openRenameFolder(folder: MediaFolderNode): void {
+    this.openFolderMenuId = null;
     this.folderModalMode = 'rename';
     this.folderModalTarget = folder;
     this.folderFormName = folder.name;
     this.folderFormParentId = folder.parentFolderId;
+    this.folderFormColorHex = this.normalizeFolderColor(folder.colorHex);
     this.folderActionError = '';
     this.showFolderModal = true;
   }
 
   openMoveFolder(folder: MediaFolderNode): void {
+    this.openFolderMenuId = null;
     this.folderModalMode = 'move';
     this.folderModalTarget = folder;
     this.folderFormName = folder.name;
     this.folderFormParentId = folder.parentFolderId;
+    this.folderFormColorHex = this.normalizeFolderColor(folder.colorHex);
     this.folderActionError = '';
     this.showFolderModal = true;
   }
@@ -596,6 +735,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     this.folderModalTarget = null;
     this.folderFormName = '';
     this.folderFormParentId = null;
+    this.folderFormColorHex = GestorArchivosComponent.DEFAULT_FOLDER_COLOR_HEX;
   }
 
   saveFolderModal(): void {
@@ -604,10 +744,20 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
       this.folderActionError = 'El nombre de la carpeta es obligatorio.';
       return;
     }
+    const colorHex = this.normalizeFolderColor(this.folderFormColorHex);
+    if (!this.isValidFolderColorHex(colorHex)) {
+      this.folderActionError = 'El color debe tener formato #RRGGBB.';
+      return;
+    }
+    this.folderFormColorHex = colorHex;
     this.folderSaving = true;
     this.folderActionError = '';
     if (this.folderModalMode === 'create-root' || this.folderModalMode === 'create-child') {
-      const sub = this.mediaApi.createFolder({ parentFolderId: this.folderFormParentId ?? null, name }).subscribe({
+      const sub = this.mediaApi.createFolder({
+        parentFolderId: this.folderFormParentId ?? null,
+        name,
+        colorHex
+      }).subscribe({
         next: (res) => {
           this.folderSaving = false;
           this.closeFolderModal();
@@ -627,7 +777,11 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
       return;
     }
     const sub = this.mediaApi
-      .updateFolder(this.folderModalTarget.folderId, { parentFolderId: this.folderFormParentId ?? null, name })
+      .updateFolder(this.folderModalTarget.folderId, {
+        parentFolderId: this.folderFormParentId ?? null,
+        name,
+        colorHex
+      })
       .subscribe({
         next: () => {
           this.folderSaving = false;
@@ -644,6 +798,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
   }
 
   deleteFolder(folder: MediaFolderNode): void {
+    this.openFolderMenuId = null;
     if (!confirm(`Eliminar carpeta "${folder.name}"?`)) return;
     this.deletingFolderId = folder.folderId;
     this.folderActionError = '';
@@ -668,6 +823,31 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     return Array.from(this.folderLookup.values())
       .filter((x) => x.folderId !== excludeFolderId)
       .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }
+
+  currentFolderChildren(): MediaFolderNode[] {
+    if (this.selectedFolderId == null) {
+      return this.folderTree;
+    }
+    return this.folderLookup.get(this.selectedFolderId)?.children ?? [];
+  }
+
+  currentFolderName(): string {
+    if (this.selectedFolderId == null) {
+      return 'Biblioteca';
+    }
+    return this.folderLookup.get(this.selectedFolderId)?.name ?? 'Carpeta';
+  }
+
+  canNavigateUp(): boolean {
+    if (this.selectedFolderId == null) return false;
+    return true;
+  }
+
+  navigateUpFolder(): void {
+    if (this.selectedFolderId == null) return;
+    const current = this.folderLookup.get(this.selectedFolderId);
+    this.selectFolder(current?.parentFolderId ?? null);
   }
 
   private mapFolderError(err: unknown): string {
@@ -701,6 +881,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
 
   onCardDragStart(ev: DragEvent, asset: MediaAsset): void {
     if (this.selectionMode) return;
+    this.draggingFolderId = null;
     const ids = this.selectedIds.has(asset.mediaId) && this.selectedIds.size > 0
       ? Array.from(this.selectedIds)
       : [asset.mediaId];
@@ -717,8 +898,26 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     this.draggingMediaIds.clear();
   }
 
+  onFolderCardDragStart(ev: DragEvent, folder: MediaFolderNode): void {
+    this.draggingMediaIds.clear();
+    this.draggingFolderId = folder.folderId;
+    if (ev.dataTransfer) {
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('application/x-folder-id', String(folder.folderId));
+      ev.dataTransfer.setData('text/plain', String(folder.folderId));
+    }
+  }
+
+  onFolderCardDragEnd(): void {
+    this.dragOverFolderId = null;
+    this.draggingFolderId = null;
+  }
+
   onFolderDragOver(ev: DragEvent, folderId: number | null): void {
-    if (!this.draggingMediaIds.size || this.movingMedia) return;
+    const draggingMedia = this.draggingMediaIds.size > 0;
+    const draggingFolder = this.draggingFolderId != null;
+    if ((!draggingMedia && !draggingFolder) || this.movingMedia || this.movingFolder) return;
+    if (draggingFolder && folderId === this.draggingFolderId) return;
     ev.preventDefault();
     if (ev.dataTransfer) {
       ev.dataTransfer.dropEffect = 'move';
@@ -736,7 +935,18 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     ev.preventDefault();
     ev.stopPropagation();
     this.dragOverFolderId = null;
-    if (this.movingMedia) return;
+    if (this.movingMedia || this.movingFolder) return;
+
+    const draggedFolderId = this.draggingFolderId ?? Number(ev.dataTransfer?.getData('application/x-folder-id'));
+    if (Number.isFinite(draggedFolderId) && draggedFolderId > 0) {
+      if (folderId === draggedFolderId) {
+        this.draggingFolderId = null;
+        return;
+      }
+      this.moveFolderToFolder(draggedFolderId, folderId);
+      return;
+    }
+
     let ids = Array.from(this.draggingMediaIds);
     if (!ids.length) {
       const raw = ev.dataTransfer?.getData('application/x-media-ids') || ev.dataTransfer?.getData('text/plain') || '';
@@ -750,10 +960,42 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     this.moveMediaToFolder(ids, folderId);
   }
 
+  private moveFolderToFolder(folderId: number, parentFolderId: number | null): void {
+    const folder = this.folderLookup.get(folderId);
+    if (!folder) {
+      this.draggingFolderId = null;
+      return;
+    }
+    this.movingFolder = true;
+    this.folderActionError = '';
+    this.clearToast();
+    const sub = this.mediaApi
+      .updateFolder(folderId, {
+        parentFolderId,
+        name: folder.name,
+        colorHex: folder.colorHex
+      })
+      .subscribe({
+        next: () => {
+          this.movingFolder = false;
+          this.draggingFolderId = null;
+          this.showToast('Carpeta movida correctamente.', 'success');
+          this.loadFolders();
+          this.loadBreadcrumb();
+        },
+        error: (err) => {
+          this.movingFolder = false;
+          this.draggingFolderId = null;
+          this.folderActionError = this.mapFolderError(err);
+        }
+      });
+    this.subscriptions.add(sub);
+  }
+
   private moveMediaToFolder(mediaIds: number[], folderId: number | null): void {
     this.movingMedia = true;
     this.folderActionError = '';
-    this.batchMessage = '';
+    this.clearToast();
     const done = (): void => {
       this.movingMedia = false;
       this.draggingMediaIds.clear();
@@ -769,7 +1011,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     if (mediaIds.length === 1) {
       const sub = this.mediaApi.moveMedia(mediaIds[0], { folderId }).subscribe({
         next: () => {
-          this.batchMessage = 'Archivo movido correctamente.';
+          this.showToast('Archivo movido correctamente.', 'success');
           done();
         },
         error: onError
@@ -781,7 +1023,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
       next: (res) => {
         const data = res.data;
         this.bulkResultItems = data.results || [];
-        this.batchMessage = `Mover: ${data.processed} procesados, ${data.failed} fallidos.`;
+        this.showToast(`Mover: ${data.processed} procesados, ${data.failed} fallidos.`, data.failed > 0 ? 'warn' : 'success');
         done();
       },
       error: onError
@@ -822,11 +1064,11 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
         this.uploading = false;
         const status = res.data?.processingStatus;
         if (status === 'pending') {
-          this.batchMessage = 'Archivo subido. Procesando miniatura/vista previa en segundo plano.';
+          this.showToast('Archivo subido. Procesando miniatura/vista previa en segundo plano.', 'info');
         } else if (status === 'failed') {
-          this.batchMessage = 'Archivo subido, pero falló el procesamiento de derivados.';
+          this.showToast('Archivo subido, pero falló el procesamiento de derivados.', 'warn');
         } else {
-          this.batchMessage = '';
+          this.clearToast();
         }
         this.loadAssets();
         this.loadStorageSummary();
@@ -934,7 +1176,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
 
   runBatchArchive(): void {
     if (!this.selectedIds.size) return;
-    this.batchMessage = '';
+    this.clearToast();
     this.bulkResultItems = [];
     this.batchArchiving = true;
     const ids = Array.from(this.selectedIds);
@@ -944,7 +1186,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     const step = (): void => {
       if (i >= ids.length) {
         this.batchArchiving = false;
-        this.batchMessage = `Archivar: ${ok} correctos${fail ? `, ${fail} fallidos` : ''}.`;
+        this.showToast(`Archivar: ${ok} correctos${fail ? `, ${fail} fallidos` : ''}.`, fail ? 'warn' : 'success');
         this.loadAssets();
         return;
       }
@@ -965,18 +1207,18 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
 
   runBatchDelete(): void {
     if (!this.selectedIds.size) return;
-    this.batchMessage = '';
+    this.clearToast();
     this.bulkResultItems = [];
     const sub = this.mediaApi.bulkDelete({ mediaIds: Array.from(this.selectedIds) }).subscribe({
       next: (res) => {
         const data = res.data;
         this.bulkResultItems = data.results || [];
-        this.batchMessage = `Batch delete: ${data.processed} procesados, ${data.failed} fallidos.`;
+        this.showToast(`Batch delete: ${data.processed} procesados, ${data.failed} fallidos.`, data.failed > 0 ? 'warn' : 'success');
         this.loadAssets();
         this.loadStorageSummary();
       },
       error: (err) => {
-        this.batchMessage = extractErrorMessage(err, 'No se pudo ejecutar la eliminación por lote.');
+        this.showToast(extractErrorMessage(err, 'No se pudo ejecutar la eliminación por lote.'), 'error');
       }
     });
     this.subscriptions.add(sub);
@@ -984,7 +1226,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
 
   runBatchTag(): void {
     if (!this.selectedIds.size) return;
-    this.batchMessage = '';
+    this.clearToast();
     this.bulkResultItems = [];
     this.batchTagsDraft = '';
     this.batchTagError = '';
@@ -1012,7 +1254,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
         this.batchTagSaving = false;
         const data = res.data;
         this.bulkResultItems = data.results || [];
-        this.batchMessage = `Batch tag: ${data.processed} procesados, ${data.failed} fallidos.`;
+        this.showToast(`Batch tag: ${data.processed} procesados, ${data.failed} fallidos.`, data.failed > 0 ? 'warn' : 'success');
         this.closeBatchTagModal();
         this.loadAssets();
       },
@@ -1108,7 +1350,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
         this.loadAssets();
       },
       error: (err) => {
-        this.batchMessage = extractErrorMessage(err, 'No se pudo archivar el activo.');
+        this.showToast(extractErrorMessage(err, 'No se pudo archivar el activo.'), 'error');
       }
     });
     this.subscriptions.add(sub);
@@ -1123,7 +1365,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
         this.loadStorageSummary();
       },
       error: (err) => {
-        this.batchMessage = extractErrorMessage(err, 'No se pudo eliminar el activo.');
+        this.showToast(extractErrorMessage(err, 'No se pudo eliminar el activo.'), 'error');
       }
     });
     this.subscriptions.add(sub);
@@ -1315,9 +1557,12 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
           this.integrationFileId = '';
         }
         if (fromCallback) {
-          this.batchMessage = data.connected
-            ? `Conexión con ${provider} completada.`
-            : `No se confirmó conexión activa con ${provider}.`;
+          this.showToast(
+            data.connected
+              ? `Conexión con ${provider} completada.`
+              : `No se confirmó conexión activa con ${provider}.`,
+            data.connected ? 'success' : 'warn'
+          );
           this.router.navigate(['/dashboard/archivos'], {
             replaceUrl: true,
             queryParams: {
@@ -1338,7 +1583,7 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
         this.oauthUiState = 'error';
         this.oauthUiMessage = this.mapOAuthErrorMessage(err);
         if (fromCallback) {
-          this.batchMessage = extractErrorMessage(err, `No se pudo confirmar estado de ${provider}.`);
+          this.showToast(extractErrorMessage(err, `No se pudo confirmar estado de ${provider}.`), 'error');
           this.callbackProcessed = false;
         }
       }
@@ -1554,12 +1799,56 @@ export class GestorArchivosComponent implements OnInit, OnDestroy {
     return asset.mimeType.startsWith('video/');
   }
 
+  assetBadgeLabel(asset: MediaAsset): 'Imagen' | 'Video' | 'Documento' | 'Archivo' {
+    const mime = (asset.mimeType || '').toLowerCase();
+    if (mime.startsWith('video/')) return 'Video';
+    if (mime.startsWith('image/')) return 'Imagen';
+    if (
+      mime.includes('pdf') ||
+      mime.includes('document') ||
+      mime.includes('sheet') ||
+      mime.includes('presentation') ||
+      mime.includes('text/')
+    ) {
+      return 'Documento';
+    }
+    return 'Archivo';
+  }
+
   formatMimeShort(mime: string): string {
     if (!mime || mime === 'application/octet-stream') return 'Archivo';
     const [type, sub] = mime.split('/');
     if (!sub) return mime;
     if (type === 'image' || type === 'video') return sub.toUpperCase();
     return sub;
+  }
+
+  onFolderColorInputChange(value: string): void {
+    this.folderFormColorHex = this.normalizeFolderColor(value);
+  }
+
+  selectPaletteFolderColor(colorHex: string): void {
+    this.folderFormColorHex = this.normalizeFolderColor(colorHex);
+  }
+
+  isPaletteFolderColorSelected(colorHex: string): boolean {
+    return this.folderFormColorHex === this.normalizeFolderColor(colorHex);
+  }
+
+  folderColorHexOrDefault(colorHex?: string | null): string {
+    return this.normalizeFolderColor(colorHex);
+  }
+
+  private normalizeFolderColor(raw?: string | null): string {
+    const value = String(raw ?? '').trim().toUpperCase();
+    if (this.isValidFolderColorHex(value)) {
+      return value;
+    }
+    return GestorArchivosComponent.DEFAULT_FOLDER_COLOR_HEX;
+  }
+
+  private isValidFolderColorHex(value: string): boolean {
+    return /^#[0-9A-F]{6}$/.test(value);
   }
 
   formatAssetSize(asset: MediaAsset): string {

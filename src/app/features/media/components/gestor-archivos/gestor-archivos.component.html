@@ -2,154 +2,16 @@
   class="gestor-archivos"
   [class.selection-layout]="selectionMode"
   [ngClass]="'density-' + gridDensity">
-  <!-- Zona 1: intención (subir / importar / buscar) -->
-  <ng-container *ngIf="!selectionMode">
-    <header class="zone-actions">
-      <div class="page-title-row">
-        <h1 class="page-title">Gestor de archivos</h1>
-        <div class="storage-compact" *ngIf="!storageLoading">
-          <span class="storage-label">Almacenamiento</span>
-          <span class="storage-text">
-            {{ formatBytes(usedBytes) }} / {{ isUnlimited ? 'Ilimitado' : formatBytes(limitBytes) }}
-          </span>
-          <div class="storage-bar-mini" *ngIf="!isUnlimited">
-            <div class="storage-fill" [style.width.%]="usedPercent()"></div>
-          </div>
-        </div>
-        <div class="storage-compact muted" *ngIf="storageLoading">Almacenamiento…</div>
-      </div>
-
-      <div class="toolbar" #importMenuAnchor>
-        <div class="search-hero">
-          <svg class="search-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path
-              fill="currentColor"
-              d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-          </svg>
-          <input
-            type="search"
-            class="search-input"
-            [(ngModel)]="q"
-            (ngModelChange)="onSearchInput()"
-            placeholder="Buscar archivos…"
-            autocomplete="off" />
-        </div>
-
-        <label class="btn primary upload-btn">
-          {{ uploading ? 'Subiendo…' : 'Subir' }}
-          <input
-            type="file"
-            (change)="onUploadInput($event)"
-            accept="image/*,video/*,application/pdf,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
-            [disabled]="uploading" />
-        </label>
-
-        <div class="import-dropdown">
-          <button type="button" class="btn import-trigger" (click)="toggleImportMenu(); $event.stopPropagation()">
-            Importar ▾
-          </button>
-          <ul class="import-menu" *ngIf="importMenuOpen" (click)="$event.stopPropagation()">
-            <li>
-              <button type="button" (click)="openImportFromUrl()">Desde URL</button>
-            </li>
-            <li>
-              <button type="button" (click)="openImportIntegration('google-drive')">Google Drive</button>
-            </li>
-            <li>
-              <button type="button" (click)="openImportIntegration('onedrive')">OneDrive</button>
-            </li>
-            <li>
-              <button type="button" (click)="openImportIntegration('canva')">Canva</button>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="filters-compact">
-        <label class="filter-pair">
-          <span class="filter-key">Estado</span>
-          <select class="filter-select" [(ngModel)]="statusFilter" (change)="onChangeStatus()">
-            <option value="active">Activos</option>
-            <option value="archived">Archivados</option>
-          </select>
-        </label>
-        <label class="filter-pair">
-          <span class="filter-key">Orden</span>
-          <select class="filter-select" [(ngModel)]="sortMode" (change)="onChangeSort()">
-            <option value="smart">Inteligente</option>
-            <option value="recently_used">Más recientes usados</option>
-            <option value="most_used">Más usados</option>
-            <option value="recently_uploaded">Más recientes subidos</option>
-          </select>
-        </label>
-        <div class="density-group" role="group" aria-label="Densidad de la cuadrícula">
-          <div class="density-seg">
-            <button
-              type="button"
-              class="density-btn"
-              [class.active]="gridDensity === 'compact'"
-              [attr.aria-pressed]="gridDensity === 'compact'"
-              (click)="setGridDensity('compact')"
-              data-density-tip="Pequeño"
-              aria-label="Pequeño. Vista compacta, 36 archivos por página.">
-              <svg class="density-ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                <circle cx="4" cy="4" r="1.35" fill="currentColor" />
-                <circle cx="10" cy="4" r="1.35" fill="currentColor" />
-                <circle cx="16" cy="4" r="1.35" fill="currentColor" />
-                <circle cx="4" cy="10" r="1.35" fill="currentColor" />
-                <circle cx="10" cy="10" r="1.35" fill="currentColor" />
-                <circle cx="16" cy="10" r="1.35" fill="currentColor" />
-                <circle cx="4" cy="16" r="1.35" fill="currentColor" />
-                <circle cx="10" cy="16" r="1.35" fill="currentColor" />
-                <circle cx="16" cy="16" r="1.35" fill="currentColor" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="density-btn"
-              [class.active]="gridDensity === 'standard'"
-              [attr.aria-pressed]="gridDensity === 'standard'"
-              (click)="setGridDensity('standard')"
-              data-density-tip="Estándar"
-              aria-label="Estándar. Vista equilibrada, 24 archivos por página.">
-              <svg class="density-ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                <rect x="3" y="3" width="6" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.25" />
-                <rect x="11" y="3" width="6" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.25" />
-                <rect x="3" y="11" width="6" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.25" />
-                <rect x="11" y="11" width="6" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.25" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="density-btn"
-              [class.active]="gridDensity === 'comfortable'"
-              [attr.aria-pressed]="gridDensity === 'comfortable'"
-              (click)="setGridDensity('comfortable')"
-              data-density-tip="Cómodo"
-              aria-label="Cómodo. Tarjetas grandes, 18 archivos por página.">
-              <svg class="density-ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                <rect x="3" y="5" width="14" height="4.5" rx="2.25" fill="currentColor" />
-                <rect x="3" y="11.5" width="14" height="4.5" rx="2.25" fill="currentColor" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-    </header>
-  </ng-container>
-
   <!-- Modo selección: intención clara -->
   <header class="selection-hero" *ngIf="selectionMode">
     <h1 class="page-title">Selecciona un archivo</h1>
     <p class="selection-hint">Toca <strong>Usar</strong> en una tarjeta o marca una y confirma abajo.</p>
-    <p class="inline-msg warn" *ngIf="batchMessage">{{ batchMessage }}</p>
   </header>
 
   <p class="error" *ngIf="uploadError">{{ uploadError }}</p>
   <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
   <p class="error" *ngIf="folderError">{{ folderError }}</p>
   <p class="error" *ngIf="folderActionError">{{ folderActionError }}</p>
-  <p class="warn inline-msg" *ngIf="batchMessage && !selectionMode">{{ batchMessage }}</p>
 
   <!-- Batch: solo con selección y fuera de modo selección -->
   <div class="batch-floating" *ngIf="!selectionMode && assets.length > 0 && selectedIds.size > 0">
@@ -174,37 +36,189 @@
     </ul>
   </section>
 
+  <div class="floating-toast" *ngIf="batchMessage" [attr.data-tone]="batchMessageTone" role="status" aria-live="polite">
+    <span class="floating-toast-text">{{ batchMessage }}</span>
+    <button type="button" class="floating-toast-close" (click)="clearToast()" aria-label="Cerrar mensaje">×</button>
+  </div>
+
   <!-- Zona 2: layout con carpetas -->
   <section class="media-layout">
-    <aside class="folders-panel">
-      <div class="folders-head">
-        <h3>Carpetas</h3>
-        <button type="button" class="btn tiny" (click)="openCreateRootFolder()">+ Nueva</button>
+    <div class="sidebar-column">
+      <aside class="folders-panel">
+        <button type="button" class="new-folder-btn" (click)="openCreateRootFolder()">+ Nueva carpeta</button>
+
+        <div class="folders-head">
+          <h3>Carpetas</h3>
+          <button type="button" class="folder-add-inline" (click)="openCreateRootFolder()" aria-label="Nueva carpeta">+</button>
+        </div>
+
+        <button
+          type="button"
+          class="folder-item root"
+          [class.drop-target]="dragOverFolderId === null"
+          [class.active]="selectedFolderId == null"
+          (click)="selectFolder(null)"
+          (dragover)="onFolderDragOver($event, null)"
+          (dragleave)="onFolderDragLeave(null)"
+          (drop)="onFolderDrop($event, null)">
+          <span
+            class="folder-icon-mask tree"
+            aria-hidden="true"
+            [style.backgroundColor]="folderColorHexOrDefault(null)"></span>
+          Biblioteca
+        </button>
+
+        <div class="folders-tree-scroll">
+          <p class="loading-line" *ngIf="foldersLoading">Cargando carpetas…</p>
+          <ul class="folder-tree" *ngIf="!foldersLoading">
+            <ng-container *ngFor="let node of folderTree">
+              <ng-container
+                [ngTemplateOutlet]="folderNodeTpl"
+                [ngTemplateOutletContext]="{ $implicit: node }"></ng-container>
+            </ng-container>
+          </ul>
+        </div>
+      </aside>
+
+      <div class="sidebar-storage-card" *ngIf="!storageLoading">
+        <div class="sidebar-storage-head">
+          <img class="sidebar-storage-icon" src="assets/Icons/cloud-upload.svg" alt="" aria-hidden="true" />
+          <div class="sidebar-storage-title">Almacenamiento</div>
+        </div>
+        <div class="sidebar-storage-text">{{ formatBytes(usedBytes) }} de {{ isUnlimited ? 'Ilimitado' : formatBytes(limitBytes) }} usados</div>
+        <div class="sidebar-storage-bar" *ngIf="!isUnlimited">
+          <div class="sidebar-storage-fill" [style.width.%]="usedPercent()"></div>
+        </div>
+        <div class="sidebar-storage-percent" *ngIf="!isUnlimited">{{ usedPercent() }}%</div>
       </div>
-
-      <button
-        type="button"
-        class="folder-item root"
-        [class.drop-target]="dragOverFolderId === null"
-        [class.active]="selectedFolderId == null"
-        (click)="selectFolder(null)"
-        (dragover)="onFolderDragOver($event, null)"
-        (dragleave)="onFolderDragLeave(null)"
-        (drop)="onFolderDrop($event, null)">
-        Biblioteca
-      </button>
-
-      <p class="loading-line" *ngIf="foldersLoading">Cargando carpetas…</p>
-      <ul class="folder-tree" *ngIf="!foldersLoading">
-        <ng-container *ngFor="let node of folderTree">
-          <ng-container
-            [ngTemplateOutlet]="folderNodeTpl"
-            [ngTemplateOutletContext]="{ $implicit: node }"></ng-container>
-        </ng-container>
-      </ul>
-    </aside>
+      <div class="sidebar-storage-card muted" *ngIf="storageLoading">
+        <div class="sidebar-storage-head">
+          <img class="sidebar-storage-icon" src="assets/Icons/cloud-upload.svg" alt="" aria-hidden="true" />
+          <div class="sidebar-storage-title">Almacenamiento…</div>
+        </div>
+      </div>
+    </div>
 
     <div class="media-main">
+      <header class="zone-actions" *ngIf="!selectionMode">
+        <div class="toolbar" #importMenuAnchor>
+          <div class="search-hero">
+            <svg class="search-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                fill="currentColor"
+                d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+            </svg>
+            <input
+              type="search"
+              class="search-input"
+              [(ngModel)]="q"
+              (ngModelChange)="onSearchInput()"
+              placeholder="Buscar archivos…"
+              autocomplete="off" />
+          </div>
+
+          <label class="btn primary upload-btn">
+            {{ uploading ? 'Subiendo…' : 'Subir' }}
+            <input
+              type="file"
+              (change)="onUploadInput($event)"
+              accept="image/*,video/*,application/pdf,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
+              [disabled]="uploading" />
+          </label>
+
+          <div class="import-dropdown">
+            <button type="button" class="btn import-trigger" (click)="toggleImportMenu(); $event.stopPropagation()">
+              Importar ▾
+            </button>
+            <ul class="import-menu" *ngIf="importMenuOpen" (click)="$event.stopPropagation()">
+              <li>
+                <button type="button" (click)="openImportFromUrl()">Desde URL</button>
+              </li>
+              <li>
+                <button type="button" (click)="openImportIntegration('google-drive')">Google Drive</button>
+              </li>
+              <li>
+                <button type="button" (click)="openImportIntegration('onedrive')">OneDrive</button>
+              </li>
+              <li>
+                <button type="button" (click)="openImportIntegration('canva')">Canva</button>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="filters-compact">
+          <label class="filter-pair">
+            <span class="filter-key">Estado</span>
+            <select class="filter-select" [(ngModel)]="statusFilter" (change)="onChangeStatus()">
+              <option value="active">Activos</option>
+              <option value="archived">Archivados</option>
+            </select>
+          </label>
+          <label class="filter-pair">
+            <span class="filter-key">Orden</span>
+            <select class="filter-select" [(ngModel)]="sortMode" (change)="onChangeSort()">
+              <option value="smart">Inteligente</option>
+              <option value="recently_used">Más recientes usados</option>
+              <option value="most_used">Más usados</option>
+              <option value="recently_uploaded">Más recientes subidos</option>
+            </select>
+          </label>
+          <div class="density-group" role="group" aria-label="Densidad de la cuadrícula">
+            <div class="density-seg">
+              <button
+                type="button"
+                class="density-btn"
+                [class.active]="gridDensity === 'compact'"
+                [attr.aria-pressed]="gridDensity === 'compact'"
+                (click)="setGridDensity('compact')"
+                data-density-tip="Pequeño"
+                aria-label="Pequeño. Vista compacta, 36 archivos por página.">
+                <svg class="density-ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                  <circle cx="4" cy="4" r="1.35" fill="currentColor" />
+                  <circle cx="10" cy="4" r="1.35" fill="currentColor" />
+                  <circle cx="16" cy="4" r="1.35" fill="currentColor" />
+                  <circle cx="4" cy="10" r="1.35" fill="currentColor" />
+                  <circle cx="10" cy="10" r="1.35" fill="currentColor" />
+                  <circle cx="16" cy="10" r="1.35" fill="currentColor" />
+                  <circle cx="4" cy="16" r="1.35" fill="currentColor" />
+                  <circle cx="10" cy="16" r="1.35" fill="currentColor" />
+                  <circle cx="16" cy="16" r="1.35" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="density-btn"
+                [class.active]="gridDensity === 'standard'"
+                [attr.aria-pressed]="gridDensity === 'standard'"
+                (click)="setGridDensity('standard')"
+                data-density-tip="Estándar"
+                aria-label="Estándar. Vista equilibrada, 24 archivos por página.">
+                <svg class="density-ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                  <rect x="3" y="3" width="6" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.25" />
+                  <rect x="11" y="3" width="6" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.25" />
+                  <rect x="3" y="11" width="6" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.25" />
+                  <rect x="11" y="11" width="6" height="6" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.25" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="density-btn"
+                [class.active]="gridDensity === 'comfortable'"
+                [attr.aria-pressed]="gridDensity === 'comfortable'"
+                (click)="setGridDensity('comfortable')"
+                data-density-tip="Cómodo"
+                aria-label="Cómodo. Tarjetas grandes, 18 archivos por página.">
+                <svg class="density-ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                  <rect x="3" y="5" width="14" height="4.5" rx="2.25" fill="currentColor" />
+                  <rect x="3" y="11.5" width="14" height="4.5" rx="2.25" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
       <div class="breadcrumb-bar">
         <span class="crumb-root" (click)="selectFolder(null)">Biblioteca</span>
         <ng-container *ngIf="breadcrumbLoading">
@@ -219,6 +233,7 @@
 
       <div class="folder-actions" *ngIf="selectedFolderId != null && folderLookup.get(selectedFolderId) as current">
         <button type="button" class="btn tiny" (click)="openCreateChildFolder(current)">+ Subcarpeta</button>
+        <button type="button" class="btn tiny" *ngIf="canNavigateUp()" (click)="navigateUpFolder()">Subir nivel</button>
         <button type="button" class="btn tiny" (click)="openRenameFolder(current)">Renombrar</button>
         <button type="button" class="btn tiny" (click)="openMoveFolder(current)">Mover</button>
         <button
@@ -230,7 +245,7 @@
         </button>
       </div>
 
-      <section class="empty-state" *ngIf="!loading && !errorMessage && assets.length === 0">
+      <section class="empty-state" *ngIf="!loading && !errorMessage && assets.length === 0 && currentFolderChildren().length === 0">
         <h2 class="empty-title">No tienes archivos aún</h2>
         <p class="empty-desc">Sube algo o impórtalo por URL para empezar tu biblioteca.</p>
         <div class="empty-cta">
@@ -247,13 +262,74 @@
 
       <p class="loading-line" *ngIf="loading">Cargando…</p>
 
-      <section class="grid" *ngIf="!loading && assets.length > 0">
+      <section class="grid folders-grid" *ngIf="!loading && currentFolderChildren().length > 0">
+    <article
+      class="card folder-card"
+      [attr.data-folder-id]="child.folderId"
+      *ngFor="let child of currentFolderChildren()">
+      <div
+        class="folder-card-row"
+        (click)="selectFolder(child.folderId)"
+        (contextmenu)="onFolderContextMenu($event, child, 'grid')"
+        [attr.draggable]="!movingFolder && !movingMedia"
+        (dragstart)="onFolderCardDragStart($event, child)"
+        (dragend)="onFolderCardDragEnd()"
+        (dragover)="onFolderDragOver($event, child.folderId)"
+        (dragleave)="onFolderDragLeave(child.folderId)"
+        (drop)="onFolderDrop($event, child.folderId)"
+        [class.drop-target]="dragOverFolderId === child.folderId"
+        [class.dragging]="draggingFolderId === child.folderId">
+        <div class="folder-card-main">
+          <span
+            class="folder-icon-mask grid"
+            aria-hidden="true"
+            [style.backgroundColor]="folderColorHexOrDefault(child.colorHex)"></span>
+          <div class="folder-card-body">
+            <h4 class="card-name">{{ child.name }}</h4>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="folder-kebab"
+          aria-label="Acciones de carpeta"
+          (click)="toggleFolderMenu(child.folderId, 'grid', $event)">
+          ⋮
+        </button>
+        <ul class="folder-menu" *ngIf="isFolderMenuOpen(child.folderId, 'grid')" (click)="$event.stopPropagation()">
+          <li>
+            <button type="button" (click)="selectFolder(child.folderId)">Abrir</button>
+          </li>
+          <li>
+            <button type="button" (click)="openCreateChildFolder(child)">Nueva subcarpeta</button>
+          </li>
+          <li>
+            <button type="button" (click)="openRenameFolder(child)">Renombrar</button>
+          </li>
+          <li>
+            <button type="button" (click)="openMoveFolder(child)">Mover</button>
+          </li>
+          <li>
+            <button
+              type="button"
+              class="menu-danger"
+              (click)="deleteFolder(child)"
+              [disabled]="deletingFolderId === child.folderId">
+              Eliminar
+            </button>
+          </li>
+        </ul>
+      </div>
+    </article>
+      </section>
+
+      <section class="grid assets-grid" *ngIf="!loading && assets.length > 0">
     <article
       class="card"
       [class.dragging]="draggingMediaIds.has(asset.mediaId)"
       *ngFor="let asset of assets"
       [attr.data-card-id]="asset.mediaId"
       [attr.draggable]="!selectionMode"
+      (contextmenu)="onAssetContextMenu($event, asset.mediaId)"
       (dragstart)="onCardDragStart($event, asset)"
       (dragend)="onCardDragEnd()">
       <div class="card-visual">
@@ -269,6 +345,35 @@
             [checked]="selectedIds.has(asset.mediaId)"
             (change)="toggleSelected(asset.mediaId)" />
         </label>
+        <div class="card-more-wrap" *ngIf="!selectionMode" (click)="$event.stopPropagation()">
+          <button
+            type="button"
+            class="btn icon-more"
+            (click)="toggleCardMenu(asset.mediaId, $event)"
+            aria-haspopup="true"
+            [attr.aria-expanded]="openCardMenuId === asset.mediaId">
+            …
+          </button>
+          <ul class="card-menu" *ngIf="openCardMenuId === asset.mediaId">
+            <li>
+              <button type="button" (click)="useInComposer(asset)">Usar</button>
+            </li>
+            <li>
+              <button type="button" (click)="openDetail(asset)">Abrir detalle</button>
+            </li>
+            <li>
+              <button type="button" (click)="editAsset(asset)">Editar</button>
+            </li>
+            <li>
+              <button type="button" (click)="archiveAsset(asset)" [disabled]="asset.status === 'archived'">
+                Archivar
+              </button>
+            </li>
+            <li>
+              <button type="button" class="menu-danger" (click)="deleteAsset(asset)">Eliminar</button>
+            </li>
+          </ul>
+        </div>
         <button
           type="button"
           class="thumb-btn"
@@ -280,44 +385,21 @@
             [alt]="asset.name"
             loading="lazy" />
           <div class="thumb-placeholder" *ngIf="!asset.thumbnailUrl && !asset.publicUrl">Sin vista previa</div>
-          <span class="thumb-badge" [class.video]="isVideo(asset)">{{ isVideo(asset) ? 'Video' : 'Imagen' }}</span>
+          <span class="thumb-format">{{ formatMimeShort(asset.mimeType) }}</span>
+          <span
+            class="thumb-badge"
+            [class.video]="assetBadgeLabel(asset) === 'Video'"
+            [class.document]="assetBadgeLabel(asset) === 'Documento'"
+            [class.file]="assetBadgeLabel(asset) === 'Archivo'">
+            {{ assetBadgeLabel(asset) }}
+          </span>
         </button>
       </div>
       <div class="card-body">
         <h4 class="card-name">{{ asset.name }}</h4>
-        <p class="card-meta">
-          {{ formatMimeShort(asset.mimeType) }}
-          <ng-container *ngIf="formatAssetSize(asset)"> · {{ formatAssetSize(asset) }}</ng-container>
+        <p class="card-meta" *ngIf="formatAssetSize(asset)">
+          {{ formatAssetSize(asset) }}
         </p>
-        <div class="card-actions">
-          <button type="button" class="btn primary card-use" (click)="useInComposer(asset)">Usar</button>
-          <div class="card-more-wrap" *ngIf="!selectionMode" (click)="$event.stopPropagation()">
-            <button
-              type="button"
-              class="btn icon-more"
-              (click)="toggleCardMenu(asset.mediaId, $event)"
-              aria-haspopup="true"
-              [attr.aria-expanded]="openCardMenuId === asset.mediaId">
-              …
-            </button>
-            <ul class="card-menu" *ngIf="openCardMenuId === asset.mediaId">
-              <li>
-                <button type="button" (click)="openDetail(asset)">Abrir detalle</button>
-              </li>
-              <li>
-                <button type="button" (click)="editAsset(asset)">Editar</button>
-              </li>
-              <li>
-                <button type="button" (click)="archiveAsset(asset)" [disabled]="asset.status === 'archived'">
-                  Archivar
-                </button>
-              </li>
-              <li>
-                <button type="button" class="menu-danger" (click)="deleteAsset(asset)">Eliminar</button>
-              </li>
-            </ul>
-          </div>
-        </div>
       </div>
     </article>
       </section>
@@ -538,6 +620,28 @@
       <label>Nombre</label>
       <input type="text" [(ngModel)]="folderFormName" />
 
+      <label>Color</label>
+      <div class="folder-color-palette">
+        <button
+          type="button"
+          class="folder-color-swatch"
+          *ngFor="let color of folderColorPalette"
+          [style.backgroundColor]="color"
+          [class.active]="isPaletteFolderColorSelected(color)"
+          (click)="selectPaletteFolderColor(color)"
+          [attr.aria-label]="'Seleccionar color ' + color"></button>
+      </div>
+      <p class="folder-color-help">O elige un color personalizado:</p>
+      <div class="folder-color-row">
+        <input type="color" [(ngModel)]="folderFormColorHex" (ngModelChange)="onFolderColorInputChange($event)" />
+        <input
+          type="text"
+          [(ngModel)]="folderFormColorHex"
+          (ngModelChange)="onFolderColorInputChange($event)"
+          placeholder="#64748B"
+          maxlength="7" />
+      </div>
+
       <ng-container *ngIf="folderModalMode === 'move' || folderModalMode === 'rename'">
         <label>Carpeta padre</label>
         <select [(ngModel)]="folderFormParentId">
@@ -563,33 +667,66 @@
 
   <ng-template #folderNodeTpl let-node>
     <li>
-      <div class="folder-row" [style.paddingLeft.px]="8 + node.depth * 12">
+      <div
+        class="folder-row"
+        [attr.data-folder-id]="node.folderId"
+        [style.paddingLeft.px]="4 + node.depth * 12"
+        [class.active]="selectedFolderId === node.folderId"
+        [class.drop-target]="dragOverFolderId === node.folderId"
+        (click)="selectFolder(node.folderId)"
+        (contextmenu)="onFolderContextMenu($event, node, 'tree')"
+        (dragover)="onFolderDragOver($event, node.folderId)"
+        (dragleave)="onFolderDragLeave(node.folderId)"
+        (drop)="onFolderDrop($event, node.folderId)">
+        <button
+          type="button"
+          class="folder-expand"
+          [class.visible]="node.children.length > 0"
+          (click)="toggleFolderExpanded(node, $event)"
+          [attr.aria-label]="isFolderExpanded(node) ? 'Contraer carpeta' : 'Expandir carpeta'">
+          <img
+            class="folder-expand-icon"
+            [class.expanded]="isFolderExpanded(node)"
+            src="assets/Icons/chevron-down (2).svg"
+            alt=""
+            aria-hidden="true" />
+        </button>
         <button
           type="button"
           class="folder-item"
-          [class.drop-target]="dragOverFolderId === node.folderId"
-          [class.active]="selectedFolderId === node.folderId"
-          (click)="selectFolder(node.folderId)"
-          (dragover)="onFolderDragOver($event, node.folderId)"
-          (dragleave)="onFolderDragLeave(node.folderId)"
-          (drop)="onFolderDrop($event, node.folderId)">
-          {{ node.name }}
+          (click)="selectFolder(node.folderId); $event.stopPropagation()">
+          <span
+            class="folder-icon-mask tree"
+            aria-hidden="true"
+            [style.backgroundColor]="folderColorHexOrDefault(node.colorHex)"></span>
+          <span class="folder-name">{{ node.name }}</span>
         </button>
-        <div class="folder-inline-actions">
-          <button type="button" class="icon-inline" title="Subcarpeta" (click)="openCreateChildFolder(node)">+</button>
-          <button type="button" class="icon-inline" title="Renombrar" (click)="openRenameFolder(node)">✎</button>
-          <button type="button" class="icon-inline" title="Mover" (click)="openMoveFolder(node)">⇄</button>
-          <button
-            type="button"
-            class="icon-inline danger"
-            title="Eliminar"
-            (click)="deleteFolder(node)"
-            [disabled]="deletingFolderId === node.folderId">
-            ×
-          </button>
-        </div>
+        <span class="folder-count">{{ folderTreeCounter(node) }}</span>
+        <ul class="folder-menu" *ngIf="isFolderMenuOpen(node.folderId, 'tree')" (click)="$event.stopPropagation()">
+          <li>
+            <button type="button" (click)="selectFolder(node.folderId)">Abrir</button>
+          </li>
+          <li>
+            <button type="button" (click)="openCreateChildFolder(node)">Nueva subcarpeta</button>
+          </li>
+          <li>
+            <button type="button" (click)="openRenameFolder(node)">Renombrar</button>
+          </li>
+          <li>
+            <button type="button" (click)="openMoveFolder(node)">Mover</button>
+          </li>
+          <li>
+            <button
+              type="button"
+              class="menu-danger"
+              (click)="deleteFolder(node)"
+              [disabled]="deletingFolderId === node.folderId">
+              Eliminar
+            </button>
+          </li>
+        </ul>
       </div>
-      <ul class="folder-tree" *ngIf="node.children.length">
+      <ul class="folder-tree" *ngIf="node.children.length && isFolderExpanded(node)">
         <ng-container *ngFor="let child of node.children">
           <ng-container
             [ngTemplateOutlet]="folderNodeTpl"

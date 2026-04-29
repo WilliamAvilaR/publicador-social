@@ -358,7 +358,7 @@
   .submenu-list {
     display: none;
   }
-  
+
   .submenu-arrow {
     display: none;
   }
@@ -853,11 +853,10 @@
 // ========== MAIN CONTENT ==========
 .main-content {
   flex: 1;
-  padding: 24px;
   overflow-y: auto; // Solo aquí hay scroll
   overflow-x: hidden;
   min-height: 0; // Importante para que flex funcione correctamente
-  
+
   // Estilos del scrollbar para el main-content
   &::-webkit-scrollbar {
     width: 8px;

@@ -579,17 +579,38 @@ export class DashboardComponent implements OnInit, OnDestroy {
           }
           return;
         }
-      } else if (item.route && (currentRoute === item.route || currentRoute.startsWith(item.route + '/'))) {
+      } else if (item.route && this.menuRouteMatches(currentRoute, item.route)) {
         this.activeSection = item.label;
         return;
       }
     }
 
-    if (currentRoute === '/dashboard' || currentRoute.startsWith('/dashboard')) {
-      this.activeSection = 'Dashboard';
-    } else {
-      this.activeSection = 'Dashboard';
+    this.activeSection = 'Dashboard';
+  }
+
+  /** Fragmento de ruta sin query ni hash (para comparar con rutas del menú). */
+  private urlPathWithoutQueryOrHash(fullUrl: string): string {
+    const q = fullUrl.indexOf('?');
+    const h = fullUrl.indexOf('#');
+    let end = fullUrl.length;
+    if (q >= 0) {
+      end = Math.min(end, q);
     }
+    if (h >= 0) {
+      end = Math.min(end, h);
+    }
+    return fullUrl.slice(0, end);
+  }
+
+  /**
+   * `/dashboard` solo debe coincidir con la home, no con `/dashboard/archivos` ni otras hijas.
+   */
+  private menuRouteMatches(fullUrl: string, itemRoute: string): boolean {
+    const path = this.urlPathWithoutQueryOrHash(fullUrl);
+    if (itemRoute === '/dashboard') {
+      return path === '/dashboard' || path === '/dashboard/';
+    }
+    return path === itemRoute || path.startsWith(`${itemRoute}/`);
   }
 
   /**

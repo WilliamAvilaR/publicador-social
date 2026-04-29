@@ -58,6 +58,7 @@ export interface MediaFolderDto {
   folderId: number;
   parentFolderId: number | null;
   name: string;
+  colorHex: string;
   normalizedName: string;
   depth: number;
   isDeleted: boolean;
@@ -68,11 +69,13 @@ export interface MediaFolderDto {
 export interface CreateMediaFolderRequestDto {
   parentFolderId: number | null;
   name: string;
+  colorHex?: string;
 }
 
 export interface UpdateMediaFolderRequestDto {
   parentFolderId: number | null;
   name: string;
+  colorHex?: string;
 }
 
 export interface MediaUpdateRequest {
