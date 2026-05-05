@@ -283,7 +283,12 @@ export class PostComposerMediaPanelComponent implements OnChanges, OnDestroy {
       next: (res) => {
         this.libraryLoading = false;
         this.libraryItems = (res.data || []).map((it) => ({
-          id: it.id,
+          id:
+            typeof it.mediaId === 'number'
+              ? it.mediaId
+              : typeof it.id === 'number'
+                ? it.id
+                : 0,
           thumb: it.thumbnailUrl || it.publicUrl,
           name: it.name || it.mimeType
         }));

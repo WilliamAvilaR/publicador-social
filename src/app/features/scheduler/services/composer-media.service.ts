@@ -10,6 +10,10 @@ export interface ApiResponse<T> {
     pageSize?: number;
     currentPage?: number;
     totalPages?: number;
+    hasNextPage?: boolean;
+    hasPreviousPage?: boolean;
+    nextPageUrl?: string;
+    previousPageUrl?: string;
     [key: string]: unknown;
   };
 }
@@ -28,11 +32,19 @@ export interface MediaUploadResponseBody {
   height?: number | null;
 }
 
-/** Ítem de biblioteca (GET /api/media). */
+/** Ítem de biblioteca (GET /api/media) — alineado con `MediaListItemDto` del API. */
 export interface MediaLibraryItemDto {
-  id: number;
+  mediaId?: number;
+  /** Compatibilidad con respuestas antiguas que exponían `id`. */
+  id?: number;
+  folderId?: number | null;
+  folderName?: string | null;
   thumbnailUrl?: string;
+  previewUrl?: string | null;
   publicUrl?: string;
+  hasThumbnail?: boolean;
+  hasPreview?: boolean;
+  processingStatus?: 'pending' | 'completed' | 'failed';
   mimeType: string;
   createdAt: string;
   name?: string;
@@ -45,13 +57,28 @@ export interface MediaLibraryItemDto {
   sizeBytes?: number;
 }
 
+/** Valores de `sort` admitidos por GET /api/media (orden global antes de paginar). */
+export type MediaListSortParam =
+  | 'recently_uploaded'
+  | 'recently_used'
+  | 'most_used'
+  | 'name_asc'
+  | 'name_desc'
+  | 'size_desc';
+
 export interface MediaLibraryListQuery {
   page?: number;
   pageSize?: number;
   q?: string;
   status?: 'active' | 'archived';
-  sort?: 'smart' | 'recently_used' | 'most_used' | 'recently_uploaded';
+  sort?: MediaListSortParam;
   folderId?: number | null;
+  /** Si true, el backend filtra a medios con carpeta nula (vista raíz de biblioteca). */
+  withoutFolder?: boolean;
+  /** Filtro por clase MIME según el API (`image` \| `video` \| `document`). */
+  type?: 'image' | 'video' | 'document';
+  /** Prefijo MIME, p. ej. `image/jpeg` o `image/`. */
+  mimeType?: string;
 }
 
 export interface MediaFolderDto {
@@ -217,6 +244,15 @@ export class ComposerMediaService {
     }
     if (typeof query.folderId === 'number') {
       params = params.set('folderId', String(query.folderId));
+    }
+    if (query.withoutFolder) {
+      params = params.set('withoutFolder', 'true');
+    }
+    if (query.type) {
+      params = params.set('type', query.type);
+    }
+    if (query.mimeType?.trim()) {
+      params = params.set('mimeType', query.mimeType.trim());
     }
     return this.http.get<ApiResponse<MediaLibraryItemDto[]>>(this.base, { params }).pipe(
       catchError((err) => throwError(() => err))
