@@ -13,7 +13,6 @@ import { SelectedTenant, TenantSummary, TenantEntitlementsResponse } from '../..
 import { TenantContextService } from '../../../../core/services/tenant-context.service';
 import { TenantEntitlementsService } from '../../../../core/services/tenant-entitlements.service';
 import { isAnyMenuFeatureStrict } from '../../../../core/utils/entitlements.utils';
-import { FacebookConnectComponent } from '../../../../shared/components/facebook-connect/facebook-connect.component';
 import { validateAvatarUrl } from '../../../../shared/utils/validation.utils';
 import { extractErrorMessage } from '../../../../shared/utils/error.utils';
 
@@ -30,7 +29,7 @@ interface MenuItem {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, RouterOutlet, FacebookConnectComponent],
+  imports: [CommonModule, FormsModule, RouterModule, RouterOutlet],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
@@ -118,7 +117,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     {
       label: 'Cuentas conectadas',
       route: '/dashboard/cuentas-conectadas',
-      featureKeys: ['network.facebook.pages', 'network.facebook.groups', 'network.instagram', 'network.linkedin', 'network.threads', 'network.tiktok'],
+      featureKeys: ['network.facebook.pages', 'network.facebook.groups', 'network.instagram', 'network.linkedin', 'network.threads', 'network.tiktok', 'network.youtube'],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12h4m-2 2v-4M4 18v-1a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Zm8-10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
       </svg>`
@@ -157,7 +156,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         'network.tiktok',
         'network.twitter',
         'network.instagram',
-        'network.threads'
+        'network.threads',
+        'network.youtube'
       ],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5v14m8-7h-2m0 0h-2m2 0v2m0-2v-2M3 11h6m-6 4h6m11 4H4c-.55228 0-1-.4477-1-1V6c0-.55228.44772-1 1-1h16c.5523 0 1 .44772 1 1v12c0 .5523-.4477 1-1 1Z"/>
@@ -277,7 +277,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const gates: { prefix: string; keys: string[] }[] = [
       { prefix: '/dashboard/programador', keys: ['module.scheduler'] },
       { prefix: '/dashboard/colecciones', keys: ['module.collections'] },
-      { prefix: '/dashboard/cuentas-conectadas', keys: ['network.facebook.pages', 'network.facebook.groups', 'network.instagram', 'network.linkedin', 'network.threads', 'network.tiktok'] },
+      { prefix: '/dashboard/cuentas-conectadas', keys: ['network.facebook.pages', 'network.facebook.groups', 'network.instagram', 'network.linkedin', 'network.threads', 'network.tiktok', 'network.youtube'] },
       { prefix: '/dashboard/cuentas', keys: ['network.facebook.pages', 'network.facebook.groups'] },
       { prefix: '/dashboard/mensajes', keys: ['module.inbox'] },
       { prefix: '/dashboard/analiticas', keys: ['network.facebook.pages', 'network.facebook.groups'] },
@@ -293,7 +293,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
           'network.tiktok',
           'network.twitter',
           'network.instagram',
-          'network.threads'
+          'network.threads',
+          'network.youtube'
         ]
       }
     ];
@@ -326,6 +327,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     // Inicializar avatar URL
     this.updateAvatarUrl();
+
+    const userSubscription = this.authService.user$.subscribe((user) => {
+      this.applyUserData(user);
+    });
+    this.subscriptions.add(userSubscription);
 
     const entitlementsSubscription = this.tenantEntitlements.entitlements$.subscribe((e) => {
       this.entitlements = e;
@@ -413,28 +419,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
     window.addEventListener('storage', storageListener);
 
-    // Verificar periódicamente si el usuario cambió (para cambios en la misma ventana)
-    // Esto es necesario porque el evento storage solo se dispara en otras ventanas
-    const checkUserInterval = setInterval(() => {
-      const currentUser = this.authService.getUser();
-      if (currentUser && this.user) {
-        const currentAvatarUrl = validateAvatarUrl((currentUser as UserProfileData).avatarUrl);
-        const cachedAvatarUrl = validateAvatarUrl((this.user as UserProfileData).avatarUrl);
-
-        // Si el avatar cambió, refrescar
-        if (currentAvatarUrl !== cachedAvatarUrl) {
-          this.refreshUserData();
-        }
-      } else if (currentUser && !this.user) {
-        // Si no había usuario antes pero ahora sí, actualizar
-        this.refreshUserData();
-      }
-    }, 500); // Verificar cada 500ms para respuesta más rápida
-
     // Limpiar listeners al destruir el componente
     this.subscriptions.add({
       unsubscribe: () => {
-        clearInterval(checkUserInterval);
         window.removeEventListener('storage', storageListener);
       }
     });
@@ -771,15 +758,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.applyUserData(currentUser, forceAvatarRefresh);
+  }
+
+  private applyUserData(user: UserData | UserProfileData | null, forceAvatarRefresh = false): void {
+    if (!user) {
+      this.user = null;
+      this.avatarUrlWithCache = null;
+      return;
+    }
+
     const oldAvatarUrl = this.user ? validateAvatarUrl((this.user as UserProfileData).avatarUrl) : null;
-    const newAvatarUrl = validateAvatarUrl((currentUser as UserProfileData).avatarUrl);
-    const userChanged = JSON.stringify(this.user) !== JSON.stringify(currentUser);
+    const newAvatarUrl = validateAvatarUrl((user as UserProfileData).avatarUrl);
+    const userChanged = JSON.stringify(this.user) !== JSON.stringify(user);
 
     if (!userChanged && !forceAvatarRefresh) {
       return;
     }
 
-    this.user = currentUser;
+    this.user = user;
 
     if (!newAvatarUrl) {
       this.avatarUrlWithCache = null;

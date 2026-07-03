@@ -1,7 +1,7 @@
 <div class="cuentas-container">
   <div class="header-section">
     <h1>Cuentas Conectadas</h1>
-    <p>Gestiona tus cuentas de Facebook, Instagram, LinkedIn, Threads y TikTok conectadas</p>
+    <p>Gestiona tus cuentas de Facebook, Instagram, LinkedIn, Threads, TikTok y YouTube conectadas</p>
   </div>
 
   <div class="meta-summary" *ngIf="metaGroupStatus || metaStatusLoading">
@@ -97,6 +97,14 @@
 
     <div class="meta-alert meta-alert-warn" *ngIf="tiktokOAuthError">
       <strong>{{ tiktokOAuthError }}</strong>
+    </div>
+
+    <div class="meta-alert" *ngIf="ytOAuthToast">
+      <strong>{{ ytOAuthToast }}</strong>
+    </div>
+
+    <div class="meta-alert meta-alert-warn" *ngIf="ytOAuthError">
+      <strong>{{ ytOAuthError }}</strong>
     </div>
 
     <div class="meta-alert" *ngIf="liOAuthToast">
@@ -558,6 +566,97 @@
         </ul>
       </div>
     </div>
+
+    <div class="connect-card youtube-card" *ngIf="isYouTubeFeatureEnabled()">
+      <div class="connect-header">
+        <div class="platform-info">
+          <svg class="platform-icon youtube" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+          </svg>
+          <div>
+            <h2>YouTube</h2>
+            <p>Conecta cuentas Google y selecciona canales YouTube en el selector post-OAuth</p>
+            <p class="connect-meta-badge" *ngIf="hasYouTubeOAuthConnections()">
+              {{ getYouTubeConnectionsBadgeLabel() }} · {{ getYouTubeChannelsBadgeLabel() }}
+            </p>
+          </div>
+        </div>
+        <div class="connect-actions">
+          <app-youtube-connect
+            *ngIf="!hasYouTubeOAuthConnections()"
+            oauthMode="add"
+            [maxConnectionsPerTenant]="getMaxYouTubeConnections()"
+            [maxYouTubeChannels]="getMaxYouTubeChannels()"
+            label="Conectar cuenta Google">
+          </app-youtube-connect>
+          <app-youtube-connect
+            *ngIf="hasYouTubeOAuthConnections() && canAddYouTubeConnection()"
+            oauthMode="add"
+            [maxConnectionsPerTenant]="getMaxYouTubeConnections()"
+            [maxYouTubeChannels]="getMaxYouTubeChannels()"
+            label="Conectar otra cuenta">
+          </app-youtube-connect>
+          <button
+            *ngIf="hasYouTubeOAuthConnections()"
+            class="btn-link-danger"
+            (click)="disconnectYouTube()"
+            [disabled]="disconnectingYouTube">
+            {{ disconnectingYouTube ? 'Desconectando...' : 'Desconectar todas las cuentas Google' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="meta-connections-panel" *ngIf="hasYouTubeOAuthConnections() || loadingYouTubeConnections">
+        <h3 class="meta-connections-title">Cuentas Google autorizadas</h3>
+        <div *ngIf="loadingYouTubeConnections" class="loading-state compact">
+          <div class="spinner"></div>
+          <p>Cargando conexiones...</p>
+        </div>
+        <ul class="meta-connections-list" *ngIf="!loadingYouTubeConnections && youtubeConnections.length > 0">
+          <li class="meta-connection-row" *ngFor="let conn of youtubeConnections">
+            <div class="meta-connection-avatar" *ngIf="conn.displayPictureUrl">
+              <img [src]="conn.displayPictureUrl" [alt]="formatConnectionLabel(conn)" />
+            </div>
+            <div class="meta-connection-info">
+              <span class="meta-connection-label">{{ formatConnectionLabel(conn) }}</span>
+              <span class="meta-connection-detail">
+                {{ getYouTubeConnectionStatsLabel(conn) }}
+              </span>
+            </div>
+            <div class="meta-connection-actions">
+              <button
+                type="button"
+                class="btn-connection-action"
+                (click)="openYouTubeChannelSelector(conn.id)"
+                [disabled]="isConnectionRowBusy(conn.id)">
+                Seleccionar canales
+              </button>
+              <button
+                type="button"
+                class="btn-connection-action"
+                (click)="syncYouTubeConnection(conn)"
+                [disabled]="isConnectionRowBusy(conn.id)">
+                {{ isSyncingConnection(conn.id) ? 'Sincronizando...' : 'Sincronizar' }}
+              </button>
+              <button
+                type="button"
+                class="btn-connection-action"
+                (click)="reauthYouTubeConnection(conn)"
+                [disabled]="isConnectionRowBusy(conn.id)">
+                {{ isReauthingConnection(conn.id) ? 'Reautenticando...' : 'Reautenticar' }}
+              </button>
+              <button
+                type="button"
+                class="btn-connection-action btn-connection-danger"
+                (click)="disconnectYouTubeConnection(conn)"
+                [disabled]="isConnectionRowBusy(conn.id)">
+                {{ isDisconnectingConnection(conn.id) ? 'Desconectando...' : 'Desconectar' }}
+              </button>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
   </div>
 
   <!-- Instagram accounts -->
@@ -699,6 +798,61 @@
       </div>
     </div>
   </div>
+
+  <!-- YouTube publishable channels -->
+  <div class="pages-section youtube-section" *ngIf="isYouTubeFeatureEnabled()">
+    <h2>Canales YouTube publicables</h2>
+
+    <div *ngIf="loadingYouTube" class="loading-state">
+      <div class="spinner"></div>
+      <p>Cargando canales YouTube...</p>
+    </div>
+
+    <div *ngIf="!loadingYouTube && youtubeError" class="error-state">
+      <p>{{ youtubeError }}</p>
+      <button (click)="loadYouTubeChannels()" class="retry-btn">Reintentar</button>
+    </div>
+
+    <div *ngIf="!loadingYouTube && !youtubeError && youtubePublishableChannels.length === 0" class="empty-state">
+      <p>No hay canales YouTube conectados al workspace</p>
+      <p class="empty-subtitle">Conecta una cuenta Google y selecciona canales en el selector post-OAuth</p>
+    </div>
+
+    <div *ngIf="!loadingYouTube && !youtubeError && youtubePublishableChannels.length > 0" class="pages-grid">
+      <ng-container *ngFor="let channel of youtubePublishableChannels">
+        <ng-container *ngTemplateOutlet="youtubeChannelCard; context: { channel: channel }"></ng-container>
+      </ng-container>
+    </div>
+  </div>
+
+  <ng-template #youtubeChannelCard let-channel="channel">
+    <div class="page-card">
+      <div class="page-header">
+        <div class="page-icon">
+          <img *ngIf="channel.pictureUrl" [src]="channel.pictureUrl" [alt]="channel.displayName" class="page-avatar">
+          <div *ngIf="!channel.pictureUrl" class="avatar-placeholder youtube">{{ getAccountInitial(channel.displayName) }}</div>
+        </div>
+        <div class="page-info">
+          <h3>{{ channel.displayName }}</h3>
+          <p class="page-id">ID: {{ channel.externalAccountId || channel.id }}</p>
+          <p class="page-type-badge">Canal YouTube</p>
+          <p class="page-shared-badge" *ngIf="hasSharedYouTubeBindings(channel)">
+            Accesible desde {{ getSharedYouTubeBindingsCount(channel) }} cuentas Google: {{ getYouTubeBindingGoogleLabels(channel) }}
+          </p>
+          <p class="page-hint warn" *ngIf="!channel.canPublish">No publicable: {{ channel.requiresReconnect ? 'reconectar OAuth' : 'token inválido' }}</p>
+        </div>
+        <div class="page-status">
+          <button
+            type="button"
+            class="btn-link-danger compact"
+            (click)="disconnectYouTubeChannel(channel)"
+            [disabled]="isDisconnectingYouTubeChannel(channel.id)">
+            {{ isDisconnectingYouTubeChannel(channel.id) ? 'Desconectando...' : 'Desconectar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </ng-template>
 
   <ng-template #linkedinOrgCard let-org="org">
     <div class="page-card">

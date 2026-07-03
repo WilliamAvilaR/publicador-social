@@ -16,7 +16,7 @@
   padding: 40px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   width: 100%;
-  max-width: 500px;
+  max-width: 720px;
 
   &.embedded-panel {
     max-width: 100%;
@@ -44,15 +44,22 @@
   margin: 0;
 }
 
-.success-message {
-  background: #e8f5e9;
-  border: 1px solid #4caf50;
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 24px;
+.profile-toast {
+  position: fixed;
+  top: 88px;
+  right: 24px;
+  z-index: 1300;
+  min-width: 260px;
+  max-width: min(420px, calc(100vw - 32px));
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #15803d;
+  border-radius: 10px;
+  background: #166534;
+  color: #fff;
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.25);
   animation: slideDown 0.3s ease;
 }
 
@@ -70,28 +77,24 @@
 .success-icon {
   width: 20px;
   height: 20px;
-  color: #4caf50;
+  color: currentColor;
   flex-shrink: 0;
-  margin-top: 2px;
 }
 
-.success-content {
+.profile-toast-text {
   flex: 1;
+  font-size: 14px;
+  line-height: 1.35;
+}
 
-  strong {
-    display: block;
-    color: #2e7d32;
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 4px;
-  }
-
-  p {
-    margin: 0;
-    color: #388e3c;
-    font-size: 13px;
-    line-height: 1.4;
-  }
+.profile-toast-close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
 }
 
 .error-message {
@@ -106,9 +109,9 @@
 }
 
 .edit-profile-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
 }
 
 .input-group {
@@ -116,6 +119,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .input-label {
@@ -186,6 +190,20 @@
   display: flex;
   gap: 12px;
   margin-top: 8px;
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .edit-profile-form {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-toast {
+    top: 16px;
+    right: 16px;
+    left: 16px;
+    min-width: 0;
+  }
 }
 
 .cancel-button {
@@ -343,24 +361,6 @@
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-  }
-}
-
-.avatar-save-btn {
-  padding: 10px 20px;
-  background: #10b981;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: #059669;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
   }
 }
 

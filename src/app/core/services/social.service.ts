@@ -77,6 +77,12 @@ export interface TikTokIntegrationBundle {
   accounts: SocialAccount[];
 }
 
+export interface YouTubeIntegrationBundle {
+  status: SocialConnectionTypeStatus;
+  connections: SocialConnection[];
+  channels: SocialAccount[];
+}
+
 export interface PollPublishAttemptsOptions {
   intervalMs?: number;
   timeoutMs?: number;
@@ -167,6 +173,16 @@ export class SocialService {
   /** OAuth TikTok: redirección completa (callback 302 a /cuentas-conectadas/tiktok). */
   startTikTokConnectRedirect(options?: SocialConnectStartOptions): Observable<never> {
     return this.startConnect('tiktok', 'tiktok_oauth', options).pipe(
+      map((url) => {
+        window.location.assign(url);
+        return undefined as never;
+      })
+    );
+  }
+
+  /** OAuth YouTube: redirección completa (callback 302 al selector post-OAuth). */
+  startYouTubeConnectRedirect(options?: SocialConnectStartOptions): Observable<never> {
+    return this.startConnect('google', 'youtube_oauth', options).pipe(
       map((url) => {
         window.location.assign(url);
         return undefined as never;
@@ -416,6 +432,23 @@ export class SocialService {
         isActive: true
       }),
       accounts: this.getAccounts({ providerGroup: 'tiktok', provider: 'tiktok' })
+    });
+  }
+
+  refreshYouTubeIntegrationBundle(): Observable<YouTubeIntegrationBundle> {
+    return forkJoin({
+      status: this.getConnectionTypeStatus('google', 'youtube_oauth'),
+      connections: this.getConnections({
+        providerGroup: 'google',
+        connectionType: 'youtube_oauth',
+        isActive: true
+      }),
+      channels: this.getAccounts({
+        providerGroup: 'google',
+        provider: 'youtube',
+        forPublishing: true,
+        includeBindings: true
+      })
     });
   }
 

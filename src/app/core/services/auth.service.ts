@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { BehaviorSubject, Observable } from 'rxjs';
 import { LoginRequest, LoginResponse, UserData, RegisterRequest, RegisterResponse, RefreshResponse, ApiError, ChangePasswordRequest, ChangePasswordResponse, UpdateProfileRequest, UpdateProfileResponse, UserProfileData, UploadAvatarResponse, DeleteAvatarResponse } from '../models/auth.model';
 import { TenantContextService } from './tenant-context.service';
 
@@ -12,6 +12,8 @@ export class AuthService {
   private apiUrl = '/api/Token';
   private readonly TOKEN_KEY = 'auth_token';
   private readonly USER_KEY = 'user_data';
+  private readonly userSubject = new BehaviorSubject<UserData | UserProfileData | null>(this.getUser());
+  readonly user$ = this.userSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -90,6 +92,7 @@ export class AuthService {
       fullName: user.fullName
     };
     localStorage.setItem(this.USER_KEY, JSON.stringify(userData));
+    this.userSubject.next(userData as UserData);
   }
 
   // Actualizar datos del usuario en localStorage (después de actualizar perfil)
@@ -99,6 +102,7 @@ export class AuthService {
       return;
     }
     localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+    this.userSubject.next(user);
   }
 
   // Obtener token del localStorage
@@ -154,6 +158,7 @@ export class AuthService {
   logout(): void {
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
+    this.userSubject.next(null);
     this.tenantContext.clearCurrentTenant();
   }
 }

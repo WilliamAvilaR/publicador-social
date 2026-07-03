@@ -16,7 +16,7 @@
   padding: 40px;
   box-shadow: var(--shadow-md);
   width: 100%;
-  max-width: 500px;
+  max-width: 760px;
 
   &.embedded-panel {
     max-width: 100%;
@@ -26,9 +26,9 @@
   }
 }
 
-.header {
-  margin-bottom: 32px;
-  text-align: center;
+.preferences-header {
+  margin-bottom: 24px;
+  text-align: left;
 }
 
 .title {
@@ -42,18 +42,65 @@
   font-size: 16px;
   color: var(--text-tertiary);
   margin: 0;
+  line-height: 1.5;
 }
 
-.success-message {
-  background: var(--success-bg);
-  border: 1px solid var(--success-text);
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 24px;
+.section-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--border-primary);
+}
+
+.preferences-toast {
+  position: fixed;
+  top: 88px;
+  right: 24px;
+  z-index: 1300;
+  min-width: 260px;
+  max-width: min(420px, calc(100vw - 32px));
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #15803d;
+  border-radius: 10px;
+  background: #166534;
+  color: #fff;
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.25);
   animation: slideDown 0.3s ease;
+
+  &[data-tone='error'] {
+    background: #991b1b;
+    border-color: #b91c1c;
+  }
+
+  &[data-tone='info'] {
+    background: #1d4ed8;
+    border-color: #2563eb;
+  }
+}
+
+.success-icon {
+  width: 20px;
+  height: 20px;
+  color: currentColor;
+  flex-shrink: 0;
+}
+
+.preferences-toast-text {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.preferences-toast-close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
 }
 
 @keyframes slideDown {
@@ -67,44 +114,6 @@
   }
 }
 
-.success-icon {
-  width: 20px;
-  height: 20px;
-  color: var(--success-text);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.success-content {
-  flex: 1;
-
-  strong {
-    display: block;
-    color: var(--success-text);
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 4px;
-  }
-
-  p {
-    margin: 0;
-    color: var(--success-text);
-    font-size: 13px;
-    line-height: 1.4;
-  }
-}
-
-.error-message {
-  background: var(--error-bg);
-  border: 1px solid var(--error-text);
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 24px;
-  color: var(--error-text);
-  font-size: 14px;
-  text-align: center;
-}
-
 .loading-message {
   text-align: center;
   padding: 40px 20px;
@@ -115,20 +124,47 @@
 .edit-preferences-form {
   display: flex;
   flex-direction: column;
+  gap: 28px;
+}
+
+.preferences-section {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.section-heading-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(260px, 1fr);
+  align-items: start;
   gap: 24px;
 }
 
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.field-control {
+  min-width: 0;
 }
 
 .input-label {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 4px;
+  margin: 14px 0 0;
 }
 
 .select-field {
@@ -180,12 +216,12 @@
 .form-actions {
   display: flex;
   gap: 12px;
-  margin-top: 8px;
+  justify-content: flex-end;
 }
 
 .cancel-button {
-  flex: 1;
-  padding: 14px;
+  min-width: 120px;
+  padding: 12px 18px;
   background: var(--bg-primary);
   color: var(--text-tertiary);
   border: 1px solid var(--border-secondary);
@@ -207,8 +243,8 @@
 }
 
 .submit-button {
-  flex: 2;
-  padding: 14px;
+  min-width: 180px;
+  padding: 12px 18px;
   background: var(--accent-primary);
   color: white;
   border: none;
@@ -231,5 +267,36 @@
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+}
+
+@media (max-width: 720px) {
+  .edit-preferences-panel {
+    padding: 24px;
+  }
+
+  .preferences-toast {
+    top: 16px;
+    right: 16px;
+    left: 16px;
+    min-width: 0;
+  }
+
+  .settings-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .input-label {
+    margin-top: 0;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .cancel-button,
+  .submit-button {
+    width: 100%;
   }
 }

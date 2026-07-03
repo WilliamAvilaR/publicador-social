@@ -1,25 +1,19 @@
 <div class="edit-preferences-wrapper" [class.embedded]="embedded">
   <div class="edit-preferences-panel" [class.embedded-panel]="embedded">
-    <div class="header" *ngIf="!embedded">
-      <h2 class="title">Editar Preferencias</h2>
-      <p class="subtitle">Personaliza tu experiencia</p>
+    <div class="preferences-header">
+      <h2 class="title">Preferencias</h2>
+      <p class="subtitle">Personaliza cómo se muestran y se comportan las opciones de tu cuenta.</p>
     </div>
 
-    <!-- Mensaje de éxito -->
-    <div *ngIf="successMessage" class="success-message">
+    <div class="section-divider"></div>
+
+    <div *ngIf="toastMessage" class="preferences-toast" [attr.data-tone]="toastTone" role="status" aria-live="polite">
       <svg class="success-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <div class="success-content">
-        <strong>¡Éxito!</strong>
-        <p>{{ successMessage }}</p>
-      </div>
-    </div>
-
-    <!-- Mensaje de error -->
-    <div *ngIf="errorMessage" class="error-message">
-      {{ errorMessage }}
+      <span class="preferences-toast-text">{{ toastMessage }}</span>
+      <button type="button" class="preferences-toast-close" (click)="clearToast()" aria-label="Cerrar mensaje">×</button>
     </div>
 
     <!-- Loading de preferencias -->
@@ -28,86 +22,114 @@
     </div>
 
     <form [formGroup]="preferencesForm" (ngSubmit)="onSubmit()" class="edit-preferences-form" *ngIf="!loadingSettings">
-      <!-- Idioma -->
-      <div class="input-group">
-        <label class="input-label">Idioma</label>
-        <select 
-          formControlName="language"
-          class="select-field"
-          [class.invalid]="isFieldInvalid('language')">
-          <option value="">Seleccionar idioma</option>
-          <option *ngFor="let lang of languages" [value]="lang.value">{{ lang.label }}</option>
-        </select>
-        <div *ngIf="isFieldInvalid('language')" class="field-error">
-          {{ getFieldError('language') }}
-        </div>
-      </div>
+      <section class="preferences-section">
+        <h3 class="section-heading">
+          <img src="assets/Icons/globe-1%20(1).svg" alt="" class="section-heading-icon" aria-hidden="true" />
+          <span>Regional</span>
+        </h3>
 
-      <!-- Zona Horaria -->
-      <div class="input-group">
-        <label class="input-label">Zona Horaria</label>
-        <select 
-          formControlName="timezone"
-          class="select-field"
-          [class.invalid]="isFieldInvalid('timezone')">
-          <option value="">Seleccionar zona horaria</option>
-          <option *ngFor="let tz of timezones" [value]="tz.value">{{ tz.label }}</option>
-        </select>
-        <div *ngIf="isFieldInvalid('timezone')" class="field-error">
-          {{ getFieldError('timezone') }}
+        <!-- Idioma -->
+        <div class="settings-row">
+          <label class="input-label">Idioma</label>
+          <div class="field-control">
+            <select
+              formControlName="language"
+              class="select-field"
+              [class.invalid]="isFieldInvalid('language')">
+              <option value="">Seleccionar idioma</option>
+              <option *ngFor="let lang of languages" [value]="lang.value">{{ lang.label }}</option>
+            </select>
+            <div *ngIf="isFieldInvalid('language')" class="field-error">
+              {{ getFieldError('language') }}
+            </div>
+          </div>
         </div>
-      </div>
 
-      <!-- Formato de Fecha -->
-      <div class="input-group">
-        <label class="input-label">Formato de Fecha</label>
-        <select 
-          formControlName="dateFormat"
-          class="select-field"
-          [class.invalid]="isFieldInvalid('dateFormat')">
-          <option value="">Seleccionar formato</option>
-          <option *ngFor="let format of dateFormats" [value]="format.value">{{ format.label }}</option>
-        </select>
-        <div *ngIf="isFieldInvalid('dateFormat')" class="field-error">
-          {{ getFieldError('dateFormat') }}
+        <!-- Zona Horaria -->
+        <div class="settings-row">
+          <label class="input-label">Zona Horaria</label>
+          <div class="field-control">
+            <select
+              formControlName="timezone"
+              class="select-field"
+              [class.invalid]="isFieldInvalid('timezone')">
+              <option value="">Seleccionar zona horaria</option>
+              <option *ngFor="let tz of timezones" [value]="tz.value">{{ tz.label }}</option>
+            </select>
+            <div *ngIf="isFieldInvalid('timezone')" class="field-error">
+              {{ getFieldError('timezone') }}
+            </div>
+          </div>
         </div>
-      </div>
 
-      <!-- Primer Día de la Semana -->
-      <div class="input-group">
-        <label class="input-label">Primer Día de la Semana</label>
-        <select 
-          formControlName="firstDayOfWeek"
-          class="select-field"
-          [class.invalid]="isFieldInvalid('firstDayOfWeek')">
-          <option *ngFor="let option of firstDayOfWeekOptions" [value]="option.value">{{ option.label }}</option>
-        </select>
-        <div *ngIf="isFieldInvalid('firstDayOfWeek')" class="field-error">
-          {{ getFieldError('firstDayOfWeek') }}
+        <!-- Formato de Fecha -->
+        <div class="settings-row">
+          <label class="input-label">Formato de Fecha</label>
+          <div class="field-control">
+            <select
+              formControlName="dateFormat"
+              class="select-field"
+              [class.invalid]="isFieldInvalid('dateFormat')">
+              <option value="">Seleccionar formato</option>
+              <option *ngFor="let format of dateFormats" [value]="format.value">{{ format.label }}</option>
+            </select>
+            <div *ngIf="isFieldInvalid('dateFormat')" class="field-error">
+              {{ getFieldError('dateFormat') }}
+            </div>
+          </div>
         </div>
-      </div>
 
-      <!-- Tema -->
-      <div class="input-group">
-        <label class="input-label">Tema</label>
-        <select 
-          formControlName="theme"
-          class="select-field"
-          [class.invalid]="isFieldInvalid('theme')">
-          <option value="">Seleccionar tema</option>
-          <option *ngFor="let theme of themes" [value]="theme.value">{{ theme.label }}</option>
-        </select>
-        <div *ngIf="isFieldInvalid('theme')" class="field-error">
-          {{ getFieldError('theme') }}
+        <!-- Primer Día de la Semana -->
+        <div class="settings-row">
+          <label class="input-label">Primer Día de la Semana</label>
+          <div class="field-control">
+            <select
+              formControlName="firstDayOfWeek"
+              class="select-field"
+              [class.invalid]="isFieldInvalid('firstDayOfWeek')">
+              <option *ngFor="let option of firstDayOfWeekOptions" [ngValue]="option.value">{{ option.label }}</option>
+            </select>
+            <div *ngIf="isFieldInvalid('firstDayOfWeek')" class="field-error">
+              {{ getFieldError('firstDayOfWeek') }}
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <div class="section-divider"></div>
+
+      <section class="preferences-section">
+        <h3 class="section-heading">
+          <img src="assets/Icons/brush-2.svg" alt="" class="section-heading-icon" aria-hidden="true" />
+          <span>Apariencia</span>
+        </h3>
+
+        <!-- Tema -->
+        <div class="settings-row">
+          <label class="input-label">Tema</label>
+          <div class="field-control">
+            <select
+              formControlName="theme"
+              class="select-field"
+              [class.invalid]="isFieldInvalid('theme')">
+              <option value="">Seleccionar tema</option>
+              <option *ngFor="let theme of themes" [value]="theme.value">{{ theme.label }}</option>
+            </select>
+            <div *ngIf="isFieldInvalid('theme')" class="field-error">
+              {{ getFieldError('theme') }}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="section-divider"></div>
 
       <div class="form-actions">
-        <button *ngIf="!embedded" type="button" class="cancel-button" (click)="onCancel()" [disabled]="isLoading">
+        <button type="button" class="cancel-button" (click)="onCancel()" [disabled]="isLoading || !hasPendingChanges">
           Cancelar
         </button>
-        <button type="submit" class="submit-button" [disabled]="isLoading">
-          <span *ngIf="!isLoading">Guardar Preferencias</span>
+        <button type="submit" class="submit-button" [disabled]="isLoading || !hasPendingChanges">
+          <span *ngIf="!isLoading">Guardar cambios</span>
           <span *ngIf="isLoading">Guardando...</span>
         </button>
       </div>

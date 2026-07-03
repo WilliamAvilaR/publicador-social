@@ -23,7 +23,8 @@ export type SocialAccountConnectErrorCode =
   | 'SOCIAL_ACCOUNT_LIMIT_REACHED'
   | 'SOCIAL_ACCOUNT_ALREADY_CONNECTED'
   | 'SOCIAL_ACCOUNT_CONNECT_NOT_ELIGIBLE'
-  | 'SOCIAL_ACCOUNT_STATUS_PATCH_DEPRECATED';
+  | 'SOCIAL_ACCOUNT_STATUS_PATCH_DEPRECATED'
+  | 'YOUTUBE_CHANNEL_LIMIT_REACHED';
 
 /** Códigos informativos en reconnect (`warningCode`) o errores HTTP reales del endpoint. */
 export type SocialAccountReconnectErrorCode =
@@ -161,6 +162,44 @@ export function getSocialTikTokConnectionErrorMessage(
   return getSocialConnectionErrorMessage(code, status?.maxConnectionsPerTenant);
 }
 
+export function getSocialYouTubeConnectionErrorMessage(
+  code?: string,
+  status?: Pick<
+    SocialConnectionTypeStatus,
+    'maxConnectionsPerTenant' | 'maxYouTubeChannels'
+  >
+): string {
+  if (code === 'SOCIAL_CONNECTION_LIMIT_REACHED') {
+    const max = status?.maxConnectionsPerTenant;
+    return max != null
+      ? `Has alcanzado el límite de cuentas Google conectadas (máx. ${max}).`
+      : 'Has alcanzado el límite de cuentas Google conectadas.';
+  }
+  if (code === 'SOCIAL_CONNECTION_REAUTH_USER_MISMATCH') {
+    return 'Iniciaste sesión con otra cuenta de Google. Usa la cuenta correcta o cancela.';
+  }
+  if (code === 'GOOGLE_REFRESH_TOKEN_MISSING') {
+    return 'Google no devolvió refresh token. Vuelve a autorizar con consentimiento completo.';
+  }
+  if (code === 'SYNC_NO_CHANNELS_RETURNED') {
+    return 'Esta cuenta Google no tiene canales de YouTube. Crea un canal en YouTube e intenta sincronizar.';
+  }
+  return getSocialConnectionErrorMessage(code, status?.maxConnectionsPerTenant);
+}
+
+export function getSocialYouTubeChannelConnectErrorMessage(
+  code?: string,
+  status?: Pick<SocialConnectionTypeStatus, 'maxYouTubeChannels'>
+): string {
+  if (code === 'YOUTUBE_CHANNEL_LIMIT_REACHED') {
+    const max = status?.maxYouTubeChannels;
+    return max != null
+      ? `Has alcanzado el límite de canales YouTube activos (máx. ${max}).`
+      : 'Has alcanzado el límite de canales YouTube activos.';
+  }
+  return getSocialAccountConnectErrorMessage(code);
+}
+
 export function getSocialLinkedInConnectionErrorMessage(
   code?: string,
   status?: Pick<
@@ -208,6 +247,8 @@ export function getSocialAccountConnectErrorMessage(code?: string): string {
       return 'Esta página no se puede conectar en este momento.';
     case 'SOCIAL_ACCOUNT_STATUS_PATCH_DEPRECATED':
       return 'Usa conectar/desconectar en lugar de activar la página con el interruptor.';
+    case 'YOUTUBE_CHANNEL_LIMIT_REACHED':
+      return 'Has alcanzado el límite de canales YouTube activos en tu plan.';
     default:
       return 'No se pudo conectar la página.';
   }

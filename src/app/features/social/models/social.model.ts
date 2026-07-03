@@ -1,6 +1,6 @@
 export type SocialProviderGroup = 'meta' | 'linkedin' | 'google' | 'tiktok' | 'x' | 'pinterest';
-export type SocialConnectionType = 'facebook_login' | 'instagram_login' | 'threads_login' | 'linkedin_oauth' | 'tiktok_oauth';
-export type SocialProvider = 'facebook' | 'instagram' | 'threads' | 'linkedin' | 'tiktok';
+export type SocialConnectionType = 'facebook_login' | 'instagram_login' | 'threads_login' | 'linkedin_oauth' | 'tiktok_oauth' | 'youtube_oauth';
+export type SocialProvider = 'facebook' | 'instagram' | 'threads' | 'linkedin' | 'tiktok' | 'youtube';
 export type InstagramContentType = 'image' | 'carousel' | 'video' | 'reel' | 'reels';
 export type PlanMediaRole = 'primary' | 'carousel_item' | 'cover';
 
@@ -98,6 +98,12 @@ export interface SocialConnectionTypeStatus {
   maxTikTokAccounts?: number;
   activeTikTokAccounts?: number;
   remainingTikTokAccounts?: number;
+  /** Límite comercial de canales YouTube activos. */
+  maxYouTubeChannels?: number;
+  activeYouTubeChannels?: number;
+  remainingYouTubeChannels?: number;
+  /** Hay cupo para nueva conexión OAuth Google (YouTube). */
+  canAddYouTube?: boolean;
 }
 
 export interface SocialConnection {

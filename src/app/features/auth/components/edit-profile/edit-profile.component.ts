@@ -44,9 +44,11 @@ export class EditProfileComponent implements OnInit, OnDestroy {
   imageFileForCropper: File | undefined = undefined;
   croppedImage: string | null = null;
   currentAvatarUrl: string | null = null; // URL con cache buster para usar en el template
+  pendingAvatarDelete = false;
   private readonly MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   private readonly ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   private subscriptions = new Subscription();
+  private successToastTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -68,6 +70,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.clearSuccessToastTimeout();
     this.subscriptions.unsubscribe();
   }
 
@@ -141,8 +144,10 @@ export class EditProfileComponent implements OnInit, OnDestroy {
         telephone: userProfile.telephone || '',
         dateBird: userProfile.dateBird || ''
       });
+      this.profileForm.markAsPristine();
       // Validar avatarUrl antes de asignarlo
       this.avatarUrl = validateAvatarUrl(userProfile.avatarUrl);
+      this.resetPendingAvatarChanges();
       this.updateCurrentAvatarUrl();
     }
 
@@ -157,9 +162,11 @@ export class EditProfileComponent implements OnInit, OnDestroy {
           telephone: profileData.telephone || '',
           dateBird: profileData.dateBird || ''
         });
+        this.profileForm.markAsPristine();
 
         // Validar avatarUrl antes de asignarlo
         this.avatarUrl = validateAvatarUrl(profileData.avatarUrl);
+        this.resetPendingAvatarChanges();
         this.updateCurrentAvatarUrl();
 
         // Actualizar localStorage con datos validados
@@ -182,15 +189,47 @@ export class EditProfileComponent implements OnInit, OnDestroy {
     return getFieldError(this.profileForm, fieldName);
   }
 
+  get hasPendingChanges(): boolean {
+    return !!this.profileForm && (this.profileForm.dirty || !!this.selectedFile || this.pendingAvatarDelete);
+  }
+
+  get isSaving(): boolean {
+    return this.isLoading || this.uploadingAvatar || this.deletingAvatar;
+  }
+
+  clearSuccessToast(): void {
+    this.clearSuccessToastTimeout();
+    this.successMessage = '';
+  }
+
   onSubmit() {
     if (this.profileForm.invalid) {
       markFormGroupTouched(this.profileForm);
       return;
     }
 
+    if (!this.hasPendingChanges) {
+      return;
+    }
+
+    if (this.selectedFile) {
+      this.updateAvatarUploadGate();
+      if (!this.canUploadAvatar) {
+        this.avatarError = this.avatarUploadGateError || 'No puedes subir este avatar con tu plan actual.';
+        return;
+      }
+    }
+
+    const hasProfileChanges = this.profileForm.dirty;
+    const selectedAvatar = this.selectedFile;
+    const shouldDeleteAvatar = this.pendingAvatarDelete;
+
     this.isLoading = true;
+    this.uploadingAvatar = !!selectedAvatar;
+    this.deletingAvatar = shouldDeleteAvatar;
     this.errorMessage = '';
     this.successMessage = '';
+    this.avatarError = '';
 
     const formValue = this.profileForm.value;
     const request: UpdateProfileRequest = {
@@ -201,11 +240,27 @@ export class EditProfileComponent implements OnInit, OnDestroy {
       dateBird: formValue.dateBird || ''
     };
 
+    const saveAvatarChanges = () => {
+      if (selectedAvatar) {
+        this.saveSelectedAvatar(selectedAvatar);
+        return;
+      }
+
+      if (shouldDeleteAvatar) {
+        this.saveAvatarDeletion();
+        return;
+      }
+
+      this.finishProfileSave();
+    };
+
+    if (!hasProfileChanges) {
+      saveAvatarChanges();
+      return;
+    }
+
     const updateProfileSubscription = this.authService.updateProfile(request).subscribe({
       next: (response) => {
-        this.isLoading = false;
-        this.successMessage = 'Perfil actualizado exitosamente';
-
         // Validar avatarUrl antes de actualizar
         const validatedData = {
           ...response.data,
@@ -214,31 +269,18 @@ export class EditProfileComponent implements OnInit, OnDestroy {
 
         // Actualizar los datos del usuario en localStorage
         this.authService.updateUserData(validatedData);
+        this.profileForm.markAsPristine();
 
-        // Actualizar avatarUrl en el componente si existe
-        if (validatedData.avatarUrl) {
+        // Actualizar avatarUrl solo si no hay una operación de avatar pendiente.
+        if (validatedData.avatarUrl && !selectedAvatar && !shouldDeleteAvatar) {
           this.avatarUrl = validatedData.avatarUrl;
           this.updateCurrentAvatarUrl();
         }
 
-        // Emitir evento para el componente padre
-        this.profileUpdated.emit();
-
-        // Si no está embebido, redirigir después de 2 segundos
-        if (!this.embedded) {
-          setTimeout(() => {
-            this.router.navigate(['/dashboard']);
-          }, 2000);
-        } else {
-          // Si está embebido, limpiar el mensaje después de 5 segundos
-          setTimeout(() => {
-            this.successMessage = '';
-          }, 5000);
-        }
+        saveAvatarChanges();
       },
       error: (error: HttpErrorResponse) => {
-        this.isLoading = false;
-        this.errorMessage = extractErrorMessage(error);
+        this.finishProfileSaveError(error);
       }
     });
 
@@ -280,6 +322,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
       this.imageChangedEvent = null;
       this.imageFileForCropper = undefined;
       this.avatarError = '';
+      this.pendingAvatarDelete = false;
 
       // Resetear el input para que pueda detectar el mismo archivo si se selecciona de nuevo
       if (input) {
@@ -342,6 +385,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
       // Convertir base64 a File y establecer preview
       this.avatarPreview = this.croppedImage;
       this.selectedFile = this.base64ToFile(this.croppedImage, this.selectedFile.name);
+      this.pendingAvatarDelete = false;
       this.updateCurrentAvatarUrl();
       this.showCropModal = false;
       this.imageChangedEvent = null;
@@ -376,29 +420,13 @@ export class EditProfileComponent implements OnInit, OnDestroy {
     return new File([u8arr], filename, { type: mime });
   }
 
-  uploadAvatar(): void {
-    if (!this.selectedFile) {
-      return;
-    }
-
-    // Gate UX por entitlements (storageMB).
-    this.updateAvatarUploadGate();
-    if (!this.canUploadAvatar) {
-      this.avatarError = this.avatarUploadGateError || 'No puedes subir este avatar con tu plan actual.';
-      return;
-    }
-
-    this.uploadingAvatar = true;
-    this.avatarError = '';
-
-    const uploadSubscription = this.authService.uploadAvatar(this.selectedFile).subscribe({
+  private saveSelectedAvatar(file: File): void {
+    const uploadSubscription = this.authService.uploadAvatar(file).subscribe({
       next: (response) => {
-        this.uploadingAvatar = false;
-        this.successMessage = 'Avatar actualizado exitosamente';
-
         // Limpiar selección primero para que la imagen se refresque
         this.selectedFile = null;
         this.avatarPreview = null;
+        this.pendingAvatarDelete = false;
 
         // Limpiar temporalmente avatarUrl para forzar la actualización
         this.avatarUrl = null;
@@ -421,6 +449,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
                 this.authService.updateUserData(userProfile);
               }
             }
+            this.finishProfileSave();
           },
           error: (error) => {
             console.error('Error al obtener perfil después de subir avatar:', error);
@@ -430,24 +459,16 @@ export class EditProfileComponent implements OnInit, OnDestroy {
               this.avatarUrl = newAvatarUrl;
               this.updateCurrentAvatarUrl();
             }
+            this.finishProfileSave();
           }
         });
         this.subscriptions.add(profileSubscription);
 
-        // Emitir evento para el componente padre
-        this.profileUpdated.emit();
-
         // El backend puede actualizar el uso de almacenamiento; refrescar entitlements.
         this.refreshEntitlements();
-
-        // Limpiar mensaje después de 1 segundo
-        setTimeout(() => {
-          this.successMessage = '';
-        }, 1000);
       },
       error: (error: HttpErrorResponse) => {
-        this.uploadingAvatar = false;
-        this.avatarError = extractErrorMessage(error);
+        this.finishProfileSaveError(error);
       }
     });
 
@@ -467,18 +488,23 @@ export class EditProfileComponent implements OnInit, OnDestroy {
     return `${url}${separator}t=${Date.now()}`;
   }
 
-  deleteAvatar(): void {
+  markAvatarForDeletion(): void {
     if (!this.avatarUrl && !this.avatarPreview) {
       return;
     }
 
-    this.deletingAvatar = true;
     this.avatarError = '';
+    this.selectedFile = null;
+    this.avatarPreview = null;
+    this.pendingAvatarDelete = true;
+    this.avatarUploadGateError = null;
+    this.canUploadAvatar = true;
+    this.updateCurrentAvatarUrl();
+  }
 
+  private saveAvatarDeletion(): void {
     const deleteSubscription = this.authService.deleteAvatar().subscribe({
-      next: (response) => {
-        this.deletingAvatar = false;
-
+      next: () => {
         // Actualizar avatarUrl a undefined
         const user = this.authService.getUser();
         if (user) {
@@ -491,27 +517,81 @@ export class EditProfileComponent implements OnInit, OnDestroy {
         // Limpiar selección
         this.selectedFile = null;
         this.avatarPreview = null;
+        this.pendingAvatarDelete = false;
         this.updateCurrentAvatarUrl();
-
-        // Emitir evento para el componente padre
-        this.profileUpdated.emit();
 
         // Refrescar uso de almacenamiento (backend enforcement).
         this.refreshEntitlements();
+        this.finishProfileSave();
       },
       error: (error: HttpErrorResponse) => {
-        this.deletingAvatar = false;
-        this.avatarError = extractErrorMessage(error);
+        this.finishProfileSaveError(error);
       }
     });
 
     this.subscriptions.add(deleteSubscription);
   }
 
+  private finishProfileSave(): void {
+    this.isLoading = false;
+    this.uploadingAvatar = false;
+    this.deletingAvatar = false;
+    this.showSuccessToast('Cambios guardados correctamente');
+    this.profileForm.markAsPristine();
+
+    // Emitir evento para el componente padre
+    this.profileUpdated.emit();
+
+    // Si no está embebido, redirigir después de 2 segundos
+    if (!this.embedded) {
+      setTimeout(() => {
+        this.router.navigate(['/dashboard']);
+      }, 2000);
+    }
+  }
+
+  private finishProfileSaveError(error: HttpErrorResponse): void {
+    this.isLoading = false;
+    this.uploadingAvatar = false;
+    this.deletingAvatar = false;
+    this.errorMessage = extractErrorMessage(error);
+  }
+
+  private showSuccessToast(message: string): void {
+    this.successMessage = message;
+    this.clearSuccessToastTimeout();
+    this.successToastTimeoutId = setTimeout(() => {
+      this.successMessage = '';
+      this.successToastTimeoutId = null;
+    }, 4000);
+  }
+
+  private clearSuccessToastTimeout(): void {
+    if (this.successToastTimeoutId) {
+      clearTimeout(this.successToastTimeoutId);
+      this.successToastTimeoutId = null;
+    }
+  }
+
+  private resetPendingAvatarChanges(): void {
+    this.selectedFile = null;
+    this.avatarPreview = null;
+    this.pendingAvatarDelete = false;
+    this.avatarUploadGateError = null;
+    this.canUploadAvatar = true;
+    this.showCropModal = false;
+    this.croppedImage = null;
+    this.imageChangedEvent = null;
+    this.imageFileForCropper = undefined;
+  }
+
   cancelAvatarSelection(): void {
     this.selectedFile = null;
     this.avatarPreview = null;
+    this.pendingAvatarDelete = false;
     this.avatarError = '';
+    this.avatarUploadGateError = null;
+    this.canUploadAvatar = true;
     this.showCropModal = false;
     this.croppedImage = null;
     this.imageChangedEvent = null;
@@ -524,6 +604,11 @@ export class EditProfileComponent implements OnInit, OnDestroy {
    * Este método debe llamarse cada vez que cambie avatarUrl o avatarPreview.
    */
   private updateCurrentAvatarUrl(): void {
+    if (this.pendingAvatarDelete) {
+      this.currentAvatarUrl = null;
+      return;
+    }
+
     // Validar preview primero (preview es data URL, no necesita cache buster)
     if (this.avatarPreview) {
       this.currentAvatarUrl = validateAvatarUrl(this.avatarPreview);
@@ -551,11 +636,11 @@ export class EditProfileComponent implements OnInit, OnDestroy {
   }
 
   hasAvatar(): boolean {
-    return !!(this.avatarUrl || this.avatarPreview);
+    return !this.pendingAvatarDelete && !!(this.avatarUrl || this.avatarPreview);
   }
 
   hasSavedAvatar(): boolean {
     // Solo retorna true si hay un avatar guardado (avatarUrl), no si solo hay preview
-    return !!this.avatarUrl;
+    return !this.pendingAvatarDelete && !!this.avatarUrl;
   }
 }

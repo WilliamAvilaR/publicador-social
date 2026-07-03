@@ -5,16 +5,13 @@
       <p class="subtitle">Actualiza tu información personal</p>
     </div>
 
-    <!-- Mensaje de éxito -->
-    <div *ngIf="successMessage" class="success-message">
+    <div *ngIf="successMessage" class="profile-toast" role="status" aria-live="polite">
       <svg class="success-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <div class="success-content">
-        <strong>¡Éxito!</strong>
-        <p>{{ successMessage }}</p>
-      </div>
+      <span class="profile-toast-text">{{ successMessage }}</span>
+      <button type="button" class="profile-toast-close" (click)="clearSuccessToast()" aria-label="Cerrar mensaje">×</button>
     </div>
 
     <!-- Mensaje de error -->
@@ -41,38 +38,29 @@
         </div>
         <div class="avatar-actions">
           <label
-            *ngIf="!selectedFile"
+            *ngIf="!pendingAvatarDelete"
             class="avatar-upload-btn"
-            [class.uploading]="uploadingAvatar">
+            [class.uploading]="isSaving">
             <input
               type="file"
               accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
               (change)="onFileSelected($event)"
-              [disabled]="uploadingAvatar || deletingAvatar"
+              [disabled]="isSaving"
               style="display: none;"
             />
-            <span *ngIf="!uploadingAvatar">{{ hasSavedAvatar() ? 'Cambiar Foto' : 'Subir Foto' }}</span>
-            <span *ngIf="uploadingAvatar">Subiendo...</span>
+            <span *ngIf="!uploadingAvatar">{{ selectedFile || hasSavedAvatar() ? 'Cambiar Foto' : 'Subir Foto' }}</span>
+            <span *ngIf="uploadingAvatar">Guardando...</span>
           </label>
           <button
             *ngIf="hasSavedAvatar() && !selectedFile"
             type="button"
             class="avatar-delete-btn"
-            (click)="deleteAvatar()"
-            [disabled]="uploadingAvatar || deletingAvatar">
-            <span *ngIf="!deletingAvatar">Eliminar</span>
-            <span *ngIf="deletingAvatar">Eliminando...</span>
+            (click)="markAvatarForDeletion()"
+            [disabled]="isSaving">
+            Eliminar
           </button>
           <button
-            *ngIf="selectedFile && !uploadingAvatar"
-            type="button"
-            class="avatar-save-btn"
-            (click)="uploadAvatar()"
-            [disabled]="!canUploadAvatar">
-            Guardar Foto
-          </button>
-          <button
-            *ngIf="selectedFile && !uploadingAvatar"
+            *ngIf="(selectedFile || pendingAvatarDelete) && !isSaving"
             type="button"
             class="avatar-cancel-btn"
             (click)="cancelAvatarSelection()">
@@ -210,31 +198,11 @@
         </div>
       </div>
 
-      <!-- Fecha de Nacimiento -->
-      <div class="input-group">
-        <label for="dateBird" class="input-label">Fecha de Nacimiento</label>
-        <svg class="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <input
-          id="dateBird"
-          type="date"
-          formControlName="dateBird"
-          placeholder="Fecha de Nacimiento"
-          class="input-field"
-          [class.invalid]="isFieldInvalid('dateBird')"
-        />
-        <div *ngIf="isFieldInvalid('dateBird')" class="field-error">
-          {{ getFieldError('dateBird') }}
-        </div>
-      </div>
-
       <div class="form-actions">
         <button *ngIf="!embedded" type="button" class="cancel-button" (click)="onCancel()" [disabled]="isLoading">
           Cancelar
         </button>
-        <button type="submit" class="submit-button" [disabled]="isLoading">
+        <button type="submit" class="submit-button" [disabled]="isSaving || !hasPendingChanges || !canUploadAvatar">
           <span *ngIf="!isLoading">Guardar Cambios</span>
           <span *ngIf="isLoading">Guardando...</span>
         </button>

@@ -13,6 +13,8 @@ import { markFormGroupTouched, isFieldInvalid } from '../../../../shared/utils/f
 import { extractErrorMessage } from '../../../../shared/utils/error.utils';
 import { getFieldError } from '../../../../shared/utils/validation.utils';
 
+type PreferencesToastTone = 'success' | 'error' | 'info';
+
 @Component({
   selector: 'app-edit-preferences',
   standalone: true,
@@ -27,10 +29,11 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
   preferencesForm!: FormGroup;
   isLoading = false;
   loadingSettings = false;
-  errorMessage = '';
-  successMessage = '';
+  toastMessage = '';
+  toastTone: PreferencesToastTone = 'success';
   currentSettings: UserSettings | null = null;
   private subscriptions = new Subscription();
+  private toastTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   // Opciones disponibles
   languages = [
@@ -91,6 +94,7 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.clearToastTimeout();
     this.subscriptions.unsubscribe();
   }
 
@@ -106,7 +110,7 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
 
   loadUserSettings() {
     this.loadingSettings = true;
-    this.errorMessage = '';
+    this.clearToast();
 
     const loadSubscription = this.settingsService.getUserSettings().subscribe({
       next: (response) => {
@@ -121,10 +125,11 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
           firstDayOfWeek: response.data.firstDayOfWeek ?? 0,
           theme: response.data.theme || ''
         });
+        this.preferencesForm.markAsPristine();
       },
       error: (error: HttpErrorResponse) => {
         this.loadingSettings = false;
-        this.errorMessage = extractErrorMessage(error);
+        this.showToast(extractErrorMessage(error), 'error');
       }
     });
 
@@ -139,52 +144,33 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
     return getFieldError(this.preferencesForm, fieldName);
   }
 
+  get hasPendingChanges(): boolean {
+    return Object.keys(this.buildUpdateRequest()).length > 0;
+  }
+
   onSubmit() {
     if (this.preferencesForm.invalid) {
       markFormGroupTouched(this.preferencesForm);
       return;
     }
 
-    this.isLoading = true;
-    this.errorMessage = '';
-    this.successMessage = '';
-
-    const formValue = this.preferencesForm.value;
-    
-    // Crear request solo con los campos que han cambiado o tienen valor
-    const request: UpdateUserSettingsRequest = {};
-    
-    if (formValue.language !== (this.currentSettings?.language || '')) {
-      request.language = formValue.language || null;
-    }
-    if (formValue.timezone !== (this.currentSettings?.timezone || '')) {
-      request.timezone = formValue.timezone || null;
-    }
-    if (formValue.dateFormat !== (this.currentSettings?.dateFormat || '')) {
-      request.dateFormat = formValue.dateFormat || null;
-    }
-    if (formValue.firstDayOfWeek !== (this.currentSettings?.firstDayOfWeek ?? 0)) {
-      request.firstDayOfWeek = formValue.firstDayOfWeek ?? null;
-    }
-    if (formValue.theme !== (this.currentSettings?.theme || '')) {
-      request.theme = formValue.theme || null;
-    }
+    const request = this.buildUpdateRequest();
 
     // Si no hay cambios, no hacer la petición
     if (Object.keys(request).length === 0) {
-      this.isLoading = false;
-      this.successMessage = 'No hay cambios para guardar';
-      setTimeout(() => {
-        this.successMessage = '';
-      }, 3000);
+      this.showToast('No hay cambios para guardar', 'info');
       return;
     }
+
+    this.isLoading = true;
+    this.clearToast();
 
     const updateSubscription = this.settingsService.updateUserSettings(request).subscribe({
       next: (response) => {
         this.isLoading = false;
-        this.successMessage = 'Preferencias actualizadas exitosamente';
+        this.showToast('Cambios guardados correctamente', 'success');
         this.currentSettings = response.data;
+        this.preferencesForm.markAsPristine();
         
         // Si se cambió el idioma, actualizar el servicio de traducción
         if (request.language) {
@@ -204,16 +190,11 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
           setTimeout(() => {
             this.router.navigate(['/dashboard']);
           }, 2000);
-        } else {
-          // Si está embebido, limpiar el mensaje después de 5 segundos
-          setTimeout(() => {
-            this.successMessage = '';
-          }, 5000);
         }
       },
       error: (error: HttpErrorResponse) => {
         this.isLoading = false;
-        this.errorMessage = extractErrorMessage(error);
+        this.showToast(extractErrorMessage(error), 'error');
       }
     });
 
@@ -221,12 +202,65 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
   }
 
   onCancel() {
+    if (!this.hasPendingChanges) {
+      return;
+    }
+
     if (!this.embedded) {
       this.router.navigate(['/dashboard']);
     } else {
       this.loadUserSettings(); // Recargar preferencias originales
-      this.errorMessage = '';
-      this.successMessage = '';
+      this.clearToast();
+    }
+  }
+
+  clearToast(): void {
+    this.clearToastTimeout();
+    this.toastMessage = '';
+  }
+
+  private buildUpdateRequest(): UpdateUserSettingsRequest {
+    if (!this.preferencesForm || !this.currentSettings) {
+      return {};
+    }
+
+    const formValue = this.preferencesForm.value;
+    const request: UpdateUserSettingsRequest = {};
+    const firstDayOfWeek = Number(formValue.firstDayOfWeek);
+
+    if (formValue.language !== (this.currentSettings.language || '')) {
+      request.language = formValue.language || null;
+    }
+    if (formValue.timezone !== (this.currentSettings.timezone || '')) {
+      request.timezone = formValue.timezone || null;
+    }
+    if (formValue.dateFormat !== (this.currentSettings.dateFormat || '')) {
+      request.dateFormat = formValue.dateFormat || null;
+    }
+    if (!Number.isNaN(firstDayOfWeek) && firstDayOfWeek !== (this.currentSettings.firstDayOfWeek ?? 0)) {
+      request.firstDayOfWeek = firstDayOfWeek;
+    }
+    if (formValue.theme !== (this.currentSettings.theme || '')) {
+      request.theme = formValue.theme || null;
+    }
+
+    return request;
+  }
+
+  private showToast(message: string, tone: PreferencesToastTone): void {
+    this.toastMessage = message;
+    this.toastTone = tone;
+    this.clearToastTimeout();
+    this.toastTimeoutId = setTimeout(() => {
+      this.toastMessage = '';
+      this.toastTimeoutId = null;
+    }, 4000);
+  }
+
+  private clearToastTimeout(): void {
+    if (this.toastTimeoutId) {
+      clearTimeout(this.toastTimeoutId);
+      this.toastTimeoutId = null;
     }
   }
 }

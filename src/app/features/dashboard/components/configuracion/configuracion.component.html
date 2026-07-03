@@ -85,7 +85,6 @@
 
       <!-- Sección: Preferencias -->
       <div *ngIf="activeSection === 'preferencias'" class="configuracion-section">
-        <h2 class="section-title">{{ 'CONFIGURATION.PREFERENCES_TITLE' | translate }}</h2>
         <div class="section-content">
           <app-edit-preferences [embedded]="true" (preferencesUpdated)="onPreferencesUpdated()"></app-edit-preferences>
         </div>

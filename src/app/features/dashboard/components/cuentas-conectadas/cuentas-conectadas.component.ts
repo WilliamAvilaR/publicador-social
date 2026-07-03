@@ -6,6 +6,7 @@ import { FacebookOAuthService } from '../../../../core/services/facebook-oauth.s
 import { MetaConnectService } from '../../../../core/services/meta-connect.service';
 import { LinkedInConnectService } from '../../../../core/services/linkedin-connect.service';
 import { TikTokConnectService } from '../../../../core/services/tiktok-connect.service';
+import { YouTubeConnectService } from '../../../../core/services/youtube-connect.service';
 import { SocialService, MetaIntegrationSnapshot } from '../../../../core/services/social.service';
 import {
   isSocialApiError,
@@ -15,6 +16,7 @@ import {
   getSocialInstagramConnectionErrorMessage,
   getSocialThreadsConnectionErrorMessage,
   getSocialTikTokConnectionErrorMessage,
+  getSocialYouTubeConnectionErrorMessage,
   getSocialLinkedInConnectionErrorMessage
 } from '../../../../shared/utils/social-api.error';
 import { TenantEntitlementsResponse } from '../../../../core/models/tenant.model';
@@ -23,6 +25,7 @@ import { canUseLimit, getLimitValue, isFeatureEnabled } from '../../../../core/u
 import { MetaConnectComponent } from '../../../../shared/components/meta-connect/meta-connect.component';
 import { LinkedInConnectComponent } from '../../../../shared/components/linkedin-connect/linkedin-connect.component';
 import { TikTokConnectComponent } from '../../../../shared/components/tiktok-connect/tiktok-connect.component';
+import { YouTubeConnectComponent } from '../../../../shared/components/youtube-connect/youtube-connect.component';
 import { FacebookGroupsService } from '../../../facebook/services/facebook-groups.service';
 import { FacebookPage, FacebookGroup } from '../../../facebook/models/facebook.model';
 import { MetaManagedAccount } from '../../../meta/models/meta.model';
@@ -38,7 +41,7 @@ import {
 @Component({
   selector: 'app-cuentas-conectadas',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, MetaConnectComponent, LinkedInConnectComponent, TikTokConnectComponent],
+  imports: [CommonModule, FormsModule, RouterModule, MetaConnectComponent, LinkedInConnectComponent, TikTokConnectComponent, YouTubeConnectComponent],
   templateUrl: './cuentas-conectadas.component.html',
   styleUrl: './cuentas-conectadas.component.scss'
 })
@@ -115,6 +118,16 @@ export class CuentasConectadasComponent implements OnInit {
   liOAuthError: string | null = null;
   disconnectingLinkedIn = false;
   disconnectingLinkedInAccountIds: Set<number> = new Set();
+  youtubeConnectionStatus: SocialConnectionTypeStatus | null = null;
+  youtubeConnections: SocialConnection[] = [];
+  loadingYouTubeConnections = false;
+  youtubeChannels: SocialAccount[] = [];
+  loadingYouTube = false;
+  youtubeError: string | null = null;
+  ytOAuthToast: string | null = null;
+  ytOAuthError: string | null = null;
+  disconnectingYouTube = false;
+  disconnectingYouTubeChannelIds: Set<number> = new Set();
 
   private facebookAccountByExternalId = new Map<string, SocialAccount>();
 
@@ -131,6 +144,7 @@ export class CuentasConectadasComponent implements OnInit {
     private metaConnect: MetaConnectService,
     private linkedInConnect: LinkedInConnectService,
     private tiktokConnect: TikTokConnectService,
+    private youtubeConnect: YouTubeConnectService,
     private social: SocialService,
     private groupsService: FacebookGroupsService,
     private tenantEntitlements: TenantEntitlementsService,
@@ -156,6 +170,9 @@ export class CuentasConectadasComponent implements OnInit {
     this.loadTikTokStatus();
     this.loadTikTokConnections();
     this.loadTikTokAccounts();
+    this.loadYouTubeStatus();
+    this.loadYouTubeConnections();
+    this.loadYouTubeChannels();
     this.loadLinkedInStatus();
     this.loadLinkedInConnections();
     this.loadLinkedInOrganizations();
@@ -187,6 +204,15 @@ export class CuentasConectadasComponent implements OnInit {
 
     if (path.endsWith('/cuentas-conectadas/tiktok')) {
       queryParams['oauthPlatform'] = 'tiktok';
+      void this.router.navigate(['/dashboard/cuentas-conectadas'], {
+        queryParams,
+        replaceUrl: true
+      });
+      return;
+    }
+
+    if (path.endsWith('/cuentas-conectadas/youtube') && !path.endsWith('/youtube/select')) {
+      queryParams['oauthPlatform'] = 'youtube';
       void this.router.navigate(['/dashboard/cuentas-conectadas'], {
         queryParams,
         replaceUrl: true
@@ -250,6 +276,26 @@ export class CuentasConectadasComponent implements OnInit {
       );
     } else {
       this.tiktokOAuthError = null;
+    }
+
+    const youtubeError = params.get('youtubeError');
+    if (youtubeError) {
+      this.ytOAuthError = getSocialYouTubeConnectionErrorMessage(
+        youtubeError,
+        this.youtubeConnectionStatus ?? undefined
+      );
+    } else {
+      this.ytOAuthError = null;
+    }
+
+    const ytChannelsConnected = params.get('ytChannelsConnected');
+    if (ytChannelsConnected != null && ytChannelsConnected !== '') {
+      const count = Number(ytChannelsConnected);
+      if (Number.isFinite(count) && count > 0) {
+        this.ytOAuthToast = `${count} canal${count === 1 ? '' : 'es'} YouTube conectado${count === 1 ? '' : 's'} al workspace.`;
+      }
+    } else if (!params.get('connectionId')) {
+      this.ytOAuthToast = null;
     }
 
     const liAccountsConnected = params.get('liAccountsConnected');
@@ -1497,6 +1543,287 @@ export class CuentasConectadasComponent implements OnInit {
     return 'Error en la operación de conexión LinkedIn.';
   }
 
+  loadYouTubeStatus(): void {
+    this.social.getConnectionTypeStatus('google', 'youtube_oauth').subscribe({
+      next: (s) => {
+        this.youtubeConnectionStatus = s;
+        this.loadYouTubeConnections();
+      },
+      error: () => (this.youtubeConnectionStatus = null)
+    });
+  }
+
+  loadYouTubeConnections(): void {
+    this.loadingYouTubeConnections = true;
+    this.youtubeConnect.getYouTubeConnections().subscribe({
+      next: (connections) => {
+        this.youtubeConnections = connections;
+        this.loadingYouTubeConnections = false;
+      },
+      error: () => {
+        this.youtubeConnections = [];
+        this.loadingYouTubeConnections = false;
+      }
+    });
+  }
+
+  loadYouTubeChannels(): void {
+    this.loadingYouTube = true;
+    this.youtubeError = null;
+    this.youtubeConnect.getPublishableChannels().subscribe({
+      next: (channels) => {
+        this.youtubeChannels = channels;
+        this.loadingYouTube = false;
+      },
+      error: (err: Error) => {
+        this.youtubeError = err.message;
+        this.loadingYouTube = false;
+      }
+    });
+  }
+
+  refreshYouTubeIntegration(): void {
+    this.social.refreshYouTubeIntegrationBundle().subscribe({
+      next: (bundle) => {
+        this.youtubeConnectionStatus = bundle.status;
+        this.youtubeConnections = bundle.connections;
+        this.youtubeChannels = bundle.channels;
+        this.loadingYouTube = false;
+        this.youtubeError = null;
+        this.loadingYouTubeConnections = false;
+      },
+      error: () => {
+        this.loadYouTubeStatus();
+        this.loadYouTubeConnections();
+        this.loadYouTubeChannels();
+      }
+    });
+  }
+
+  syncYouTubeConnection(connection: SocialConnection): void {
+    if (this.syncingConnectionIds.has(connection.id)) return;
+    this.syncingConnectionIds.add(connection.id);
+    this.youtubeConnect.syncYouTubeConnection(connection.id).subscribe({
+      next: (response) => {
+        this.syncingConnectionIds.delete(connection.id);
+        this.refreshYouTubeIntegration();
+        this.refreshEntitlementsSilently();
+        const imported = response.accountsImported ?? 0;
+        if (imported > 0) {
+          this.router.navigate(['/dashboard/cuentas-conectadas/youtube/select'], {
+            queryParams: {
+              connectionId: connection.id,
+              accountsImported: String(imported)
+            }
+          });
+        }
+      },
+      error: (err: unknown) => {
+        this.syncingConnectionIds.delete(connection.id);
+        alert(this.resolveYouTubeConnectionError(err));
+      }
+    });
+  }
+
+  disconnectYouTubeConnection(connection: SocialConnection): void {
+    if (this.disconnectingConnectionIds.has(connection.id)) return;
+    const label = this.formatConnectionLabel(connection);
+    if (!confirm(`¿Desconectar la cuenta Google ${label}?`)) {
+      return;
+    }
+    this.disconnectingConnectionIds.add(connection.id);
+    this.youtubeConnect.disconnectYouTubeConnection(connection.id).subscribe({
+      next: () => {
+        this.disconnectingConnectionIds.delete(connection.id);
+        this.refreshYouTubeIntegration();
+        this.refreshEntitlementsSilently();
+      },
+      error: (err: unknown) => {
+        this.disconnectingConnectionIds.delete(connection.id);
+        alert(this.resolveYouTubeConnectionError(err));
+      }
+    });
+  }
+
+  reauthYouTubeConnection(connection: SocialConnection): void {
+    if (this.reauthingConnectionIds.has(connection.id)) return;
+    this.reauthingConnectionIds.add(connection.id);
+    this.youtubeConnect.reauthYouTubeConnection(connection.id).subscribe({
+      error: (err: unknown) => {
+        this.reauthingConnectionIds.delete(connection.id);
+        alert(this.resolveYouTubeConnectionError(err));
+      }
+    });
+  }
+
+  disconnectYouTube(): void {
+    if (this.disconnectingYouTube) return;
+    const count = this.getYouTubeConnectionCount();
+    if (
+      !confirm(
+        `¿Desconectar TODAS las cuentas Google (${count})? Se revocarán todas las conexiones OAuth de YouTube en este espacio.`
+      )
+    ) {
+      return;
+    }
+    this.disconnectingYouTube = true;
+    this.youtubeConnect.disconnectAll().subscribe({
+      next: () => {
+        this.disconnectingYouTube = false;
+        this.refreshYouTubeIntegration();
+        this.refreshEntitlements();
+      },
+      error: (err: Error) => {
+        this.disconnectingYouTube = false;
+        alert(err.message || 'Error al desconectar YouTube.');
+      }
+    });
+  }
+
+  isYouTubeFeatureEnabled(): boolean {
+    if (!this.entitlements) return true;
+    return isFeatureEnabled(this.entitlements.features, 'network.youtube');
+  }
+
+  get youtubePublishableChannels(): SocialAccount[] {
+    return this.youtubeChannels;
+  }
+
+  openYouTubeChannelSelector(connectionId: number): void {
+    this.router.navigate(['/dashboard/cuentas-conectadas/youtube/select'], {
+      queryParams: { connectionId }
+    });
+  }
+
+  hasYouTubeDiscoveredChannels(connection: SocialConnection): boolean {
+    return (connection.discoveredAccountCount ?? 0) > 0 || (connection.availableAccountCount ?? 0) > 0;
+  }
+
+  getYouTubeConnectionStatsLabel(connection: SocialConnection): string {
+    const connected = connection.activeAccountCount ?? 0;
+    const discovered = connection.discoveredAccountCount ?? 0;
+    const parts = [`${connected} conectado${connected === 1 ? '' : 's'}`];
+    if (discovered > 0) {
+      parts.push(`${discovered} pendiente${discovered === 1 ? '' : 's'}`);
+    }
+    parts.push(`Token ${this.getConnectionTokenLabel(connection)}`);
+    return parts.join(' · ');
+  }
+
+  disconnectYouTubeChannel(channel: SocialAccount): void {
+    if (this.disconnectingYouTubeChannelIds.has(channel.id)) return;
+    const connectionId = this.resolveSocialConnectionId(channel);
+    if (connectionId == null) {
+      alert('No se encontró la conexión Google para este canal.');
+      return;
+    }
+    const label = channel.displayName || 'este canal';
+    if (!confirm(`¿Desconectar «${label}» del workspace?`)) {
+      return;
+    }
+    this.disconnectingYouTubeChannelIds.add(channel.id);
+    this.social.disconnectAccountFromWorkspace(channel.id, connectionId).subscribe({
+      next: () => {
+        this.disconnectingYouTubeChannelIds.delete(channel.id);
+        this.youtubeChannels = this.youtubeChannels.filter((a) => a.id !== channel.id);
+        this.refreshYouTubeIntegration();
+        this.refreshEntitlementsSilently();
+      },
+      error: (err: unknown) => {
+        this.disconnectingYouTubeChannelIds.delete(channel.id);
+        alert(this.resolveYouTubeConnectionError(err));
+      }
+    });
+  }
+
+  isDisconnectingYouTubeChannel(channelId: number): boolean {
+    return this.disconnectingYouTubeChannelIds.has(channelId);
+  }
+
+  getYouTubeConnectionCount(): number {
+    if (!this.youtubeConnectionStatus) return 0;
+    return this.social.getConnectionCount(this.youtubeConnectionStatus);
+  }
+
+  getMaxYouTubeConnections(): number | undefined {
+    return this.youtubeConnectionStatus?.maxConnectionsPerTenant;
+  }
+
+  getMaxYouTubeChannels(): number | undefined {
+    return this.youtubeConnectionStatus?.maxYouTubeChannels;
+  }
+
+  hasYouTubeOAuthConnections(): boolean {
+    if (!this.youtubeConnectionStatus) return false;
+    return this.social.hasActiveConnections(this.youtubeConnectionStatus);
+  }
+
+  getYouTubeConnectionsBadgeLabel(): string {
+    const count = this.getYouTubeConnectionCount();
+    const max = this.getMaxYouTubeConnections();
+    if (max != null) {
+      return `${count} / ${max} cuentas Google`;
+    }
+    return count === 1 ? '1 cuenta Google' : `${count} cuentas Google`;
+  }
+
+  getYouTubeChannelsBadgeLabel(): string {
+    const status = this.youtubeConnectionStatus;
+    const active = status?.activeYouTubeChannels ?? status?.activeAccounts ?? 0;
+    const max = this.getMaxYouTubeChannels();
+    if (max != null) {
+      return `${active} / ${max} canales activos`;
+    }
+    return active === 1 ? '1 canal activo' : `${active} canales activos`;
+  }
+
+  canAddYouTubeConnection(): boolean {
+    const status = this.youtubeConnectionStatus;
+    if (status?.canAddYouTube != null) {
+      return status.canAddYouTube;
+    }
+    if (!status?.allowMultipleConnectionsPerTenant) {
+      return !this.hasYouTubeOAuthConnections();
+    }
+    const remainingConn = status.remainingConnections;
+    if (remainingConn != null && remainingConn <= 0) return false;
+    const max = status.maxConnectionsPerTenant;
+    const count = this.getYouTubeConnectionCount();
+    if (max == null) return true;
+    return count < max;
+  }
+
+  getSharedYouTubeBindingsCount(channel: SocialAccount): number {
+    return channel.connectionBindings?.filter((b) => b.isActive).length ?? 0;
+  }
+
+  hasSharedYouTubeBindings(channel: SocialAccount): boolean {
+    return this.getSharedYouTubeBindingsCount(channel) > 1;
+  }
+
+  getYouTubeBindingGoogleLabels(channel: SocialAccount): string {
+    const bindings = channel.connectionBindings?.filter((b) => b.isActive) ?? [];
+    return bindings
+      .map((b) => {
+        const conn = this.youtubeConnections.find((c) => c.id === b.socialConnectionId);
+        return conn ? this.formatConnectionLabel(conn) : `Cuenta #${b.socialConnectionId}`;
+      })
+      .join(', ');
+  }
+
+  private resolveYouTubeConnectionError(err: unknown): string {
+    if (isSocialApiError(err)) {
+      return getSocialYouTubeConnectionErrorMessage(
+        err.code,
+        this.youtubeConnectionStatus ?? undefined
+      );
+    }
+    if (err instanceof Error) {
+      return err.message;
+    }
+    return 'Error en la operación de conexión YouTube.';
+  }
+
   loadFacebookConnections(): void {
     this.loadingFacebookConnections = true;
     this.metaConnect.getFacebookConnections().subscribe({
@@ -1796,6 +2123,8 @@ export class CuentasConectadasComponent implements OnInit {
       this.threadsAccounts = this.threadsAccounts.filter((a) => a.id !== account.id);
     } else if (account.provider === 'tiktok') {
       this.tiktokAccounts = this.tiktokAccounts.filter((a) => a.id !== account.id);
+    } else if (account.provider === 'youtube') {
+      this.youtubeChannels = this.youtubeChannels.filter((a) => a.id !== account.id);
     } else if (account.provider === 'linkedin') {
       this.linkedinOrganizations = this.linkedinOrganizations.filter((a) => a.id !== account.id);
     }
@@ -1914,6 +2243,11 @@ export class CuentasConectadasComponent implements OnInit {
       if (index !== -1) {
         this.tiktokAccounts[index] = updated as MetaManagedAccount;
       }
+    } else if (updated.provider === 'youtube') {
+      const index = this.youtubeChannels.findIndex((a) => a.id === updated.id);
+      if (index !== -1) {
+        this.youtubeChannels[index] = updated;
+      }
     } else if (updated.provider === 'linkedin') {
       const index = this.linkedinOrganizations.findIndex((a) => a.id === updated.id);
       if (index !== -1) {
@@ -1923,6 +2257,11 @@ export class CuentasConectadasComponent implements OnInit {
 
     if (updated.provider === 'linkedin') {
       this.refreshLinkedInIntegration();
+      return;
+    }
+
+    if (updated.provider === 'youtube') {
+      this.refreshYouTubeIntegration();
       return;
     }
 

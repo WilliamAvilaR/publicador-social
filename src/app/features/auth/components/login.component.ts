@@ -114,9 +114,10 @@ export class LoginComponent implements OnInit, OnDestroy {
         });
         this.subscriptions.add(profileSubscription);
         
-        // Redirigir a la URL de destino o al dashboard por defecto
-        const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
-        this.router.navigate([returnUrl]);
+        // Redirigir a la URL de destino o al dashboard por defecto.
+        // navigateByUrl conserva query params incluidos en returnUrl.
+        const returnUrl = this.getSafeReturnUrl();
+        this.router.navigateByUrl(returnUrl);
       },
       error: (error: HttpErrorResponse) => {
         this.isLoading = false;
@@ -142,5 +143,15 @@ export class LoginComponent implements OnInit, OnDestroy {
       return false;
     }
     return isFieldInvalid(this.loginForm, fieldName);
+  }
+
+  private getSafeReturnUrl(): string {
+    const returnUrl = this.route.snapshot.queryParams['returnUrl'];
+
+    if (typeof returnUrl === 'string' && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
+      return returnUrl;
+    }
+
+    return '/dashboard';
   }
 }

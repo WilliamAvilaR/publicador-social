@@ -49,6 +49,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/dashboard/components/cuentas-conectadas/cuentas-conectadas.component').then(m => m.CuentasConectadasComponent)
       },
       {
+        path: 'cuentas-conectadas/youtube/select',
+        loadComponent: () => import('./features/dashboard/components/youtube-channel-select/youtube-channel-select.component').then(m => m.YouTubeChannelSelectComponent)
+      },
+      {
+        path: 'cuentas-conectadas/youtube',
+        loadComponent: () => import('./features/dashboard/components/cuentas-conectadas/cuentas-conectadas.component').then(m => m.CuentasConectadasComponent)
+      },
+      {
         path: 'cuentas-conectadas/linkedin/select',
         loadComponent: () => import('./features/dashboard/components/linkedin-account-select/linkedin-account-select.component').then(m => m.LinkedInAccountSelectComponent)
       },

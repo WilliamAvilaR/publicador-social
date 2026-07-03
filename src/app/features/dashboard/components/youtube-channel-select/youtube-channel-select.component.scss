@@ -1,0 +1,28 @@
+@import '../facebook-page-select/facebook-page-select.component.scss';
+
+.spinner.youtube {
+  border-top-color: #ff0000;
+}
+
+.avatar-placeholder.youtube {
+  background: #ff0000;
+  color: #fff;
+}
+
+.page-badge.type {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.btn-primary.youtube {
+  background: #ff0000;
+
+  &:disabled {
+    opacity: 0.55;
+  }
+}
+
+.btn-connect-one {
+  border-color: #ff0000;
+  color: #ff0000;
+}

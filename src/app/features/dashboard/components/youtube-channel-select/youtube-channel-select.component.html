@@ -1,0 +1,136 @@
+<div class="page-select-container">
+  <div class="header-section">
+    <h1>Conectar canales YouTube</h1>
+    <p *ngIf="connectionLabel">Cuenta Google: <strong>{{ connectionLabel }}</strong></p>
+    <p class="header-hint">Selecciona los canales que quieres activar en este workspace. Cada canal consume cupo del plan.</p>
+  </div>
+
+  <div class="meta-alert meta-alert-info" *ngIf="postOAuthMessage">
+    {{ postOAuthMessage }}
+  </div>
+
+  <div class="meta-alert meta-alert-success" *ngIf="successMessage">
+    {{ successMessage }}
+  </div>
+
+  <div class="meta-alert meta-alert-warn" *ngIf="postOAuthWarning">
+    {{ postOAuthWarning }}
+  </div>
+
+  <div class="meta-alert meta-alert-warn" *ngIf="postOAuthError">
+    {{ postOAuthError }}
+  </div>
+
+  <div class="slots-bar" *ngIf="!loading && maxChannelSlots > 0">
+    <span class="slots-label">Canales conectados</span>
+    <span class="slots-value">{{ activeChannelSlotsUsed }} / {{ maxChannelSlots }}</span>
+    <span class="slots-remaining" *ngIf="remainingChannelSlots != null && remainingChannelSlots > 0">
+      · {{ remainingChannelSlots }} libre{{ remainingChannelSlots === 1 ? '' : 's' }}
+    </span>
+    <span class="slots-remaining slots-full" *ngIf="remainingChannelSlots != null && remainingChannelSlots === 0">
+      · Sin cupo de canales
+    </span>
+  </div>
+
+  <div *ngIf="loading" class="loading-state">
+    <div class="spinner youtube"></div>
+    <p>Cargando canales disponibles...</p>
+  </div>
+
+  <div *ngIf="!loading && error" class="error-state">
+    <p>{{ error }}</p>
+    <button type="button" class="retry-btn" (click)="reloadSelector()">Reintentar</button>
+  </div>
+
+  <div *ngIf="!loading && !error && accounts.length === 0" class="empty-state">
+    <p>No hay canales disponibles para conectar.</p>
+    <p class="empty-subtitle" *ngIf="postOAuthWarning">{{ postOAuthWarning }}</p>
+    <p class="empty-subtitle" *ngIf="!postOAuthWarning">
+      Crea un canal en YouTube con esta cuenta Google y sincroniza de nuevo.
+    </p>
+    <button type="button" class="btn-secondary" (click)="skipForNow()">Ir a cuentas conectadas</button>
+  </div>
+
+  <ng-container *ngIf="!loading && !error && accounts.length > 0">
+    <p class="section-hint" *ngIf="maxChannelSlots > 0 && remainingChannelSlots === 0">
+      Has alcanzado el límite de canales YouTube. Libera cupo desconectando un canal del workspace.
+    </p>
+
+    <ul class="page-select-list">
+      <li
+        *ngFor="let account of accounts"
+        class="page-select-row"
+        [class.connected]="isConnected(account)"
+        [class.disabled]="!canConnectOne(account) && !isConnected(account)"
+        [class.limit-blocked]="isLimitBlocked(account)">
+        <label class="page-select-check" *ngIf="!isConnected(account)">
+          <input
+            type="checkbox"
+            [checked]="isSelected(account.id)"
+            [disabled]="!canSelectAccount(account) && !isSelected(account.id)"
+            [attr.title]="account.canConnectReason || null"
+            (change)="toggleSelection(account)" />
+        </label>
+        <div class="page-select-avatar">
+          <img
+            *ngIf="account.pictureUrl && !hasImageError(account.id)"
+            [src]="account.pictureUrl"
+            [alt]="account.displayName"
+            (error)="onImageError(account.id)" />
+          <div *ngIf="!account.pictureUrl || hasImageError(account.id)" class="avatar-placeholder youtube">
+            {{ account.displayName.charAt(0) }}
+          </div>
+        </div>
+        <div class="page-select-info">
+          <span class="page-select-name">{{ account.displayName }}</span>
+          <span class="page-select-meta">ID: {{ account.externalAccountId }}</span>
+          <span class="page-badge type">Canal YouTube</span>
+          <span class="page-badge connected" *ngIf="isConnected(account)">Conectado</span>
+          <span class="page-badge limit-blocked" *ngIf="isLimitBlocked(account)">Límite del plan</span>
+          <span class="page-badge warn" *ngIf="!isConnected(account) && account.canConnect === false && !isLimitBlocked(account)">
+            {{ account.canConnectReason || 'No disponible' }}
+          </span>
+          <span class="page-row-success" *ngIf="getRowSuccessMessage(account.id) as rowMsg">{{ rowMsg }}</span>
+        </div>
+        <div class="page-select-card-action">
+          <button
+            *ngIf="!isConnected(account)"
+            type="button"
+            class="btn-connect-one"
+            (click)="connectOne(account)"
+            [disabled]="!canConnectOne(account) || isConnectingAccount(account.id) || connecting"
+            [attr.title]="account.canConnectReason || null">
+            {{ isConnectingAccount(account.id) ? 'Conectando...' : 'Conectar' }}
+          </button>
+        </div>
+      </li>
+    </ul>
+
+    <div class="page-select-actions">
+      <button
+        type="button"
+        class="btn-primary youtube"
+        (click)="finishAndGoToList()"
+        [disabled]="connecting">
+        {{ connectedThisSession > 0 ? 'Continuar (' + connectedThisSession + ' conectado' + (connectedThisSession === 1 ? '' : 's') + ')' : 'Continuar' }}
+      </button>
+      <button
+        type="button"
+        class="btn-secondary"
+        (click)="connectSelected()"
+        [disabled]="connecting || selectedCount === 0">
+        {{ connecting ? 'Conectando...' : 'Conectar seleccionados' + (selectedCount > 0 ? ' (' + selectedCount + ')' : '') }}
+      </button>
+      <button
+        type="button"
+        class="btn-secondary"
+        (click)="selectAllAvailable()"
+        [disabled]="connecting || !hasSelectableAccounts">
+        Seleccionar disponibles
+      </button>
+      <button type="button" class="btn-link" (click)="skipForNow()" [disabled]="connecting">
+        Omitir por ahora
+      </button>
+    </div>
+  </ng-container>
+</div>
