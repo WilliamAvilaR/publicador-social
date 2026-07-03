@@ -71,6 +71,12 @@ export interface ThreadsIntegrationBundle {
   accounts: SocialAccount[];
 }
 
+export interface TikTokIntegrationBundle {
+  status: SocialConnectionTypeStatus;
+  connections: SocialConnection[];
+  accounts: SocialAccount[];
+}
+
 export interface PollPublishAttemptsOptions {
   intervalMs?: number;
   timeoutMs?: number;
@@ -151,6 +157,16 @@ export class SocialService {
   /** OAuth LinkedIn: redirección completa (callback 302 al selector post-OAuth). */
   startLinkedInConnectRedirect(options?: SocialConnectStartOptions): Observable<never> {
     return this.startConnect('linkedin', 'linkedin_oauth', options).pipe(
+      map((url) => {
+        window.location.assign(url);
+        return undefined as never;
+      })
+    );
+  }
+
+  /** OAuth TikTok: redirección completa (callback 302 a /cuentas-conectadas/tiktok). */
+  startTikTokConnectRedirect(options?: SocialConnectStartOptions): Observable<never> {
+    return this.startConnect('tiktok', 'tiktok_oauth', options).pipe(
       map((url) => {
         window.location.assign(url);
         return undefined as never;
@@ -388,6 +404,18 @@ export class SocialService {
         isActive: true
       }),
       accounts: this.getAccounts({ providerGroup: 'meta', provider: 'threads' })
+    });
+  }
+
+  refreshTikTokIntegrationBundle(): Observable<TikTokIntegrationBundle> {
+    return forkJoin({
+      status: this.getConnectionTypeStatus('tiktok', 'tiktok_oauth'),
+      connections: this.getConnections({
+        providerGroup: 'tiktok',
+        connectionType: 'tiktok_oauth',
+        isActive: true
+      }),
+      accounts: this.getAccounts({ providerGroup: 'tiktok', provider: 'tiktok' })
     });
   }
 

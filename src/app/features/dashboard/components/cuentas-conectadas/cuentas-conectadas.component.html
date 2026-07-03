@@ -1,7 +1,7 @@
 <div class="cuentas-container">
   <div class="header-section">
     <h1>Cuentas Conectadas</h1>
-    <p>Gestiona tus cuentas de Facebook, Instagram, LinkedIn y Threads conectadas</p>
+    <p>Gestiona tus cuentas de Facebook, Instagram, LinkedIn, Threads y TikTok conectadas</p>
   </div>
 
   <div class="meta-summary" *ngIf="metaGroupStatus || metaStatusLoading">
@@ -89,6 +89,14 @@
 
     <div class="meta-alert meta-alert-warn" *ngIf="threadsOAuthError">
       <strong>{{ threadsOAuthError }}</strong>
+    </div>
+
+    <div class="meta-alert" *ngIf="tiktokOAuthToast">
+      <strong>{{ tiktokOAuthToast }}</strong>
+    </div>
+
+    <div class="meta-alert meta-alert-warn" *ngIf="tiktokOAuthError">
+      <strong>{{ tiktokOAuthError }}</strong>
     </div>
 
     <div class="meta-alert" *ngIf="liOAuthToast">
@@ -465,6 +473,91 @@
         </ul>
       </div>
     </div>
+
+    <div class="connect-card tiktok-card" *ngIf="isTikTokFeatureEnabled()">
+      <div class="connect-header">
+        <div class="platform-info">
+          <svg class="platform-icon tiktok" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.48V13.4a8.28 8.28 0 005.58 2.18V12.1a4.85 4.85 0 01-3.77-1.68V6.69h3.77z"/>
+          </svg>
+          <div>
+            <h2>TikTok</h2>
+            <p>Conecta perfiles TikTok (1 OAuth = 1 perfil)</p>
+            <p class="connect-meta-badge" *ngIf="hasTikTokOAuthConnections()">
+              {{ getTikTokConnectionsBadgeLabel() }} · {{ getTikTokAccountsBadgeLabel() }}
+            </p>
+          </div>
+        </div>
+        <div class="connect-actions">
+          <app-tiktok-connect
+            *ngIf="!hasTikTokOAuthConnections()"
+            oauthMode="add"
+            [maxConnectionsPerTenant]="getMaxTikTokConnections()"
+            [maxTikTokAccounts]="getMaxTikTokAccounts()"
+            label="Conectar perfil TikTok">
+          </app-tiktok-connect>
+          <app-tiktok-connect
+            *ngIf="hasTikTokOAuthConnections() && canAddTikTokConnection()"
+            oauthMode="add"
+            [maxConnectionsPerTenant]="getMaxTikTokConnections()"
+            [maxTikTokAccounts]="getMaxTikTokAccounts()"
+            label="Conectar otro perfil">
+          </app-tiktok-connect>
+          <button
+            *ngIf="hasTikTokOAuthConnections()"
+            class="btn-link-danger"
+            (click)="disconnectTikTok()"
+            [disabled]="disconnectingTikTok">
+            {{ disconnectingTikTok ? 'Desconectando...' : 'Desconectar todos los perfiles TikTok' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="meta-connections-panel" *ngIf="hasTikTokOAuthConnections() || loadingTikTokConnections">
+        <h3 class="meta-connections-title">Perfiles TikTok autorizados</h3>
+        <div *ngIf="loadingTikTokConnections" class="loading-state compact">
+          <div class="spinner"></div>
+          <p>Cargando conexiones...</p>
+        </div>
+        <ul class="meta-connections-list" *ngIf="!loadingTikTokConnections && tiktokConnections.length > 0">
+          <li class="meta-connection-row" *ngFor="let conn of tiktokConnections">
+            <div class="meta-connection-avatar" *ngIf="conn.displayPictureUrl">
+              <img [src]="conn.displayPictureUrl" [alt]="formatConnectionLabel(conn)" />
+            </div>
+            <div class="meta-connection-info">
+              <span class="meta-connection-label">{{ formatConnectionLabel(conn) }}</span>
+              <span class="meta-connection-detail">
+                Token {{ getTikTokConnectionTokenLabel(conn) }}
+                <span *ngIf="conn.lastSyncAt"> · Última sync: {{ formatSyncDate(conn.lastSyncAt) }}</span>
+              </span>
+            </div>
+            <div class="meta-connection-actions">
+              <button
+                type="button"
+                class="btn-connection-action"
+                (click)="syncTikTokConnection(conn)"
+                [disabled]="isConnectionRowBusy(conn.id)">
+                {{ isSyncingConnection(conn.id) ? 'Sincronizando...' : 'Sincronizar' }}
+              </button>
+              <button
+                type="button"
+                class="btn-connection-action"
+                (click)="reauthTikTokConnection(conn)"
+                [disabled]="isConnectionRowBusy(conn.id)">
+                {{ isReauthingConnection(conn.id) ? 'Reautenticando...' : 'Reautenticar' }}
+              </button>
+              <button
+                type="button"
+                class="btn-connection-action btn-connection-danger"
+                (click)="disconnectTikTokConnection(conn)"
+                [disabled]="isConnectionRowBusy(conn.id)">
+                {{ isDisconnectingConnection(conn.id) ? 'Desconectando...' : 'Desconectar' }}
+              </button>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
   </div>
 
   <!-- Instagram accounts -->
@@ -566,6 +659,44 @@
       <ng-container *ngFor="let org of linkedinPublishableAccounts">
         <ng-container *ngTemplateOutlet="linkedinOrgCard; context: { org: org }"></ng-container>
       </ng-container>
+    </div>
+  </div>
+
+  <!-- TikTok accounts -->
+  <div class="pages-section tiktok-section" *ngIf="isTikTokFeatureEnabled()">
+    <h2>Cuentas TikTok</h2>
+
+    <div *ngIf="loadingTikTok" class="loading-state">
+      <div class="spinner"></div>
+      <p>Cargando cuentas TikTok...</p>
+    </div>
+
+    <div *ngIf="!loadingTikTok && tiktokError" class="error-state">
+      <p>{{ tiktokError }}</p>
+      <button (click)="loadTikTokAccounts()" class="retry-btn">Reintentar</button>
+    </div>
+
+    <div *ngIf="!loadingTikTok && !tiktokError && tiktokAccounts.length === 0" class="empty-state">
+      <p>No hay cuentas TikTok conectadas</p>
+      <p class="empty-subtitle">Conecta TikTok para ver tus perfiles aquí</p>
+    </div>
+
+    <div *ngIf="!loadingTikTok && !tiktokError && tiktokActiveAccounts.length > 0" class="pages-grid">
+      <ng-container *ngFor="let account of tiktokActiveAccounts">
+        <ng-container *ngTemplateOutlet="tiktokAccountCard; context: { account: account }"></ng-container>
+      </ng-container>
+    </div>
+
+    <div *ngIf="!loadingTikTok && !tiktokError && tiktokInactiveAccounts.length > 0" class="pages-disconnected">
+      <h3 class="pages-disconnected-title">Cuentas desvinculadas</h3>
+      <p class="pages-disconnected-hint">Sin permisos en TikTok. Reconéctalas para volver a publicar.</p>
+      <div class="pages-grid pages-grid-muted">
+        <ng-container *ngFor="let account of tiktokInactiveAccounts">
+          <ng-container
+            *ngTemplateOutlet="isAccountDisconnectedRevoked(account) ? unlinkedAccountCard : tiktokAccountCard; context: { account: account }">
+          </ng-container>
+        </ng-container>
+      </div>
     </div>
   </div>
 
@@ -727,6 +858,52 @@
               <span class="toggle-slider" [class.updating]="isUpdatingThreadsStatus(account.id)"></span>
               <span class="status-label">
                 {{ isUpdatingThreadsStatus(account.id) ? 'Actualizando...' : (account.isActive ? 'Activa' : 'Inactiva') }}
+              </span>
+            </label>
+            <div class="page-card-secondary-actions compact" *ngIf="!account.isActive && !isAccountDisconnectedRevoked(account)">
+              <button
+                type="button"
+                class="btn-link-secondary"
+                (click)="hideAccountFromList(account)"
+                [disabled]="isAccountActionInProgress(account.id)">
+                {{ isHidingAccount(account.id) ? 'Ocultando...' : 'Ocultar' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+  </ng-template>
+
+  <ng-template #tiktokAccountCard let-account="account">
+      <div class="page-card" [class.inactive]="!account.isActive">
+        <div class="page-header">
+          <div class="page-icon">
+            <img *ngIf="account.pictureUrl" [src]="account.pictureUrl" [alt]="account.displayName" class="page-avatar">
+            <div *ngIf="!account.pictureUrl" class="avatar-placeholder tiktok">{{ getAccountInitial(account.displayName) }}</div>
+          </div>
+          <div class="page-info">
+            <h3>{{ account.displayName }}</h3>
+            <p class="page-id">ID: {{ account.id }}</p>
+            <p class="quota-text" *ngIf="account.publishingQuota">
+              Cupo: {{ account.publishingQuota.remaining }}/{{ account.publishingQuota.quotaTotal }}
+            </p>
+            <p class="page-hint warn" *ngIf="getTikTokPublishHint(account) as hint">{{ hint }}</p>
+            <div class="capabilities" *ngIf="account.capabilities">
+              <span class="cap-chip" *ngIf="account.capabilities.canPublishVideo">Video</span>
+            </div>
+          </div>
+          <div class="page-status">
+            <label class="status-toggle">
+              <input
+                type="checkbox"
+                [checked]="account.isActive"
+                [disabled]="isUpdatingTikTokStatus(account.id) || !isTikTokActivationAllowed(account)"
+                [attr.title]="getTikTokActivationGateReason(account) || null"
+                (change)="updateTikTokAccountStatus(account, $any($event.target).checked)"
+                class="toggle-input">
+              <span class="toggle-slider" [class.updating]="isUpdatingTikTokStatus(account.id)"></span>
+              <span class="status-label">
+                {{ isUpdatingTikTokStatus(account.id) ? 'Actualizando...' : (account.isActive ? 'Activa' : 'Inactiva') }}
               </span>
             </label>
             <div class="page-card-secondary-actions compact" *ngIf="!account.isActive && !isAccountDisconnectedRevoked(account)">

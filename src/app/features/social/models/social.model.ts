@@ -1,6 +1,6 @@
 export type SocialProviderGroup = 'meta' | 'linkedin' | 'google' | 'tiktok' | 'x' | 'pinterest';
-export type SocialConnectionType = 'facebook_login' | 'instagram_login' | 'threads_login' | 'linkedin_oauth';
-export type SocialProvider = 'facebook' | 'instagram' | 'threads' | 'linkedin';
+export type SocialConnectionType = 'facebook_login' | 'instagram_login' | 'threads_login' | 'linkedin_oauth' | 'tiktok_oauth';
+export type SocialProvider = 'facebook' | 'instagram' | 'threads' | 'linkedin' | 'tiktok';
 export type InstagramContentType = 'image' | 'carousel' | 'video' | 'reel' | 'reels';
 export type PlanMediaRole = 'primary' | 'carousel_item' | 'cover';
 
@@ -94,6 +94,10 @@ export interface SocialConnectionTypeStatus {
   maxThreadsAccounts?: number;
   activeThreadsAccounts?: number;
   remainingThreadsAccounts?: number;
+  /** Límite comercial de perfiles TikTok activos. */
+  maxTikTokAccounts?: number;
+  activeTikTokAccounts?: number;
+  remainingTikTokAccounts?: number;
 }
 
 export interface SocialConnection {

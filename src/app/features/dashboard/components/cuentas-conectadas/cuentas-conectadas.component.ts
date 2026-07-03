@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FacebookOAuthService } from '../../../../core/services/facebook-oauth.service';
 import { MetaConnectService } from '../../../../core/services/meta-connect.service';
 import { LinkedInConnectService } from '../../../../core/services/linkedin-connect.service';
+import { TikTokConnectService } from '../../../../core/services/tiktok-connect.service';
 import { SocialService, MetaIntegrationSnapshot } from '../../../../core/services/social.service';
 import {
   isSocialApiError,
@@ -13,6 +14,7 @@ import {
   getSocialAccountConnectErrorMessage,
   getSocialInstagramConnectionErrorMessage,
   getSocialThreadsConnectionErrorMessage,
+  getSocialTikTokConnectionErrorMessage,
   getSocialLinkedInConnectionErrorMessage
 } from '../../../../shared/utils/social-api.error';
 import { TenantEntitlementsResponse } from '../../../../core/models/tenant.model';
@@ -20,6 +22,7 @@ import { TenantEntitlementsService } from '../../../../core/services/tenant-enti
 import { canUseLimit, getLimitValue, isFeatureEnabled } from '../../../../core/utils/entitlements.utils';
 import { MetaConnectComponent } from '../../../../shared/components/meta-connect/meta-connect.component';
 import { LinkedInConnectComponent } from '../../../../shared/components/linkedin-connect/linkedin-connect.component';
+import { TikTokConnectComponent } from '../../../../shared/components/tiktok-connect/tiktok-connect.component';
 import { FacebookGroupsService } from '../../../facebook/services/facebook-groups.service';
 import { FacebookPage, FacebookGroup } from '../../../facebook/models/facebook.model';
 import { MetaManagedAccount } from '../../../meta/models/meta.model';
@@ -35,7 +38,7 @@ import {
 @Component({
   selector: 'app-cuentas-conectadas',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, MetaConnectComponent, LinkedInConnectComponent],
+  imports: [CommonModule, FormsModule, RouterModule, MetaConnectComponent, LinkedInConnectComponent, TikTokConnectComponent],
   templateUrl: './cuentas-conectadas.component.html',
   styleUrl: './cuentas-conectadas.component.scss'
 })
@@ -92,6 +95,16 @@ export class CuentasConectadasComponent implements OnInit {
   loadingInstagramConnections = false;
   threadsConnections: SocialConnection[] = [];
   loadingThreadsConnections = false;
+  tiktokConnectionStatus: SocialConnectionTypeStatus | null = null;
+  tiktokConnections: SocialConnection[] = [];
+  loadingTikTokConnections = false;
+  tiktokAccounts: MetaManagedAccount[] = [];
+  loadingTikTok = false;
+  tiktokError: string | null = null;
+  updatingTikTokStatus: Set<number> = new Set();
+  tiktokOAuthToast: string | null = null;
+  tiktokOAuthError: string | null = null;
+  disconnectingTikTok = false;
   linkedinConnectionStatus: SocialConnectionTypeStatus | null = null;
   linkedinConnections: SocialConnection[] = [];
   linkedinOrganizations: SocialAccount[] = [];
@@ -117,6 +130,7 @@ export class CuentasConectadasComponent implements OnInit {
     private facebookService: FacebookOAuthService,
     private metaConnect: MetaConnectService,
     private linkedInConnect: LinkedInConnectService,
+    private tiktokConnect: TikTokConnectService,
     private social: SocialService,
     private groupsService: FacebookGroupsService,
     private tenantEntitlements: TenantEntitlementsService,
@@ -139,6 +153,9 @@ export class CuentasConectadasComponent implements OnInit {
     this.loadInstagramAccounts();
     this.loadThreadsConnections();
     this.loadThreadsAccounts();
+    this.loadTikTokStatus();
+    this.loadTikTokConnections();
+    this.loadTikTokAccounts();
     this.loadLinkedInStatus();
     this.loadLinkedInConnections();
     this.loadLinkedInOrganizations();
@@ -161,6 +178,15 @@ export class CuentasConectadasComponent implements OnInit {
 
     if (path.endsWith('/cuentas-conectadas/threads')) {
       queryParams['oauthPlatform'] = 'threads';
+      void this.router.navigate(['/dashboard/cuentas-conectadas'], {
+        queryParams,
+        replaceUrl: true
+      });
+      return;
+    }
+
+    if (path.endsWith('/cuentas-conectadas/tiktok')) {
+      queryParams['oauthPlatform'] = 'tiktok';
       void this.router.navigate(['/dashboard/cuentas-conectadas'], {
         queryParams,
         replaceUrl: true
@@ -216,6 +242,16 @@ export class CuentasConectadasComponent implements OnInit {
       this.threadsOAuthError = null;
     }
 
+    const tiktokError = params.get('tiktokError');
+    if (tiktokError) {
+      this.tiktokOAuthError = getSocialTikTokConnectionErrorMessage(
+        tiktokError,
+        this.tiktokConnectionStatus ?? undefined
+      );
+    } else {
+      this.tiktokOAuthError = null;
+    }
+
     const liAccountsConnected = params.get('liAccountsConnected');
     if (liAccountsConnected != null && liAccountsConnected !== '') {
       const count = Number(liAccountsConnected);
@@ -239,6 +275,22 @@ export class CuentasConectadasComponent implements OnInit {
     const connectionId = params.get('connectionId');
     const accountsImported = params.get('accountsImported');
     const oauthPlatform = params.get('oauthPlatform');
+
+    if (
+      connectionId &&
+      !accountsImported &&
+      !params.get('warning') &&
+      !params.get('fbError') &&
+      oauthPlatform === 'tiktok'
+    ) {
+      this.tiktokOAuthToast = 'Perfil TikTok conectado correctamente.';
+      this.refreshTikTokIntegration();
+      void this.router.navigate(['/dashboard/cuentas-conectadas'], {
+        queryParams: {},
+        replaceUrl: true
+      });
+      return;
+    }
 
     if (
       connectionId &&
@@ -843,6 +895,294 @@ export class CuentasConectadasComponent implements OnInit {
       return err.message;
     }
     return 'Error en la operación de conexión Threads.';
+  }
+
+  loadTikTokStatus(): void {
+    this.social.getConnectionTypeStatus('tiktok', 'tiktok_oauth').subscribe({
+      next: (s) => {
+        this.tiktokConnectionStatus = s;
+        this.loadTikTokConnections();
+      },
+      error: () => (this.tiktokConnectionStatus = null)
+    });
+  }
+
+  loadTikTokConnections(): void {
+    this.loadingTikTokConnections = true;
+    this.tiktokConnect.getTikTokConnections().subscribe({
+      next: (connections) => {
+        this.tiktokConnections = connections;
+        this.loadingTikTokConnections = false;
+      },
+      error: () => {
+        this.tiktokConnections = [];
+        this.loadingTikTokConnections = false;
+      }
+    });
+  }
+
+  refreshTikTokIntegration(): void {
+    this.social.refreshTikTokIntegrationBundle().subscribe({
+      next: (bundle) => {
+        this.tiktokConnectionStatus = bundle.status;
+        this.tiktokConnections = bundle.connections;
+        this.tiktokAccounts = bundle.accounts as MetaManagedAccount[];
+        this.loadingTikTok = false;
+        this.tiktokError = null;
+        this.loadingTikTokConnections = false;
+      },
+      error: () => {
+        this.loadTikTokStatus();
+        this.loadTikTokConnections();
+        this.loadTikTokAccounts();
+      }
+    });
+  }
+
+  loadTikTokAccounts(): void {
+    this.loadingTikTok = true;
+    this.tiktokError = null;
+    this.tiktokConnect.getAccounts().subscribe({
+      next: (accounts) => {
+        this.tiktokAccounts = accounts as MetaManagedAccount[];
+        this.loadingTikTok = false;
+      },
+      error: (err: Error) => {
+        this.tiktokError = err.message;
+        this.loadingTikTok = false;
+      }
+    });
+  }
+
+  syncTikTokConnection(connection: SocialConnection): void {
+    if (this.syncingConnectionIds.has(connection.id)) return;
+    this.syncingConnectionIds.add(connection.id);
+    this.tiktokConnect.syncTikTokConnection(connection.id).subscribe({
+      next: () => {
+        this.syncingConnectionIds.delete(connection.id);
+        this.refreshTikTokIntegration();
+        this.refreshEntitlementsSilently();
+      },
+      error: (err: unknown) => {
+        this.syncingConnectionIds.delete(connection.id);
+        alert(this.resolveTikTokConnectionError(err));
+      }
+    });
+  }
+
+  disconnectTikTokConnection(connection: SocialConnection): void {
+    if (this.disconnectingConnectionIds.has(connection.id)) return;
+    const label = this.formatConnectionLabel(connection);
+    if (!confirm(`¿Desconectar el perfil TikTok ${label}?`)) {
+      return;
+    }
+    this.disconnectingConnectionIds.add(connection.id);
+    this.tiktokConnect.disconnectTikTokConnection(connection.id).subscribe({
+      next: () => {
+        this.disconnectingConnectionIds.delete(connection.id);
+        this.refreshTikTokIntegration();
+        this.refreshEntitlements();
+      },
+      error: (err: unknown) => {
+        this.disconnectingConnectionIds.delete(connection.id);
+        alert(this.resolveTikTokConnectionError(err));
+      }
+    });
+  }
+
+  reauthTikTokConnection(connection: SocialConnection): void {
+    if (this.reauthingConnectionIds.has(connection.id)) return;
+    this.reauthingConnectionIds.add(connection.id);
+    this.tiktokConnect.reauthTikTokConnection(connection.id).subscribe({
+      error: (err: unknown) => {
+        this.reauthingConnectionIds.delete(connection.id);
+        alert(this.resolveTikTokConnectionError(err));
+      }
+    });
+  }
+
+  disconnectTikTok(): void {
+    if (this.disconnectingTikTok) return;
+    const count = this.getTikTokConnectionCount();
+    if (
+      !confirm(
+        `¿Desconectar TODOS los perfiles TikTok (${count})? Se revocarán todas las conexiones OAuth de TikTok en este espacio.`
+      )
+    ) {
+      return;
+    }
+    this.disconnectingTikTok = true;
+    this.tiktokConnect.disconnectAll().subscribe({
+      next: () => {
+        this.disconnectingTikTok = false;
+        this.refreshTikTokIntegration();
+        this.refreshEntitlements();
+      },
+      error: (err: Error) => {
+        this.disconnectingTikTok = false;
+        alert(err.message || 'Error al desconectar TikTok.');
+      }
+    });
+  }
+
+  isTikTokFeatureEnabled(): boolean {
+    if (!this.entitlements) return true;
+    return isFeatureEnabled(this.entitlements.features, 'network.tiktok');
+  }
+
+  get tiktokActiveAccounts(): MetaManagedAccount[] {
+    return this.tiktokAccounts.filter((a) => a.isActive);
+  }
+
+  get tiktokInactiveAccounts(): MetaManagedAccount[] {
+    return this.tiktokAccounts.filter((a) => !a.isActive);
+  }
+
+  getTikTokConnectionCount(): number {
+    if (!this.tiktokConnectionStatus) return 0;
+    return this.social.getConnectionCount(this.tiktokConnectionStatus);
+  }
+
+  getMaxTikTokConnections(): number | undefined {
+    return this.tiktokConnectionStatus?.maxConnectionsPerTenant;
+  }
+
+  getMaxTikTokAccounts(): number | undefined {
+    return this.tiktokConnectionStatus?.maxTikTokAccounts;
+  }
+
+  hasTikTokOAuthConnections(): boolean {
+    if (!this.tiktokConnectionStatus) return false;
+    return this.social.hasActiveConnections(this.tiktokConnectionStatus);
+  }
+
+  getTikTokConnectionsBadgeLabel(): string {
+    const count = this.getTikTokConnectionCount();
+    const max = this.getMaxTikTokConnections();
+    if (max != null) {
+      return `${count} / ${max} conexiones OAuth`;
+    }
+    return count === 1 ? '1 conexión OAuth' : `${count} conexiones OAuth`;
+  }
+
+  getTikTokAccountsBadgeLabel(): string {
+    const status = this.tiktokConnectionStatus;
+    const active = status?.activeTikTokAccounts ?? status?.activeAccounts ?? 0;
+    const max = this.getMaxTikTokAccounts();
+    if (max != null) {
+      return `${active} / ${max} perfiles activos`;
+    }
+    return active === 1 ? '1 perfil activo' : `${active} perfiles activos`;
+  }
+
+  canAddTikTokConnection(): boolean {
+    const status = this.tiktokConnectionStatus;
+    if (!status?.allowMultipleConnectionsPerTenant) {
+      return !this.hasTikTokOAuthConnections();
+    }
+    const remainingConn = status.remainingConnections;
+    const remainingAccounts = status.remainingTikTokAccounts;
+    if (remainingConn != null && remainingConn <= 0) return false;
+    if (remainingAccounts != null && remainingAccounts <= 0) return false;
+    const max = status.maxConnectionsPerTenant;
+    const count = this.getTikTokConnectionCount();
+    if (max == null) return true;
+    return count < max;
+  }
+
+  isTikTokActivationAllowed(account: MetaManagedAccount): boolean {
+    if (account.isActive) return true;
+    if (!this.isTikTokFeatureEnabled()) return false;
+    if (this.isAccountTokenRevoked(account)) return false;
+    return account.canPublish && !account.requiresReconnect;
+  }
+
+  getTikTokActivationGateReason(account: MetaManagedAccount): string | null {
+    if (account.isActive) return null;
+    if (!this.isTikTokFeatureEnabled()) {
+      return 'Tu plan no permite TikTok.';
+    }
+    if (this.isAccountTokenRevoked(account)) {
+      return 'Token revocado. Sincroniza o reconecta TikTok; activar no restaura el token.';
+    }
+    if (account.requiresReconnect) {
+      return 'Reconecta la cuenta de TikTok.';
+    }
+    if (!account.canPublish) {
+      return 'Esta cuenta no puede publicar hasta sincronizar o reconectar OAuth.';
+    }
+    return null;
+  }
+
+  getTikTokPublishHint(account: MetaManagedAccount): string | null {
+    if (account.isActive && !account.canPublish) {
+      if (this.isAccountTokenRevoked(account)) {
+        return 'Activa en tenant pero token revocado: no publicará hasta sincronizar o reconectar.';
+      }
+      return 'Activa pero sin token válido para publicar.';
+    }
+    if (!account.isActive && this.isAccountTokenRevoked(account)) {
+      return 'Esta cuenta no puede publicar ni sincronizar datos.';
+    }
+    return null;
+  }
+
+  updateTikTokAccountStatus(account: MetaManagedAccount, isActive: boolean): void {
+    if (this.updatingTikTokStatus.has(account.id) || account.isActive === isActive) {
+      return;
+    }
+    if (isActive && !this.isTikTokActivationAllowed(account)) {
+      alert(this.getTikTokActivationGateReason(account) || 'No puedes activar esta cuenta.');
+      return;
+    }
+    this.updatingTikTokStatus.add(account.id);
+    this.tiktokConnect.updateAccountStatus(account.id, isActive).subscribe({
+      next: (updated) => {
+        const idx = this.tiktokAccounts.findIndex((a) => a.id === account.id);
+        if (idx !== -1) {
+          this.tiktokAccounts[idx] = updated as MetaManagedAccount;
+        }
+        this.updatingTikTokStatus.delete(account.id);
+        this.refreshEntitlementsSilently();
+      },
+      error: (err: Error) => {
+        this.updatingTikTokStatus.delete(account.id);
+        alert(err.message || 'Error al actualizar la cuenta de TikTok.');
+      }
+    });
+  }
+
+  isUpdatingTikTokStatus(accountId: number): boolean {
+    return this.updatingTikTokStatus.has(accountId);
+  }
+
+  reconnectTikTokAccount(account: MetaManagedAccount): void {
+    this.reconnectSocialAccount(account);
+  }
+
+  getTikTokConnectionTokenLabel(connection: SocialConnection): string {
+    const token = (connection.tokenStatus ?? '').toLowerCase();
+    if (connection.requiresReconnect || token === 'expired' || token === 'refreshfailed') {
+      return 'Requiere reconexión';
+    }
+    if (token === 'valid') return 'Conectado';
+    if (token === 'revoked') return 'Desconectado';
+    if (token === 'invalid') return 'Error de conexión';
+    if (token === 'unknown') return 'Pendiente de validación';
+    return this.getConnectionTokenLabel(connection);
+  }
+
+  private resolveTikTokConnectionError(err: unknown): string {
+    if (isSocialApiError(err)) {
+      return getSocialTikTokConnectionErrorMessage(
+        err.code,
+        this.tiktokConnectionStatus ?? undefined
+      );
+    }
+    if (err instanceof Error) {
+      return err.message;
+    }
+    return 'Error en la operación de conexión TikTok.';
   }
 
   loadLinkedInStatus(): void {
@@ -1454,6 +1794,8 @@ export class CuentasConectadasComponent implements OnInit {
       this.instagramAccounts = this.instagramAccounts.filter((a) => a.id !== account.id);
     } else if (account.provider === 'threads') {
       this.threadsAccounts = this.threadsAccounts.filter((a) => a.id !== account.id);
+    } else if (account.provider === 'tiktok') {
+      this.tiktokAccounts = this.tiktokAccounts.filter((a) => a.id !== account.id);
     } else if (account.provider === 'linkedin') {
       this.linkedinOrganizations = this.linkedinOrganizations.filter((a) => a.id !== account.id);
     }
@@ -1566,6 +1908,11 @@ export class CuentasConectadasComponent implements OnInit {
       const index = this.threadsAccounts.findIndex((a) => a.id === updated.id);
       if (index !== -1) {
         this.threadsAccounts[index] = updated as MetaManagedAccount;
+      }
+    } else if (updated.provider === 'tiktok') {
+      const index = this.tiktokAccounts.findIndex((a) => a.id === updated.id);
+      if (index !== -1) {
+        this.tiktokAccounts[index] = updated as MetaManagedAccount;
       }
     } else if (updated.provider === 'linkedin') {
       const index = this.linkedinOrganizations.findIndex((a) => a.id === updated.id);

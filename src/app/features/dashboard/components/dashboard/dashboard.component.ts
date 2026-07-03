@@ -118,7 +118,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     {
       label: 'Cuentas conectadas',
       route: '/dashboard/cuentas-conectadas',
-      featureKeys: ['network.facebook.pages', 'network.facebook.groups', 'network.instagram', 'network.linkedin', 'network.threads'],
+      featureKeys: ['network.facebook.pages', 'network.facebook.groups', 'network.instagram', 'network.linkedin', 'network.threads', 'network.tiktok'],
       icon: `<svg class="menu-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12h4m-2 2v-4M4 18v-1a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Zm8-10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
       </svg>`
@@ -277,7 +277,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const gates: { prefix: string; keys: string[] }[] = [
       { prefix: '/dashboard/programador', keys: ['module.scheduler'] },
       { prefix: '/dashboard/colecciones', keys: ['module.collections'] },
-      { prefix: '/dashboard/cuentas-conectadas', keys: ['network.facebook.pages', 'network.facebook.groups', 'network.instagram', 'network.linkedin', 'network.threads'] },
+      { prefix: '/dashboard/cuentas-conectadas', keys: ['network.facebook.pages', 'network.facebook.groups', 'network.instagram', 'network.linkedin', 'network.threads', 'network.tiktok'] },
       { prefix: '/dashboard/cuentas', keys: ['network.facebook.pages', 'network.facebook.groups'] },
       { prefix: '/dashboard/mensajes', keys: ['module.inbox'] },
       { prefix: '/dashboard/analiticas', keys: ['network.facebook.pages', 'network.facebook.groups'] },

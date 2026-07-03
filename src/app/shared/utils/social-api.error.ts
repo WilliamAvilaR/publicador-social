@@ -14,6 +14,7 @@ export type SocialConnectionErrorCode =
   | 'SOCIAL_CONNECTION_REAUTH_REQUIRED'
   | 'SOCIAL_IG_ACCOUNT_LIMIT_REACHED'
   | 'SOCIAL_THREADS_ACCOUNT_LIMIT_REACHED'
+  | 'SOCIAL_TIKTOK_ACCOUNT_LIMIT_REACHED'
   | 'SOCIAL_CONNECTION_REAUTH_USER_MISMATCH'
   | 'LINKEDIN_ORGANIZATION_LIMIT_REACHED'
   | 'LINKEDIN_NO_ADMIN_ORGANIZATIONS';
@@ -131,6 +132,31 @@ export function getSocialThreadsConnectionErrorMessage(
   }
   if (code === 'SOCIAL_CONNECTION_REAUTH_USER_MISMATCH') {
     return 'Iniciaste sesión con otra cuenta de Threads. Usa la cuenta correcta o cancela.';
+  }
+  return getSocialConnectionErrorMessage(code, status?.maxConnectionsPerTenant);
+}
+
+export function getSocialTikTokConnectionErrorMessage(
+  code?: string,
+  status?: Pick<
+    SocialConnectionTypeStatus,
+    'maxConnectionsPerTenant' | 'maxTikTokAccounts'
+  >
+): string {
+  if (code === 'SOCIAL_CONNECTION_LIMIT_REACHED') {
+    const max = status?.maxConnectionsPerTenant;
+    return max != null
+      ? `Has alcanzado el límite de conexiones TikTok (máx. ${max}).`
+      : 'Has alcanzado el límite de conexiones TikTok.';
+  }
+  if (code === 'SOCIAL_TIKTOK_ACCOUNT_LIMIT_REACHED') {
+    const max = status?.maxTikTokAccounts;
+    return max != null
+      ? `Has alcanzado el límite de perfiles TikTok activos (máx. ${max}).`
+      : 'Has alcanzado el límite de perfiles TikTok activos.';
+  }
+  if (code === 'SOCIAL_CONNECTION_REAUTH_USER_MISMATCH') {
+    return 'Iniciaste sesión con otra cuenta de TikTok. Usa la cuenta correcta o cancela.';
   }
   return getSocialConnectionErrorMessage(code, status?.maxConnectionsPerTenant);
 }
