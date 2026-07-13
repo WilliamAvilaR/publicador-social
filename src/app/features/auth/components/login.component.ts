@@ -8,8 +8,10 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
 import { LoginRequest } from '../../../core/models/auth.model';
 import { markFormGroupTouched, isFieldInvalid } from '../../../shared/utils/form.utils';
-import { extractErrorMessage } from '../../../shared/utils/error.utils';
+import { extractErrorMessage, extractApiErrorCode } from '../../../shared/utils/error.utils';
 import { getFieldError } from '../../../shared/utils/validation.utils';
+import { getRetryAfterSeconds } from '../../../shared/utils/rate-limit.utils';
+import { sanitizeReturnPath } from '../../../shared/utils/external-auth.utils';
 
 @Component({
   selector: 'app-login',
@@ -22,7 +24,11 @@ export class LoginComponent implements OnInit, OnDestroy {
   loginForm: FormGroup;
   showPassword = false;
   showSuccessMessage = false;
+  showResendHint = false;
+  showOAuthOnlyHint = false;
+  oauthOnlyEmail = '';
   isLoading = false;
+  socialLoadingProvider: 'google' | 'microsoft' | null = null;
   errorMessage = '';
   private subscriptions = new Subscription();
 
@@ -40,19 +46,19 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    // Si el usuario ya está autenticado, redirigir al dashboard
+    // Si el usuario ya está autenticado, redirigir según su estado de onboarding
     if (this.authService.isAuthenticated()) {
-      this.router.navigate(['/dashboard']);
+      if (this.authService.requiresTenantSetup()) {
+        this.router.navigate(['/onboarding']);
+      } else {
+        this.router.navigate(['/dashboard']);
+      }
       return;
     }
 
-    // El formulario ya está inicializado en el constructor
-    // Verificar si viene de registro exitoso (solo una vez)
     this.route.queryParams.pipe(take(1)).subscribe(params => {
-      if (params['registered'] === 'true') {
+      if (params['verified'] === '1') {
         this.showSuccessMessage = true;
-        
-        // Limpiar el queryParam de la URL
         this.router.navigate([], {
           relativeTo: this.route,
           queryParams: {},
@@ -81,6 +87,67 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.showSuccessMessage = false;
   }
 
+  loginWithGoogle(): void {
+    this.startExternalAuth('google');
+  }
+
+  loginWithMicrosoft(): void {
+    this.startExternalAuth('microsoft');
+  }
+
+  private startExternalAuth(provider: 'google' | 'microsoft'): void {
+    if (this.isLoading || this.socialLoadingProvider) {
+      return;
+    }
+
+    this.errorMessage = '';
+    this.socialLoadingProvider = provider;
+
+    const sub = this.authService.redirectToExternalAuth(provider).subscribe({
+        error: (error: HttpErrorResponse | Error) => {
+          this.socialLoadingProvider = null;
+          if (error instanceof Error && error.message === 'authorization_url_missing') {
+            this.errorMessage =
+              'No se recibió una URL de autorización válida. Inténtalo nuevamente.';
+            return;
+          }
+          const httpError = error as HttpErrorResponse;
+          if (httpError.status === 429) {
+            const seconds = getRetryAfterSeconds(httpError);
+            this.errorMessage = `Demasiados intentos. Vuelve a intentarlo en ${seconds} segundos.`;
+            return;
+          }
+          this.errorMessage = extractErrorMessage(
+            httpError,
+            'No se pudo iniciar el flujo con el proveedor. Inténtalo nuevamente.'
+          );
+        }
+      });
+    this.subscriptions.add(sub);
+  }
+
+  goToConfigurePassword(): void {
+    const email = this.oauthOnlyEmail || this.loginForm.value.email?.trim();
+    if (email) {
+      this.router.navigate(['/forgot-password'], { queryParams: { email } });
+      return;
+    }
+    this.router.navigate(['/forgot-password']);
+  }
+
+  dismissOAuthOnlyHint(): void {
+    this.showOAuthOnlyHint = false;
+  }
+
+  goToResendVerification(): void {
+    const email = this.loginForm.value.email?.trim();
+    if (email) {
+      this.router.navigate(['/register/check-email'], { queryParams: { email } });
+      return;
+    }
+    this.router.navigate(['/register']);
+  }
+
   onSubmit() {
     if (this.loginForm.invalid) {
       markFormGroupTouched(this.loginForm);
@@ -89,6 +156,7 @@ export class LoginComponent implements OnInit, OnDestroy {
 
     this.isLoading = true;
     this.errorMessage = '';
+    this.showResendHint = false;
 
     const credentials: LoginRequest = {
       email: this.loginForm.value.email,
@@ -98,9 +166,14 @@ export class LoginComponent implements OnInit, OnDestroy {
     const loginSubscription = this.authService.login(credentials).subscribe({
       next: (response) => {
         this.isLoading = false;
-        // Guardar token y datos de usuario desde response.data
-        this.authService.setAuthData(response.data.token, response.data);
-        
+
+        // Guarda el JWT y navega a /onboarding o returnUrl/dashboard
+        // según requiresTenantSetup (o el claim setupStatus del token).
+        this.authService.handleAuthSuccess(response, {
+          returnUrl: this.getSafeReturnUrl(),
+          source: 'password'
+        });
+
         // Obtener perfil completo del servidor para tener todos los datos (incluyendo avatarUrl)
         const profileSubscription = this.authService.getProfile().subscribe({
           next: (profileResponse) => {
@@ -113,14 +186,26 @@ export class LoginComponent implements OnInit, OnDestroy {
           }
         });
         this.subscriptions.add(profileSubscription);
-        
-        // Redirigir a la URL de destino o al dashboard por defecto.
-        // navigateByUrl conserva query params incluidos en returnUrl.
-        const returnUrl = this.getSafeReturnUrl();
-        this.router.navigateByUrl(returnUrl);
       },
       error: (error: HttpErrorResponse) => {
         this.isLoading = false;
+        const code = extractApiErrorCode(error);
+
+        if (code === 'email_not_verified') {
+          this.errorMessage = 'Debes verificar tu correo electrónico antes de iniciar sesión.';
+          this.showResendHint = true;
+          return;
+        }
+        if (code === 'password_login_not_available') {
+          this.showOAuthOnlyHint = true;
+          this.oauthOnlyEmail = this.loginForm.value.email?.trim() ?? '';
+          this.errorMessage = '';
+          return;
+        }
+        if (code === 'tenant_setup_required') {
+          this.router.navigate(['/onboarding'], { queryParams: { source: 'password' } });
+          return;
+        }
         this.errorMessage = extractErrorMessage(
           error,
           'Error al iniciar sesión. Por favor, intenta nuevamente.'
@@ -146,10 +231,12 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   private getSafeReturnUrl(): string {
-    const returnUrl = this.route.snapshot.queryParams['returnUrl'];
-
-    if (typeof returnUrl === 'string' && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
-      return returnUrl;
+    const raw = this.route.snapshot.queryParams['returnUrl'];
+    if (typeof raw === 'string') {
+      const sanitized = sanitizeReturnPath(raw);
+      if (sanitized) {
+        return sanitized;
+      }
     }
 
     return '/dashboard';

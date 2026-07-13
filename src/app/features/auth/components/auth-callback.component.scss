@@ -1,0 +1,125 @@
+.callback-container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(120deg, #14183f, #292556, #40326d, #583f84, #734c9b, #9059b1, #af66c7, #cf72db);
+  padding: 20px;
+}
+
+.callback-panel {
+  background: #f9f8fc;
+  border-radius: 20px;
+  padding: 38px 40px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+  justify-content: center;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.logo-text {
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #FF6B9D 0%, #C44569 50%, #7B2CBF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+}
+
+.separador-login {
+  width: 100%;
+  height: 1px;
+  background: #e0e0e0;
+  margin-bottom: 24px;
+}
+
+.spinner {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 20px;
+  border: 4px solid #e6ddf2;
+  border-top-color: #7B2CBF;
+  border-radius: 50%;
+  animation: callback-spin 0.9s linear infinite;
+}
+
+@keyframes callback-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.welcome-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #373f59;
+  margin: 0 0 12px;
+}
+
+.welcome-subtitle {
+  font-size: 16px;
+  color: #666;
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.error-message {
+  background: #ffebee;
+  border: 1px solid #f44336;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  color: #c62828;
+  font-size: 14px;
+  text-align: left;
+}
+
+.callback-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.primary-button {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #FF6B9D 0%, #7B2CBF 100%);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  box-sizing: border-box;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 0.92;
+  }
+}
+
+.secondary-link {
+  font-size: 14px;
+  color: #7B2CBF;
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { Router, type CanActivateFn } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { sanitizeReturnPath } from '../../shared/utils/external-auth.utils';
 
 export const authGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService);
@@ -10,10 +11,9 @@ export const authGuard: CanActivateFn = (route, state) => {
     return true;
   }
 
-  // Guardar la URL de destino para redirigir después del login
-  const returnUrl = state.url;
+  const returnUrl = sanitizeReturnPath(state.url) ?? '/dashboard';
   router.navigate(['/login'], {
-    queryParams: { returnUrl: returnUrl }
+    queryParams: { returnUrl }
   });
   return false;
 };

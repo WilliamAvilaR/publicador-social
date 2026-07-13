@@ -42,6 +42,10 @@ export function getFieldError(formGroup: FormGroup, fieldName: string): string {
     return 'Las contraseñas no coinciden';
   }
 
+  if (field.hasError('sameAsCurrent')) {
+    return 'La nueva contraseña debe ser diferente a la actual';
+  }
+
   // Validación: patrón (regex)
   if (field.hasError('pattern')) {
     return 'El formato no es válido';

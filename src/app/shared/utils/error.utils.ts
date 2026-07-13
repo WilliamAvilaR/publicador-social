@@ -71,3 +71,84 @@ export function extractErrorMessage(
   // Último recurso: mensaje genérico
   return defaultMessage;
 }
+
+function pickStringField(record: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function looksLikeStableErrorCode(value: string): boolean {
+  const normalized = value.trim().toLowerCase().replace(/-/g, '_');
+  return /^[a-z][a-z0-9_]+$/.test(normalized) && normalized.includes('_');
+}
+
+export interface ApiErrorPayload {
+  code?: string;
+  message?: string;
+  provider?: string;
+  providerEmail?: string;
+  accountEmail?: string;
+}
+
+/**
+ * Extrae código/mensaje de cuerpos API heterogéneos:
+ * - `{ data: { flow: "error", code, message } }` (flow/resolve)
+ * - `{ errors: [{ code, detail }] }`
+ * - `{ code, detail, message }` en raíz
+ */
+export function extractApiErrorPayload(body: unknown): ApiErrorPayload {
+  if (!body || typeof body !== 'object') {
+    return {};
+  }
+
+  const record = body as Record<string, unknown>;
+  const data = record['data'];
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const dataRecord = data as Record<string, unknown>;
+    const flow = typeof dataRecord['flow'] === 'string' ? dataRecord['flow'].toLowerCase() : undefined;
+    const code = pickStringField(dataRecord, 'code', 'errorCode', 'error');
+    const message = pickStringField(dataRecord, 'message', 'detail', 'title');
+    const provider = pickStringField(dataRecord, 'provider');
+    const providerEmail = pickStringField(dataRecord, 'providerEmail');
+    const accountEmail = pickStringField(dataRecord, 'accountEmail');
+
+    if (flow === 'error' || code) {
+      return { code, message, provider, providerEmail, accountEmail };
+    }
+  }
+
+  if (Array.isArray(record['errors']) && record['errors'].length > 0) {
+    const first = record['errors'][0];
+    if (first && typeof first === 'object') {
+      const errorRecord = first as Record<string, unknown>;
+      return {
+        code: pickStringField(errorRecord, 'code', 'errorCode'),
+        message: pickStringField(errorRecord, 'detail', 'title', 'message')
+      };
+    }
+  }
+
+  const rootCode = pickStringField(record, 'code', 'errorCode', 'error');
+  const rootDetail = pickStringField(record, 'detail', 'message', 'title');
+  const rootMessage = looksLikeStableErrorCode(rootDetail ?? '') ? undefined : rootDetail;
+
+  return {
+    code: rootCode ?? (looksLikeStableErrorCode(rootDetail ?? '') ? rootDetail : undefined),
+    message: rootMessage,
+    provider: pickStringField(record, 'provider')
+  };
+}
+
+/**
+ * Extrae el código de error estable de una respuesta API.
+ * Soporta `{ errors: [{ code, detail }] }`, envelope `data` y formatos legacy en raíz.
+ */
+export function extractApiErrorCode(error: HttpErrorResponse): string | undefined {
+  const payload = extractApiErrorPayload(error.error);
+  return payload.code;
+}

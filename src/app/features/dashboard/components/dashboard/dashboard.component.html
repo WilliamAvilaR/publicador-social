@@ -16,9 +16,9 @@
       <ul class="menu-list">
         <li *ngFor="let item of visibleMenuItems; trackBy: trackByMenuLabel" class="menu-item" [class.has-submenu]="item.hasSubmenu" [class.expanded]="isSubmenuExpanded(item.label)">
           <!-- Item sin submenú -->
-          <a 
+          <a
             *ngIf="!item.hasSubmenu && item.route"
-            [routerLink]="item.route" 
+            [routerLink]="item.route"
             routerLinkActive="active"
             [routerLinkActiveOptions]="{exact: item.route === '/dashboard'}"
             class="menu-link"
@@ -44,8 +44,8 @@
             [hidden]="!isSubmenuExpanded(item.label) || sidebarCollapsed"
             class="submenu-list">
             <li *ngFor="let child of item.children; trackBy: trackByChildLabel" class="submenu-item">
-              <a 
-                [routerLink]="child.route" 
+              <a
+                [routerLink]="child.route"
                 [class.active]="isSubmenuActive(child.route!, child.label === 'Páginas' ? 'pages' : 'groups')"
                 [queryParams]="child.label === 'Páginas' ? {category: 'pages'} : {category: 'groups'}"
                 [queryParamsHandling]="'merge'"
@@ -118,9 +118,9 @@
         <div class="user-menu">
           <button class="user-btn" (click)="toggleUserDropdown()">
             <div class="user-avatar" [class.has-image]="getUserAvatarUrl()">
-              <img 
-                *ngIf="getUserAvatarUrl()" 
-                [src]="getUserAvatarUrl()" 
+              <img
+                *ngIf="getUserAvatarUrl()"
+                [src]="getUserAvatarUrl()"
                 [alt]="user?.fullName || 'Usuario'"
                 class="avatar-image"
               />

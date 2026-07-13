@@ -1,0 +1,53 @@
+<div class="onboarding-container">
+  <div class="onboarding-panel">
+    <div class="logo-container">
+      <img src="assets/logoSocial.png" alt="Social Automate Logo" class="logo-icon" />
+      <h1 class="logo-text">Social Automate</h1>
+    </div>
+
+    <div class="separador-login"></div>
+
+    <h2 class="welcome-title">Crea tu organización</h2>
+    <p class="welcome-subtitle">
+      Último paso: dale un nombre a tu espacio de trabajo para empezar a publicar.
+    </p>
+
+    <div *ngIf="userEmail" class="user-chip">
+      <span class="user-name" *ngIf="userName">{{ userName }}</span>
+      <span class="user-email">{{ userEmail }}</span>
+    </div>
+
+    <div *ngIf="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="onboarding-form">
+      <div class="input-group">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9 22V12H15V22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <input
+          type="text"
+          formControlName="tenantName"
+          placeholder="Nombre de tu organización"
+          class="input-field"
+          maxlength="200"
+          [class.invalid]="isFieldInvalid('tenantName')"
+        />
+        <div *ngIf="isFieldInvalid('tenantName')" class="field-error">
+          {{ getFieldError('tenantName') || 'El nombre de la organización es obligatorio.' }}
+        </div>
+      </div>
+
+      <button type="submit" class="onboarding-button" [disabled]="submitting">
+        <span *ngIf="!submitting">Crear organización</span>
+        <span *ngIf="submitting">Creando...</span>
+      </button>
+    </form>
+
+    <button type="button" class="logout-link" (click)="logout()">
+      Cerrar sesión
+    </button>
+  </div>
+</div>

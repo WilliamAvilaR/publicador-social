@@ -9,6 +9,7 @@ import { RegisterRequest } from '../../../core/models/auth.model';
 import { markFormGroupTouched, isFieldInvalid } from '../../../shared/utils/form.utils';
 import { extractErrorMessage } from '../../../shared/utils/error.utils';
 import { getFieldError } from '../../../shared/utils/validation.utils';
+import { getRetryAfterSeconds } from '../../../shared/utils/rate-limit.utils';
 
 @Component({
   selector: 'app-register',
@@ -22,6 +23,7 @@ export class RegisterComponent implements OnInit, OnDestroy {
   showPassword = false;
   showConfirmPassword = false;
   isLoading = false;
+  socialLoadingProvider: 'google' | 'microsoft' | null = null;
   errorMessage = '';
   currentStep = 1;
   totalSteps = 2;
@@ -40,13 +42,12 @@ export class RegisterComponent implements OnInit, OnDestroy {
 
   initForm() {
     this.registerForm = this.fb.group({
-      firstName: ['', [Validators.required, Validators.minLength(2)]],
-      lastName: ['', [Validators.required, Validators.minLength(2)]],
+      firstName: ['', [Validators.required, Validators.maxLength(50)]],
+      lastName: ['', [Validators.required, Validators.maxLength(50)]],
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(8)]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['', [Validators.required]],
-      telephone: ['', [Validators.required]],
-      tenantName: ['', [Validators.minLength(2)]]
+      telephone: ['', [Validators.required]]
     }, {
       validators: this.passwordMatchValidator
     });
@@ -85,7 +86,7 @@ export class RegisterComponent implements OnInit, OnDestroy {
   }
 
   getStep1Fields() {
-    return ['firstName', 'lastName', 'email', 'telephone', 'tenantName'];
+    return ['firstName', 'lastName', 'email', 'telephone'];
   }
 
   getStep2Fields() {
@@ -130,6 +131,45 @@ export class RegisterComponent implements OnInit, OnDestroy {
     }
   }
 
+  registerWithGoogle(): void {
+    this.startExternalAuth('google');
+  }
+
+  registerWithMicrosoft(): void {
+    this.startExternalAuth('microsoft');
+  }
+
+  private startExternalAuth(provider: 'google' | 'microsoft'): void {
+    if (this.isLoading || this.socialLoadingProvider) {
+      return;
+    }
+
+    this.errorMessage = '';
+    this.socialLoadingProvider = provider;
+
+    const sub = this.authService.redirectToExternalAuth(provider).subscribe({
+      error: (error: HttpErrorResponse | Error) => {
+        this.socialLoadingProvider = null;
+        if (error instanceof Error && error.message === 'authorization_url_missing') {
+          this.errorMessage =
+            'No se recibió una URL de autorización válida. Inténtalo nuevamente.';
+          return;
+        }
+        const httpError = error as HttpErrorResponse;
+        if (httpError.status === 429) {
+          const seconds = getRetryAfterSeconds(httpError);
+          this.errorMessage = `Demasiados intentos. Vuelve a intentarlo en ${seconds} segundos.`;
+          return;
+        }
+        this.errorMessage = extractErrorMessage(
+          httpError,
+          'No se pudo iniciar el flujo con el proveedor. Inténtalo nuevamente.'
+        );
+      }
+    });
+    this.subscriptions.add(sub);
+  }
+
   onSubmit() {
     if (this.registerForm.invalid) {
       markFormGroupTouched(this.registerForm);
@@ -140,26 +180,32 @@ export class RegisterComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
 
     const formValue = this.registerForm.value;
+    // El nombre de organización se pide después, en /onboarding (complete-workspace-setup)
     const registerData: RegisterRequest = {
-      firstName: formValue.firstName,
-      lastName: formValue.lastName,
-      email: formValue.email,
+      firstName: formValue.firstName.trim(),
+      lastName: formValue.lastName.trim(),
+      email: formValue.email.trim(),
       password: formValue.password,
-      telephone: formValue.telephone,
-      rol: this.DEFAULT_ROLE,
-      tenantName: formValue.tenantName
+      telephone: formValue.telephone.trim(),
+      rol: this.DEFAULT_ROLE
     };
 
     const registerSubscription = this.authService.register(registerData).subscribe({
       next: (response) => {
         this.isLoading = false;
-        // Redirigir al login después de registro exitoso
-        this.router.navigate(['/login'], {
-          queryParams: { registered: 'true' }
+        this.router.navigate(['/register/check-email'], {
+          queryParams: { email: response.data.email }
         });
       },
       error: (error: HttpErrorResponse) => {
         this.isLoading = false;
+        if (error.status === 409) {
+          this.errorMessage = extractErrorMessage(
+            error,
+            'Ya existe una cuenta registrada con este correo electrónico.'
+          );
+          return;
+        }
         this.errorMessage = extractErrorMessage(
           error,
           'Error al registrar usuario. Por favor, intenta nuevamente.'

@@ -1,0 +1,30 @@
+.email-confirm-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.email-confirm-panel {
+  width: 100%;
+  max-width: 440px;
+  padding: 2rem;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.success-message {
+  color: #027a48;
+}
+
+.error-message {
+  color: #b42318;
+}
+
+.back-link {
+  display: inline-block;
+  margin-top: 1rem;
+  color: #2563eb;
+}

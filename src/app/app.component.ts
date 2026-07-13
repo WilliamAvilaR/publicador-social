@@ -1,15 +1,17 @@
 import { Component, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { CommonModule } from '@angular/common';
 import { TranslationService } from './core/services/translation.service';
 import { ThemeService } from './core/services/theme.service';
 import { UserSettingsService } from './core/services/user-settings.service';
 import { AuthService } from './core/services/auth.service';
+import { StepUpComponent } from './features/account/components/step-up/step-up.component';
 import { take } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, CommonModule, StepUpComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })

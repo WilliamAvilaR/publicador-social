@@ -18,13 +18,15 @@ import { TenantEntitlementsResponse, TenantRole, TenantUser } from '../../../../
 import { canUseLimit, getLimitValue } from '../../../../core/utils/entitlements.utils';
 import { markFormGroupTouched, isFieldInvalid } from '../../../../shared/utils/form.utils';
 import { extractErrorMessage } from '../../../../shared/utils/error.utils';
-import { getFieldError } from '../../../../shared/utils/validation.utils';
+import { getFieldError, validateAvatarUrl } from '../../../../shared/utils/validation.utils';
 import {
   isTenantAdminRole,
   isTenantEditorRole,
   isTenantOwnerRole,
   isWorkspaceManagerRole
 } from '../../../../core/utils/tenant-role.utils';
+
+type TeamToastTone = 'success' | 'error';
 
 @Component({
   selector: 'app-tenant-team',
@@ -57,12 +59,19 @@ export class TenantTeamComponent implements OnInit, OnDestroy {
 
   /** Último error al cambiar rol o estado de membresía (visible en la UI). */
   teamActionError: string | null = null;
+  teamToastMessage = '';
+  teamToastTone: TeamToastTone = 'success';
 
   /** Evita doble envío mientras la API procesa el estado. */
   statusPendingUserId: number | null = null;
 
   /** Evita cambios de rol concurrentes en la misma fila. */
   rolePendingUserId: number | null = null;
+  pendingRoleChange: {
+    member: TenantUser;
+    newRole: string;
+    previousRole: string;
+  } | null = null;
 
   /** Evita eliminaciones concurrentes en la tabla de miembros. */
   deletePendingUserId: number | null = null;
@@ -78,6 +87,7 @@ export class TenantTeamComponent implements OnInit, OnDestroy {
   inviteSeatCheckPending = false;
 
   private subscriptions = new Subscription();
+  private teamToastTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -97,6 +107,7 @@ export class TenantTeamComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.clearTeamToastTimeout();
     this.subscriptions.unsubscribe();
   }
 
@@ -201,8 +212,38 @@ export class TenantTeamComponent implements OnInit, OnDestroy {
     );
   }
 
+  get pendingRoleChangeMemberName(): string {
+    const member = this.pendingRoleChange?.member;
+    return member?.fullName?.trim() || member?.email || 'este usuario';
+  }
+
+  get pendingRoleChangeFromLabel(): string {
+    return this.pendingRoleChange ? this.getRoleDisplayLabel(this.pendingRoleChange.previousRole) : '';
+  }
+
+  get pendingRoleChangeToLabel(): string {
+    return this.pendingRoleChange ? this.getRoleDisplayLabel(this.pendingRoleChange.newRole) : '';
+  }
+
+  get currentWorkspaceName(): string {
+    return this.currentTenantName || 'este workspace';
+  }
+
+  getSelectedRoleForMember(member: TenantUser): string {
+    if (this.pendingRoleChange?.member.userId === member.userId) {
+      return this.pendingRoleChange.newRole;
+    }
+
+    return member.roleInTenant;
+  }
+
   clearTeamActionError(): void {
     this.teamActionError = null;
+  }
+
+  clearTeamToast(): void {
+    this.clearTeamToastTimeout();
+    this.teamToastMessage = '';
   }
 
   openInviteModal(): void {
@@ -428,6 +469,26 @@ export class TenantTeamComponent implements OnInit, OnDestroy {
     return fullName || 'Sin nombre';
   }
 
+  getMemberAvatarUrl(member: TenantUser): string | null {
+    const memberAvatarUrl = validateAvatarUrl(member.avatarUrl);
+    if (memberAvatarUrl) {
+      return memberAvatarUrl;
+    }
+
+    const currentUser = this.authService.getUser() as { idUsuario?: number; avatarUrl?: string | null } | null;
+    if (currentUser?.idUsuario === member.userId) {
+      return validateAvatarUrl(currentUser.avatarUrl);
+    }
+
+    return null;
+  }
+
+  private patchTeamMember(userId: number, patch: Partial<TenantUser>): void {
+    this.team = this.team.map(member =>
+      member.userId === userId ? { ...member, ...patch } : member
+    );
+  }
+
   isFieldInvalid(fieldName: string): boolean {
     return isFieldInvalid(this.inviteForm, fieldName);
   }
@@ -554,43 +615,76 @@ Puedes compartir este enlace para que acepte la invitación:\n${invitation.accep
       return;
     }
 
-    const userLabel = user.fullName?.trim() || user.email;
-    const fromLabel = this.getRoleDisplayLabel(user.roleInTenant);
-    const toLabel = this.getRoleDisplayLabel(newRole);
-    const ok = confirm(
-      `¿Cambiar el rol de ${userLabel} de «${fromLabel}» a «${toLabel}»?`
-    );
-    if (!ok) {
+    this.pendingRoleChange = {
+      member: user,
+      newRole,
+      previousRole: user.roleInTenant
+    };
+  }
+
+  cancelRoleChange(): void {
+    this.pendingRoleChange = null;
+  }
+
+  confirmRoleChange(): void {
+    if (!this.pendingRoleChange) {
+      return;
+    }
+
+    const { member, newRole } = this.pendingRoleChange;
+    if (this.rolePendingUserId !== null) {
       return;
     }
 
     this.teamActionError = null;
-    this.rolePendingUserId = user.userId;
+    this.rolePendingUserId = member.userId;
 
     const sub = this.tenantUsersService
-      .updateCurrentTenantUserRole(user.userId, {
+      .updateCurrentTenantUserRole(member.userId, {
         roleInTenant: newRole
       })
       .subscribe({
         next: (response) => {
           this.rolePendingUserId = null;
+          this.pendingRoleChange = null;
           const updated = response.data;
-          this.team = this.team.map(u =>
-            u.userId === updated.userId ? { ...u, roleInTenant: updated.roleInTenant } : u
-          );
+          this.patchTeamMember(updated.userId ?? member.userId, {
+            roleInTenant: updated.roleInTenant ?? newRole
+          });
+          this.showTeamToast('Rol actualizado correctamente.', 'success');
         },
         error: (error: HttpErrorResponse) => {
           this.rolePendingUserId = null;
+          this.pendingRoleChange = null;
           console.error('Error al cambiar rol del usuario en el tenant:', error);
-          this.teamActionError = extractErrorMessage(
+          const message = extractErrorMessage(
             error,
             'No se pudo cambiar el rol. Comprueba permisos y reglas del workspace.'
           );
+          this.teamActionError = message;
+          this.showTeamToast(message, 'error');
           this.loadTeam();
         }
       });
 
     this.subscriptions.add(sub);
+  }
+
+  private showTeamToast(message: string, tone: TeamToastTone): void {
+    this.teamToastMessage = message;
+    this.teamToastTone = tone;
+    this.clearTeamToastTimeout();
+    this.teamToastTimeoutId = setTimeout(() => {
+      this.teamToastMessage = '';
+      this.teamToastTimeoutId = null;
+    }, 4000);
+  }
+
+  private clearTeamToastTimeout(): void {
+    if (this.teamToastTimeoutId) {
+      clearTimeout(this.teamToastTimeoutId);
+      this.teamToastTimeoutId = null;
+    }
   }
 
   /**
@@ -638,9 +732,9 @@ Puedes compartir este enlace para que acepte la invitación:\n${invitation.accep
         next: (response) => {
           this.statusPendingUserId = null;
           const updated = response.data;
-          this.team = this.team.map(u =>
-            u.userId === updated.userId ? { ...u, isActive: updated.isActive } : u
-          );
+          this.patchTeamMember(updated.userId ?? user.userId, {
+            isActive: updated.isActive ?? newStatus
+          });
         },
         error: (error: HttpErrorResponse) => {
           this.statusPendingUserId = null;

@@ -1,0 +1,11 @@
+<div class="email-confirm-container">
+  <div class="email-confirm-panel">
+    <h1>Confirmar cambio de correo</h1>
+
+    <div *ngIf="processing" class="loading">Verificando enlace...</div>
+    <div *ngIf="successMessage" class="success-message">{{ successMessage }}</div>
+    <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
+
+    <a *ngIf="!processing" routerLink="/login" class="back-link">Ir al inicio de sesión</a>
+  </div>
+</div>

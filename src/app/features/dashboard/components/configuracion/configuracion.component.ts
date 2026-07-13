@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserData, UserProfileData } from '../../../../core/models/auth.model';
-import { ChangePasswordComponent } from '../../../auth/components/change-password/change-password.component';
+import { AccountSecurityComponent } from '../../../account/components/account-security/account-security.component';
 import { EditProfileComponent } from '../../../auth/components/edit-profile/edit-profile.component';
 import { EditPreferencesComponent } from '../../../auth/components/edit-preferences/edit-preferences.component';
 import { TenantTeamComponent } from './tenant-team.component';
@@ -14,17 +15,20 @@ type ConfigSection = 'perfil' | 'seguridad' | 'notificaciones' | 'preferencias' 
 @Component({
   selector: 'app-configuracion',
   standalone: true,
-  imports: [CommonModule, TranslateModule, ChangePasswordComponent, EditProfileComponent, EditPreferencesComponent, TenantTeamComponent],
+  imports: [CommonModule, TranslateModule, AccountSecurityComponent, EditProfileComponent, EditPreferencesComponent, TenantTeamComponent],
   templateUrl: './configuracion.component.html',
   styleUrl: './configuracion.component.scss'
 })
-export class ConfiguracionComponent implements OnInit {
+export class ConfiguracionComponent implements OnInit, OnDestroy {
   user: UserData | UserProfileData | null = null;
   activeSection: ConfigSection = 'perfil';
 
+  private subscriptions = new Subscription();
+
   constructor(
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit() {
@@ -35,10 +39,34 @@ export class ConfiguracionComponent implements OnInit {
     }
 
     this.user = this.authService.getUser();
+
+    const sub = this.route.queryParams.subscribe(params => {
+      const section = params['section'];
+      if (
+        section === 'seguridad' ||
+        section === 'perfil' ||
+        section === 'notificaciones' ||
+        section === 'preferencias' ||
+        section === 'equipo'
+      ) {
+        this.activeSection = section;
+      }
+    });
+    this.subscriptions.add(sub);
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
   }
 
   setActiveSection(section: ConfigSection) {
     this.activeSection = section;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { section },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
   }
 
   onPasswordChanged() {

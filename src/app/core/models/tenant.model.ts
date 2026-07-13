@@ -151,6 +151,7 @@ export interface TenantUser {
   userId: number;
   email: string;
   fullName: string;
+  avatarUrl?: string | null;
   roleInTenant: string;
   isActive: boolean;
   joinedAt: string; // ISO date

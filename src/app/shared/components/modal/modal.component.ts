@@ -1,4 +1,14 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, OnChanges, SimpleChanges, HostListener } from '@angular/core';
+import {
+  Component,
+  Input,
+  Output,
+  EventEmitter,
+  OnInit,
+  OnDestroy,
+  OnChanges,
+  SimpleChanges,
+  HostListener
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -9,10 +19,14 @@ import { CommonModule } from '@angular/common';
   styleUrl: './modal.component.scss'
 })
 export class ModalComponent implements OnInit, OnDestroy, OnChanges {
-  @Input() title: string = '';
-  @Input() show: boolean = false;
+  @Input() title = '';
+  @Input() show = false;
   @Input() size: 'small' | 'medium' | 'large' | 'composer' = 'medium';
-  @Input() closable: boolean = true;
+  @Input() closable = true;
+  /** Clic fuera del panel; desactivar si hay datos sin guardar. */
+  @Input() allowBackdropClose = true;
+  @Input() zIndex = 1000;
+  @Input() bodyPadding: 'default' | 'none' = 'default';
   @Output() close = new EventEmitter<void>();
 
   ngOnInit(): void {
@@ -30,29 +44,30 @@ export class ModalComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   private updateBodyOverflow(): void {
-    if (this.show) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    document.body.style.overflow = this.show ? 'hidden' : '';
   }
 
   @HostListener('document:keydown.escape', ['$event'])
   handleEscapeKey(event: KeyboardEvent): void {
     if (this.show && this.closable) {
+      event.preventDefault();
       this.closeModal();
     }
   }
 
   closeModal(): void {
-    if (this.closable) {
-      document.body.style.overflow = '';
-      this.close.emit();
+    if (!this.closable) {
+      return;
     }
+    document.body.style.overflow = '';
+    this.close.emit();
   }
 
   onBackdropClick(event: MouseEvent): void {
-    if (this.closable && (event.target as HTMLElement).classList.contains('modal-backdrop')) {
+    if (!this.closable || !this.allowBackdropClose) {
+      return;
+    }
+    if ((event.target as HTMLElement).classList.contains('modal-backdrop')) {
       this.closeModal();
     }
   }

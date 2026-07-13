@@ -15,6 +15,7 @@ import {
 import { markFormGroupTouched, isFieldInvalid } from '../../../shared/utils/form.utils';
 import { getFieldError } from '../../../shared/utils/validation.utils';
 import { extractErrorMessage } from '../../../shared/utils/error.utils';
+import { getRetryAfterSeconds } from '../../../shared/utils/rate-limit.utils';
 
 @Component({
   selector: 'app-accept-invitation',
@@ -32,6 +33,7 @@ export class AcceptInvitationComponent implements OnInit, OnDestroy {
   form!: FormGroup;
   submitting = false;
   submitError: string | null = null;
+  socialLoadingProvider: 'google' | 'microsoft' | null = null;
 
   private subscriptions = new Subscription();
 
@@ -95,6 +97,52 @@ export class AcceptInvitationComponent implements OnInit, OnDestroy {
       }
     });
 
+    this.subscriptions.add(sub);
+  }
+
+  acceptWithGoogle(): void {
+    this.startExternalAuth('google');
+  }
+
+  acceptWithMicrosoft(): void {
+    this.startExternalAuth('microsoft');
+  }
+
+  /**
+   * Acepta la invitación vía OAuth: /start con invitationToken.
+   * Tras el exchange en /auth/callback, requiresTenantSetup será false
+   * y el usuario irá directo al dashboard del tenant invitado.
+   */
+  private startExternalAuth(provider: 'google' | 'microsoft'): void {
+    if (!this.token || this.submitting || this.socialLoadingProvider) {
+      return;
+    }
+
+    this.submitError = null;
+    this.socialLoadingProvider = provider;
+
+    const sub = this.authService
+      .redirectToExternalAuth(provider, { invitationToken: this.token })
+      .subscribe({
+        error: (error: HttpErrorResponse | Error) => {
+          this.socialLoadingProvider = null;
+          if (error instanceof Error && error.message === 'authorization_url_missing') {
+            this.submitError =
+              'No se recibió una URL de autorización válida. Inténtalo nuevamente.';
+            return;
+          }
+          const httpError = error as HttpErrorResponse;
+          if (httpError.status === 429) {
+            const seconds = getRetryAfterSeconds(httpError);
+            this.submitError = `Demasiados intentos. Vuelve a intentarlo en ${seconds} segundos.`;
+            return;
+          }
+          this.submitError = extractErrorMessage(
+            httpError,
+            'No se pudo iniciar el flujo con el proveedor. Inténtalo nuevamente.'
+          );
+        }
+      });
     this.subscriptions.add(sub);
   }
 

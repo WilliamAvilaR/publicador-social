@@ -1,0 +1,46 @@
+<div class="check-email-container">
+  <div class="check-email-panel">
+    <div class="logo-container">
+      <img src="assets/logoSocial.png" alt="Social Automate Logo" class="logo-icon" />
+      <h1 class="logo-text">Social Automate</h1>
+    </div>
+
+    <div class="separador-login"></div>
+
+    <div class="check-email-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M22 6L12 13L2 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <h2 class="welcome-title">Revisa tu correo</h2>
+
+    <p class="confirmation-label">Enviamos un enlace de confirmación a:</p>
+    <p class="registered-email">{{ email }}</p>
+
+    <p class="check-email-hint">
+      Abre el enlace para activar tu cuenta. Puede tardar unos minutos. Si no lo ves, revisa spam o promociones.
+    </p>
+
+    <button
+      type="button"
+      class="resend-button"
+      (click)="resendVerification()"
+      [disabled]="isResendDisabled">
+      <span *ngIf="!resendLoading && !cooldown.isActive">Reenviar correo de verificación</span>
+      <span *ngIf="resendLoading">Enviando...</span>
+      <span *ngIf="!resendLoading && cooldown.isActive">Reenviar en {{ cooldown.secondsRemaining }} s</span>
+    </button>
+
+    <p *ngIf="resendError" class="resend-feedback error">{{ resendError }}</p>
+    <p *ngIf="cooldown.isActive && resendError" class="cooldown-hint">
+      Podrás intentar de nuevo en {{ cooldown.secondsRemaining }} s
+    </p>
+
+    <p class="signup-link">
+      ¿Te equivocaste de correo?
+      <a routerLink="/register">Volver a registrarse</a>
+    </p>
+  </div>
+</div>

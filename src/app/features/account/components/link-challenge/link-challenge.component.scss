@@ -1,0 +1,77 @@
+.link-challenge-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.link-challenge-panel {
+  width: 100%;
+  max-width: 440px;
+  padding: 2rem;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+input {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+}
+
+.primary-btn {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+
+.error-message {
+  color: #b42318;
+  font-size: 0.9rem;
+}
+
+.method-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.method-tab {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #f9fafb;
+  cursor: pointer;
+}
+
+.method-tab.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.help-text {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #667085;
+}
+
+.back-link {
+  display: inline-block;
+  margin-top: 1rem;
+  color: #2563eb;
+}

@@ -56,11 +56,32 @@
 .configuracion-nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 12px;
   background: var(--bg-primary);
   border-radius: 12px;
-  padding: 8px;
+  padding: 12px;
   box-shadow: var(--shadow-sm);
+}
+
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-section-title {
+  padding: 0 12px 6px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+}
+
+.nav-divider {
+  height: 1px;
+  background: var(--border-primary);
+  margin: 0 4px;
 }
 
 .nav-item {
@@ -85,11 +106,11 @@
   }
 
   &.active {
-    background: var(--accent-primary);
-    color: white;
+    background: var(--accent-primary-light);
+    color: var(--accent-primary);
 
     .nav-icon {
-      color: white;
+      color: var(--accent-primary);
     }
   }
 }
@@ -184,7 +205,7 @@
   }
 
   .configuracion-nav {
-    flex-direction: row;
+    flex-direction: column;
     overflow-x: auto;
   }
 

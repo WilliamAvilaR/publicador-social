@@ -22,7 +22,17 @@ export const tenantInterceptor: HttpInterceptorFn = (req, next) => {
   const isAuthRoute =
     req.url.includes('/api/Token/login') ||
     req.url.includes('/api/Token/register') ||
-    req.url.includes('/api/Token/refresh');
+    req.url.includes('/api/Token/refresh') ||
+    req.url.includes('/api/Account/verify-email') ||
+    req.url.includes('/api/Account/resend-verification') ||
+    req.url.includes('/api/Account/forgot-password') ||
+    req.url.includes('/api/Account/reset-password') ||
+    req.url.includes('/api/account/email/confirm') ||
+    req.url.includes('/api/auth/external/exchange') ||
+    req.url.includes('/api/auth/external/link/context') ||
+    req.url.includes('/api/auth/external/link/confirm') ||
+    /\/api\/auth\/external\/(google|microsoft)\/start$/.test(req.url.split('?')[0]) ||
+    req.url.includes('/api/account/complete-workspace-setup');
 
   if (isAuthRoute) {
     return next(req);

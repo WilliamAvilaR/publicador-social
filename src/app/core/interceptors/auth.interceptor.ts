@@ -3,156 +3,223 @@ import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, catchError, filter, switchMap, take, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+import { StepUpService } from '../services/step-up.service';
+import { sanitizeReturnPath } from '../../shared/utils/external-auth.utils';
+import { extractApiErrorCode } from '../../shared/utils/error.utils';
 
-// Variables para manejar la renovación de token
+function getLoginReturnUrl(router: Router): string {
+  return sanitizeReturnPath(router.url) ?? '/dashboard';
+}
+
 let isRefreshing = false;
 const refreshTokenSubject = new BehaviorSubject<string | null>(null);
 
+const PUBLIC_API_ROUTES = [
+  '/api/Token/login',
+  '/api/Token/register',
+  '/api/Account/verify-email',
+  '/api/Account/resend-verification',
+  '/api/Account/forgot-password',
+  '/api/Account/reset-password',
+  '/api/invitations/',
+  '/api/account/email/confirm'
+];
+
+const EXTERNAL_AUTH_PUBLIC_PATTERNS = [
+  '/api/auth/external/exchange',
+  '/api/auth/external/link/context',
+  '/api/auth/external/link/confirm'
+];
+
+function isOAuthStartUrl(url: string): boolean {
+  return /\/api\/auth\/external\/(google|microsoft)\/start$/.test(url.split('?')[0]);
+}
+
+function isExternalAuthPublicRoute(url: string): boolean {
+  if (!url.includes('/api/auth/external/')) {
+    return false;
+  }
+  if (EXTERNAL_AUTH_PUBLIC_PATTERNS.some(pattern => url.includes(pattern))) {
+    return true;
+  }
+  return isOAuthStartUrl(url);
+}
+
+function isOptionalAuthRoute(url: string): boolean {
+  return url.includes('/api/auth/external/flow/resolve');
+}
+
+function cloneWithToken(req: HttpRequest<unknown>, token: string): HttpRequest<unknown> {
+  const isFormData = req.body instanceof FormData;
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`
+  };
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return req.clone({ setHeaders: headers });
+}
+
+function handleSessionRevoked(authService: AuthService, router: Router): void {
+  authService.logout();
+  if (!router.url.includes('/login')) {
+    router.navigate(['/login'], {
+      queryParams: { returnUrl: getLoginReturnUrl(router) }
+    });
+  }
+}
+
+/** 401 de negocio: no disparar refresh ni cerrar sesión; propagar al componente. */
+const PASS_THROUGH_401_CODES = new Set([
+  'current_password_incorrect',
+  'external_auth_flow_invalid',
+  'external_auth_link_pending_invalid',
+  'external_auth_link_pending_user_mismatch',
+  'external_auth_link_pending_session_mismatch',
+  'external_auth_link_step_up_wrong_provider',
+  'external_auth_link_challenge_invalid',
+  'external_auth_link_verify_invalid'
+]);
+
+function isFlowResolveRequest(url: string): boolean {
+  return url.includes('/api/auth/external/flow/resolve');
+}
+
+function isPassThrough401(error: HttpErrorResponse, errorCode: string | undefined, url: string): boolean {
+  if (error.status !== 401) {
+    return false;
+  }
+  if (errorCode && PASS_THROUGH_401_CODES.has(errorCode)) {
+    return true;
+  }
+  // flow/resolve: errores de negocio OAuth no deben disparar refresh/logout.
+  if (isFlowResolveRequest(url) && errorCode?.startsWith('external_auth_')) {
+    return true;
+  }
+  return false;
+}
+
 /**
- * Interceptor HTTP que:
- * 1. Agrega automáticamente el token de autenticación a las peticiones protegidas
- * 2. Maneja errores 401 (no autorizado) intentando renovar el token automáticamente
- * 3. Si la renovación falla, redirige al login
- *
- * Excluye las rutas públicas como /api/Token/login y /api/Token/register
+ * Interceptor HTTP: JWT, refresh, step-up V2 y sesiones revocadas.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
+  const stepUpService = inject(StepUpService);
   const router = inject(Router);
 
-  // Rutas públicas que no requieren token
-  const publicRoutes = [
-    '/api/Token/login',
-    '/api/Token/register',
-    '/api/invitations/'
-  ];
+  const isPublicRoute =
+    PUBLIC_API_ROUTES.some(route => req.url.includes(route)) || isExternalAuthPublicRoute(req.url);
 
-  // Verificar si la ruta es pública
-  const isPublicRoute = publicRoutes.some(route => req.url.includes(route));
-
-  // Si es una ruta pública, no agregar el token
   if (isPublicRoute) {
     return next(req);
   }
 
-  // Solo agregar token a peticiones que van a /api/
-  if (req.url.startsWith('/api/')) {
-    const token = authService.getToken();
-
-    if (token) {
-      // Para FormData, no establecer Content-Type (el navegador lo hace automáticamente con boundary)
-      const isFormData = req.body instanceof FormData;
-      const headers: { [key: string]: string } = {
-        Authorization: `Bearer ${token}`
-      };
-
-      if (!isFormData) {
-        headers['Content-Type'] = 'application/json';
-      }
-
-      // Clonar la petición y agregar el header de autorización
-      const clonedRequest = req.clone({
-        setHeaders: headers
-      });
-
-      // Interceptar la respuesta para manejar errores 401
-      return next(clonedRequest).pipe(
-        catchError((error: HttpErrorResponse) => {
-          // Si es un error 401 y no estamos en una ruta pública
-          if (error.status === 401 && !isPublicRoute) {
-            // Si la petición que falló es el refresh token, no intentar renovar de nuevo
-            if (req.url.includes('/api/Token/refresh')) {
-              // El refresh token también falló, cerrar sesión y redirigir
-              authService.logout();
-              if (!router.url.includes('/login')) {
-                router.navigate(['/login'], {
-                  queryParams: { returnUrl: router.url }
-                });
-              }
-              return throwError(() => error);
-            }
-
-            // Si no estamos renovando, intentar renovar el token
-            if (!isRefreshing) {
-              isRefreshing = true;
-              refreshTokenSubject.next(null);
-
-              return authService.refreshToken().pipe(
-                switchMap((response) => {
-                  // Token renovado exitosamente
-                  isRefreshing = false;
-
-                  // Guardar el nuevo token y datos de usuario
-                  authService.setAuthData(response.data.token, response.data);
-
-                  // Notificar a las peticiones en espera que el token está listo
-                  const newToken = response.data.token;
-                  refreshTokenSubject.next(newToken);
-
-                  // Reintentar la petición original con el nuevo token
-                  const isFormDataRetry = req.body instanceof FormData;
-                  const retryHeaders: { [key: string]: string } = {
-                    Authorization: `Bearer ${newToken}`
-                  };
-                  if (!isFormDataRetry) {
-                    retryHeaders['Content-Type'] = 'application/json';
-                  }
-                  const retryRequest = req.clone({
-                    setHeaders: retryHeaders
-                  });
-                  return next(retryRequest);
-                }),
-                catchError((refreshError) => {
-                  // Error al renovar el token, cerrar sesión y redirigir
-                  isRefreshing = false;
-                  refreshTokenSubject.next(null);
-                  authService.logout();
-
-                  if (!router.url.includes('/login')) {
-                    router.navigate(['/login'], {
-                      queryParams: { returnUrl: router.url }
-                    });
-                  }
-
-                  return throwError(() => refreshError);
-                })
-              );
-            } else {
-              // Ya estamos renovando, esperar a que el nuevo token esté disponible
-              return refreshTokenSubject.pipe(
-                filter(token => token !== null),
-                take(1),
-                switchMap((newToken) => {
-                  // Reintentar la petición original con el nuevo token
-                  const isFormDataRetry = req.body instanceof FormData;
-                  const retryHeaders: { [key: string]: string } = {
-                    Authorization: `Bearer ${newToken}`
-                  };
-                  if (!isFormDataRetry) {
-                    retryHeaders['Content-Type'] = 'application/json';
-                  }
-                  const retryRequest = req.clone({
-                    setHeaders: retryHeaders
-                  });
-                  return next(retryRequest);
-                })
-              );
-            }
-          }
-
-          return throwError(() => error);
-        })
-      );
-    } else {
-      // Si no hay token y es una ruta protegida, redirigir al login
-      // Solo redirigir si no estamos ya en la página de login
-      if (!router.url.includes('/login')) {
-        router.navigate(['/login'], {
-          queryParams: { returnUrl: router.url }
-        });
-      }
-    }
+  if (!req.url.startsWith('/api/')) {
+    return next(req);
   }
 
-  return next(req);
+  const token = authService.getToken();
+  const optionalAuth = isOptionalAuthRoute(req.url);
+
+  if (!token) {
+    if (optionalAuth) {
+      return next(req);
+    }
+    if (!router.url.includes('/login')) {
+      router.navigate(['/login'], {
+        queryParams: { returnUrl: getLoginReturnUrl(router) }
+      });
+    }
+    return next(req);
+  }
+
+  const authedRequest = cloneWithToken(req, token);
+
+  return next(authedRequest).pipe(
+    catchError((error: HttpErrorResponse) => {
+      if (
+        error.status === 403 &&
+        (error.error?.detail === 'tenant_setup_required' ||
+          error.error?.message === 'tenant_setup_required')
+      ) {
+        authService.setTenantSetupRequired(true);
+        if (!router.url.startsWith('/onboarding')) {
+          router.navigate(['/onboarding']);
+        }
+        return throwError(() => error);
+      }
+
+      const errorCode = extractApiErrorCode(error);
+
+      if (error.status === 403 && errorCode === 'recent_authentication_required') {
+        if (
+          stepUpService.isModalOpen() ||
+          req.url.includes('/api/account/authentication-methods')
+        ) {
+          return throwError(() => error);
+        }
+        return stepUpService.requireStepUp(undefined, { force: true }).pipe(
+          switchMap(() => {
+            const freshToken = authService.getToken();
+            if (!freshToken) {
+              return throwError(() => error);
+            }
+            return next(cloneWithToken(req, freshToken));
+          })
+        );
+      }
+
+      if (
+        error.status === 401 &&
+        (errorCode === 'session_revoked' || errorCode === 'session_revoked_provider_unlinked')
+      ) {
+        handleSessionRevoked(authService, router);
+        return throwError(() => error);
+      }
+
+      if (isPassThrough401(error, errorCode, req.url)) {
+        return throwError(() => error);
+      }
+
+      if (error.status === 401 && req.url.includes('/api/account/step-up/password')) {
+        return throwError(() => error);
+      }
+
+      if (error.status === 401) {
+        if (req.url.includes('/api/Token/refresh')) {
+          handleSessionRevoked(authService, router);
+          return throwError(() => error);
+        }
+
+        if (!isRefreshing) {
+          isRefreshing = true;
+          refreshTokenSubject.next(null);
+
+          return authService.refreshToken().pipe(
+            switchMap((response) => {
+              isRefreshing = false;
+              authService.setAuthData(response.data.token, response.data);
+              const newToken = response.data.token;
+              refreshTokenSubject.next(newToken);
+              return next(cloneWithToken(req, newToken));
+            }),
+            catchError((refreshError) => {
+              isRefreshing = false;
+              refreshTokenSubject.next(null);
+              handleSessionRevoked(authService, router);
+              return throwError(() => refreshError);
+            })
+          );
+        }
+
+        return refreshTokenSubject.pipe(
+          filter(retryToken => retryToken !== null),
+          take(1),
+          switchMap((newToken) => next(cloneWithToken(req, newToken as string)))
+        );
+      }
+
+      return throwError(() => error);
+    })
+  );
 };

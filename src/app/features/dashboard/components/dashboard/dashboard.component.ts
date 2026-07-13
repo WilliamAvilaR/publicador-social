@@ -15,6 +15,12 @@ import { TenantEntitlementsService } from '../../../../core/services/tenant-enti
 import { isAnyMenuFeatureStrict } from '../../../../core/utils/entitlements.utils';
 import { validateAvatarUrl } from '../../../../shared/utils/validation.utils';
 import { extractErrorMessage } from '../../../../shared/utils/error.utils';
+import {
+  hasOAuthCallbackParams,
+  OAUTH_CALLBACK_PATH,
+  parseOAuthCallbackQuery,
+  toOAuthCallbackQuery
+} from '../../../../shared/utils/external-auth.utils';
 
 interface MenuItem {
   label: string;
@@ -310,9 +316,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    const currentUrl = this.router.parseUrl(this.router.url);
+    if (hasOAuthCallbackParams(currentUrl.queryParams)) {
+      const oauth = parseOAuthCallbackQuery(currentUrl.queryParams);
+      this.router.navigate([OAUTH_CALLBACK_PATH], {
+        queryParams: toOAuthCallbackQuery(oauth),
+        replaceUrl: true
+      });
+      return;
+    }
+
     // Verificar autenticación
     if (!this.authService.isAuthenticated()) {
       this.router.navigate(['/login']);
+      return;
+    }
+
+    // Onboarding de workspace pendiente: no montar el layout de producto.
+    // El guard de la ruta ya redirige; esto evita el flash de UI.
+    if (this.authService.requiresTenantSetup()) {
+      this.router.navigate(['/onboarding']);
       return;
     }
 

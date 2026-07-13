@@ -25,7 +25,7 @@ type PreferencesToastTone = 'success' | 'error' | 'info';
 export class EditPreferencesComponent implements OnInit, OnDestroy {
   @Input() embedded: boolean = false; // Si está embebido en configuración
   @Output() preferencesUpdated = new EventEmitter<void>();
-  
+
   preferencesForm!: FormGroup;
   isLoading = false;
   loadingSettings = false;
@@ -116,7 +116,7 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.loadingSettings = false;
         this.currentSettings = response.data;
-        
+
         // Prellenar el formulario con las preferencias actuales
         this.preferencesForm.patchValue({
           language: response.data.language || '',
@@ -171,20 +171,20 @@ export class EditPreferencesComponent implements OnInit, OnDestroy {
         this.showToast('Cambios guardados correctamente', 'success');
         this.currentSettings = response.data;
         this.preferencesForm.markAsPristine();
-        
+
         // Si se cambió el idioma, actualizar el servicio de traducción
         if (request.language) {
           this.translationService.changeLanguage(request.language);
         }
-        
+
         // Si se cambió el tema, aplicarlo inmediatamente
         if (request.theme !== undefined) {
           this.themeService.applyTheme(request.theme as 'light' | 'dark' | 'auto');
         }
-        
+
         // Emitir evento para el componente padre
         this.preferencesUpdated.emit();
-        
+
         // Si no está embebido, redirigir después de 2 segundos
         if (!this.embedded) {
           setTimeout(() => {

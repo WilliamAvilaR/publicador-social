@@ -124,13 +124,14 @@
 .edit-preferences-form {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 20px;
+  margin-top: 20px;
 }
 
 .preferences-section {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 24px;
 }
 
 .section-heading {
@@ -144,9 +145,12 @@
 }
 
 .section-heading-icon {
-  width: 20px;
-  height: 20px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
+  padding: 7px;
+  border-radius: 50%;
+  background: var(--accent-primary-light);
 }
 
 .settings-row {
@@ -160,11 +164,27 @@
   min-width: 0;
 }
 
+.field-label {
+  min-width: 0;
+}
+
+.settings-row > .input-label {
+  padding-top: 14px;
+}
+
 .input-label {
+  display: block;
   font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
-  margin: 14px 0 0;
+  margin: 0;
+}
+
+.field-help {
+  margin: 6px 0 0;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .select-field {
@@ -289,6 +309,14 @@
 
   .input-label {
     margin-top: 0;
+  }
+
+  .field-label {
+    padding-top: 0;
+  }
+
+  .settings-row > .input-label {
+    padding-top: 0;
   }
 
   .form-actions {

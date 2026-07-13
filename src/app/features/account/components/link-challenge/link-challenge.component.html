@@ -1,0 +1,63 @@
+<div class="link-challenge-container">
+  <div class="link-challenge-panel">
+    <h1>Vincular cuenta existente</h1>
+    <p *ngIf="maskedEmail && providerName">
+      Ya existe una cuenta con un correo similar (<strong>{{ maskedEmail }}</strong>).
+      Puedes vincular tu cuenta de <strong>{{ providerName }}</strong> para utilizar ambos métodos de acceso.
+    </p>
+    <p *ngIf="maskedEmail && !providerName">
+      Ya existe una cuenta con un correo similar (<strong>{{ maskedEmail }}</strong>).
+      Confirma tu identidad para vincular tu proveedor externo.
+    </p>
+
+    <div *ngIf="loadingContext" class="loading">Cargando...</div>
+
+    <ng-container *ngIf="!loadingContext && !errorMessage">
+      <div class="method-tabs" *ngIf="canUsePassword && canUseEmail">
+        <button
+          type="button"
+          class="method-tab"
+          [class.active]="selectedMethod === 'password'"
+          (click)="selectMethod('password')">
+          Usar contraseña
+        </button>
+        <button
+          type="button"
+          class="method-tab"
+          [class.active]="selectedMethod === 'email'"
+          (click)="selectMethod('email')">
+          Código del correo
+        </button>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <ng-container *ngIf="selectedMethod === 'password'">
+          <label for="linkPassword">Contraseña de tu cuenta</label>
+          <input id="linkPassword" type="password" formControlName="password" autocomplete="current-password" />
+        </ng-container>
+
+        <ng-container *ngIf="selectedMethod === 'email'">
+          <label for="emailVerificationToken">Código de verificación</label>
+          <p class="help-text">Introduce el código que recibiste en tu correo.</p>
+          <input
+            id="emailVerificationToken"
+            type="text"
+            formControlName="emailVerificationToken"
+            autocomplete="one-time-code"
+            inputmode="numeric"
+          />
+        </ng-container>
+
+        <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
+
+        <button type="submit" class="primary-btn" [disabled]="submitting">
+          {{ submitting ? 'Vinculando...' : 'Vincular con mi cuenta existente' }}
+        </button>
+      </form>
+    </ng-container>
+
+    <div *ngIf="!loadingContext && errorMessage && !maskedEmail" class="error-message">{{ errorMessage }}</div>
+
+    <a routerLink="/login" class="back-link">Volver al inicio de sesión</a>
+  </div>
+</div>

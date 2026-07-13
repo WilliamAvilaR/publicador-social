@@ -13,6 +13,7 @@ export interface LoginResponse {
     rol: string;
     fullName: string;
   };
+  requiresTenantSetup?: boolean;
   meta: {
     totalCount: number;
     pageSize: number;
@@ -36,6 +37,7 @@ export interface RefreshResponse {
     rol: string;
     fullName: string;
   };
+  requiresTenantSetup?: boolean;
   meta: {
     totalCount: number;
     pageSize: number;
@@ -55,7 +57,7 @@ export interface RegisterRequest {
   password: string;
   telephone: string;
   rol: string;
-  tenantName: string;
+  tenantName?: string;
 }
 
 export interface RegisterResponse {
@@ -65,7 +67,8 @@ export interface RegisterResponse {
     fullName: string;
     rol: string;
   };
-  meta: {
+  requiresReauth?: boolean;
+  meta?: {
     totalCount: number;
     pageSize: number;
     currentPage: number;
@@ -75,6 +78,30 @@ export interface RegisterResponse {
     nextPageUrl: string;
     previusPageUrl: string;
   };
+}
+
+export interface VerifyEmailRequest {
+  token: string;
+}
+
+export interface VerifyEmailResponse {
+  message: string;
+}
+
+export interface ResendVerificationRequest {
+  email: string;
+}
+
+export interface ResendVerificationResponse {
+  message: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
 }
 
 export interface ApiError {
@@ -126,6 +153,9 @@ export interface UpdateProfileResponse {
     dateBird: string;
     isActive: boolean;
     avatarUrl: string;
+    hasLocalPassword?: boolean;
+    authTime?: number | null;
+    requiresStepUp?: boolean;
   };
   meta: {
     totalCount: number;
@@ -256,4 +286,69 @@ export interface AcceptInvitationResponse {
     fullName: string;
   };
 }
+
+// ===== Login externo (OAuth Google / Microsoft) =====
+
+export type ExternalAuthProvider = 'google' | 'microsoft';
+
+/** Respuesta cruda del backend: POST /api/auth/external/{provider}/start */
+export interface ExternalAuthStartApiResponse {
+  data: {
+    authorizationUrl: string;
+  };
+}
+
+/** Cuerpo V2 para POST /api/auth/external/{provider}/start */
+export interface ExternalAuthStartRequest {
+  returnUrl?: string;
+  intent?: 'auto' | 'login' | 'register';
+  invitationToken?: string;
+}
+
+/** Respuesta normalizada tras extraer y validar la URL de autorización. */
+export interface ExternalAuthStartResponse {
+  authorizationUrl: string;
+}
+
+export interface ExternalAuthExchangeRequest {
+  exchangeCode: string;
+}
+
+/**
+ * Respuesta de POST /api/auth/external/exchange.
+ * `data` tiene el mismo formato que el login password;
+ * `requiresTenantSetup` viene en la raíz de la respuesta.
+ */
+export interface ExternalAuthExchangeResponse {
+  data: {
+    token: string;
+    idUsuario: number;
+    email: string;
+    rol: string;
+    fullName: string;
+  };
+  requiresTenantSetup: boolean;
+}
+
+export interface CompleteRegistrationRequest {
+  tenantName: string;
+}
+
+/** Respuesta de complete-registration / complete-workspace-setup: nuevo JWT completo. */
+export interface CompleteRegistrationResponse {
+  data: {
+    token: string;
+    idUsuario: number;
+    email: string;
+    rol: string;
+    fullName: string;
+  };
+  requiresTenantSetup?: boolean;
+}
+
+export type CompleteWorkspaceSetupRequest = CompleteRegistrationRequest;
+export type CompleteWorkspaceSetupResponse = CompleteRegistrationResponse;
+
+/** Hint informativo del redirect post-OAuth (no usar para routing definitivo). */
+export type ExternalAuthAction = 'login' | 'pending_setup' | 'invitation_accepted';
 

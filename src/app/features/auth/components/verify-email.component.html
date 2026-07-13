@@ -1,0 +1,64 @@
+<div class="verify-email-container">
+  <div class="verify-email-panel">
+    <div class="logo-container">
+      <img src="assets/logoSocial.png" alt="Social Automate Logo" class="logo-icon" />
+      <h1 class="logo-text">Social Automate</h1>
+    </div>
+
+    <div class="separador-login"></div>
+
+    <div class="verify-icon" aria-hidden="true" *ngIf="token && !errorMessage">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <h2 class="welcome-title">{{ token && !errorMessage ? 'Confirma tu correo' : 'Verificación de correo' }}</h2>
+
+    <p class="welcome-subtitle" *ngIf="token && !errorMessage">
+      Pulsa el botón para activar tu cuenta.
+    </p>
+
+    <div *ngIf="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
+
+    <button
+      *ngIf="token && !errorMessage"
+      type="button"
+      class="confirm-button"
+      (click)="confirm()"
+      [disabled]="confirming">
+      <span *ngIf="!confirming">Confirmar</span>
+      <span *ngIf="confirming">Confirmando...</span>
+    </button>
+
+    <div *ngIf="showResendForm" class="resend-section">
+      <p class="resend-hint">¿Necesitas un nuevo enlace de verificación?</p>
+
+      <form [formGroup]="resendForm" (ngSubmit)="resendVerification()" class="resend-form">
+        <input
+          type="email"
+          formControlName="email"
+          placeholder="Tu correo electrónico"
+          class="resend-input"
+          autocomplete="email"
+        />
+
+        <button type="submit" class="resend-button" [disabled]="isResendDisabled">
+          <span *ngIf="!resendLoading && !resendCooldown.isActive">Reenviar correo</span>
+          <span *ngIf="resendLoading">Enviando...</span>
+          <span *ngIf="!resendLoading && resendCooldown.isActive">Reenviar en {{ resendCooldown.secondsRemaining }} s</span>
+        </button>
+      </form>
+
+      <p *ngIf="resendError" class="resend-error">{{ resendError }}</p>
+      <p *ngIf="resendCooldown.isActive && resendError" class="cooldown-hint">
+        Podrás intentar de nuevo en {{ resendCooldown.secondsRemaining }} s
+      </p>
+    </div>
+
+    <a routerLink="/login" class="login-link">Ir a iniciar sesión</a>
+  </div>
+</div>

@@ -1,9 +1,14 @@
 <div class="tenant-team">
+  <div *ngIf="teamToastMessage" class="team-toast" [attr.data-tone]="teamToastTone" role="status" aria-live="polite">
+    <span class="team-toast-text">{{ teamToastMessage }}</span>
+    <button type="button" class="team-toast-close" (click)="clearTeamToast()" aria-label="Cerrar mensaje">×</button>
+  </div>
+
   <div class="tenant-team-header">
     <div class="titles">
-      <h3 class="section-subtitle">Equipo</h3>
+      <h2 class="section-title">Usuarios y permisos</h2>
       <p class="section-description" *ngIf="currentTenantName">
-        Administra los usuarios, sus roles y los accesos dentro de este espacio de trabajo.
+        Administra los miembros, roles y accesos de este workspace.
       </p>
       <p class="section-description" *ngIf="!currentTenantName">
         Selecciona un workspace en la parte superior para gestionar su equipo.
@@ -12,6 +17,11 @@
         No se pudo cargar el catálogo de roles: {{ rolesError }}
       </p>
     </div>
+  </div>
+
+  <div class="roles-info-banner" *ngIf="!rolesError">
+    <span class="roles-info-icon" aria-hidden="true">i</span>
+    <span>Los roles definen qué puede ver, crear, aprobar o administrar cada miembro.</span>
   </div>
 
   <div class="tenant-team-body">
@@ -32,10 +42,12 @@
       </div>
 
       <div class="team-list-header">
-        <h4>Miembros del equipo</h4>
-        <span class="badge" *ngIf="team.length">
-          {{ team.length }} miembros
-        </span>
+        <div class="team-list-title">
+          <h4>Miembros del equipo</h4>
+          <span class="badge" *ngIf="team.length">
+            {{ team.length }} {{ team.length === 1 ? 'miembro' : 'miembros' }}
+          </span>
+        </div>
         <div class="team-list-actions">
           <button
             type="button"
@@ -51,6 +63,9 @@
             *ngIf="isWorkspaceManager()"
             (click)="openInviteModal()"
             [disabled]="!currentTenantName">
+            <svg class="button-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12h4m-2 2v-4M4 18v-1a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Zm8-10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+            </svg>
             Invitar miembro
           </button>
         </div>
@@ -75,9 +90,16 @@
           <tr *ngFor="let member of team">
             <td>
               <div class="user-cell">
-                <div class="avatar-placeholder">
-                  {{ member.fullName ? member.fullName.charAt(0).toUpperCase() : 'U' }}
-                </div>
+                <img
+                  *ngIf="getMemberAvatarUrl(member) as memberAvatarUrl; else memberInitials"
+                  [src]="memberAvatarUrl"
+                  [alt]="member.fullName || 'Usuario'"
+                  class="member-avatar-image" />
+                <ng-template #memberInitials>
+                  <div class="avatar-placeholder">
+                    {{ member.fullName ? member.fullName.charAt(0).toUpperCase() : 'U' }}
+                  </div>
+                </ng-template>
                 <div class="user-info">
                   <div class="name">{{ member.fullName || 'Usuario' }}</div>
                 </div>
@@ -96,8 +118,8 @@
                 <select
                   class="role-select"
                   [ngClass]="'role-select--' + getRoleBadgeModifier(member.roleInTenant)"
-                  [ngModel]="member.roleInTenant"
-                  [disabled]="rolePendingUserId === member.userId"
+                  [ngModel]="getSelectedRoleForMember(member)"
+                  [disabled]="rolePendingUserId === member.userId || !!pendingRoleChange"
                   (ngModelChange)="onChangeRole(member, $event)">
                   <option *ngFor="let r of assignableRoleOptions" [value]="r.code">
                     {{ getRoleDisplayLabel(r.code) }}
@@ -111,37 +133,20 @@
               </ng-template>
             </td>
             <td class="status-cell">
-              <div
-                class="toggle-switch"
-                *ngIf="canToggleMemberStatus(member)"
-                [class.toggle-switch--pending]="statusPendingUserId === member.userId">
-                <input
-                  type="checkbox"
-                  class="toggle-input"
-                  [id]="'workspace-member-active-' + member.userId"
-                  [checked]="member.isActive"
-                  [disabled]="statusPendingUserId === member.userId"
-                  (click)="onStatusToggleClick($event, member)"
-                />
-                <label
-                  [for]="'workspace-member-active-' + member.userId"
-                  class="toggle-label"
-                  [attr.aria-label]="member.isActive ? 'Activo en el workspace' : 'Inactivo en el workspace'">
-                </label>
-              </div>
-
-              <!-- Propietario del miembro, fila propia (no se gestiona el estado aquí), o sin permisos de gestión: solo texto -->
-              <span
-                *ngIf="
-                  !canToggleMemberStatus(member) &&
-                  (isMemberTenantOwner(member) ||
-                    !isWorkspaceManager() ||
-                    (currentUserId !== null && member.userId === currentUserId))
-                "
-                class="status-text"
-                [class.status-text--inactive]="!member.isActive">
+              <button
+                *ngIf="canToggleMemberStatus(member); else readonlyStatus"
+                type="button"
+                class="status-pill status-pill--button"
+                [class.status-pill--inactive]="!member.isActive"
+                [disabled]="statusPendingUserId === member.userId"
+                (click)="onStatusToggleClick($event, member)">
                 {{ member.isActive ? 'Activo' : 'Inactivo' }}
-              </span>
+              </button>
+              <ng-template #readonlyStatus>
+                <span class="status-pill" [class.status-pill--inactive]="!member.isActive">
+                  {{ member.isActive ? 'Activo' : 'Inactivo' }}
+                </span>
+              </ng-template>
             </td>
             <td>
               <button
@@ -175,7 +180,7 @@
       </div>
 
       <div class="team-list-header">
-        <h4>Invitaciones</h4>
+        <h4>Invitaciones pendientes</h4>
         <span class="badge" *ngIf="invitations.length">
           {{ invitations.length }} resultados
         </span>
@@ -184,8 +189,14 @@
       <div *ngIf="invitationsLoading" class="state-message">Cargando invitaciones...</div>
       <div *ngIf="invitationsError && !invitationsLoading" class="state-message error">{{ invitationsError }}</div>
 
-      <div *ngIf="!invitationsLoading && !invitationsError && invitations.length === 0" class="state-message">
-        No hay invitaciones para los filtros seleccionados.
+      <div *ngIf="!invitationsLoading && !invitationsError && invitations.length === 0" class="invitations-empty-state">
+        <div class="empty-icon-shell">
+          <img src="assets/Icons/comment-1-share.svg" alt="" class="empty-icon" aria-hidden="true" />
+        </div>
+        <div class="empty-copy">
+          <p class="empty-title">No hay invitaciones pendientes.</p>
+          <p class="empty-description">Invita a miembros para colaborar en publicaciones, mensajes y aprobaciones.</p>
+        </div>
       </div>
 
       <table *ngIf="!invitationsLoading && !invitationsError && invitations.length > 0" class="team-table">
@@ -386,6 +397,37 @@
 
         <div *ngIf="transferError" class="feedback-message error">{{ transferError }}</div>
         <div *ngIf="transferSuccess" class="feedback-message success">{{ transferSuccess }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal confirmación de cambio de rol -->
+  <div class="invite-modal-backdrop" *ngIf="pendingRoleChange">
+    <div class="invite-modal role-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="role-confirm-title">
+      <div class="invite-modal-header">
+        <h4 id="role-confirm-title">Cambiar rol de usuario</h4>
+        <button type="button" class="close-btn" (click)="cancelRoleChange()" aria-label="Cerrar">×</button>
+      </div>
+
+      <p class="helper-text">
+        Vas a cambiar el rol de <strong>"{{ pendingRoleChangeMemberName }}"</strong>
+        de <strong>"{{ pendingRoleChangeFromLabel }}"</strong>
+        a <strong>"{{ pendingRoleChangeToLabel }}"</strong>.
+      </p>
+
+      <p class="helper-text">
+        Este cambio modificará los permisos que tiene dentro del espacio de trabajo
+        <strong>"{{ currentWorkspaceName }}"</strong>.
+      </p>
+
+      <div class="form-actions">
+        <button type="button" class="secondary-btn" (click)="cancelRoleChange()" [disabled]="rolePendingUserId !== null">
+          Cancelar
+        </button>
+        <button type="button" class="primary-btn" (click)="confirmRoleChange()" [disabled]="rolePendingUserId !== null">
+          <span *ngIf="rolePendingUserId === null">Confirmar cambio</span>
+          <span *ngIf="rolePendingUserId !== null">Confirmando...</span>
+        </button>
       </div>
     </div>
   </div>

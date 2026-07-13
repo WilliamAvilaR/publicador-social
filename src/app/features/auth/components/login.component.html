@@ -10,15 +10,14 @@
     <h2 class="welcome-title">Iniciar Sesión</h2>
     <p class="welcome-subtitle">Accede a tu cuenta</p>
 
-    <!-- Mensaje de éxito después del registro -->
     <div *ngIf="showSuccessMessage" class="success-message">
       <svg class="success-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       <div class="success-content">
-        <strong>¡Registro exitoso!</strong>
-        <p>Tu cuenta ha sido creada. Inicia sesión con tus credenciales.</p>
+        <strong>¡Correo verificado!</strong>
+        <p>Tu cuenta está activa. Ya puedes iniciar sesión.</p>
       </div>
       <button type="button" class="close-success" (click)="closeSuccessMessage()" aria-label="Cerrar">
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -27,9 +26,36 @@
       </button>
     </div>
 
+    <!-- Cuenta solo OAuth -->
+    <div *ngIf="showOAuthOnlyHint" class="oauth-only-panel">
+      <h3 class="oauth-only-title">Esta cuenta usa inicio de sesión externo</h3>
+      <p class="oauth-only-text">
+        Continúa con Google o Microsoft, o configura una contraseña para poder iniciar sesión con email.
+      </p>
+      <div class="oauth-only-actions">
+        <button type="button" class="social-button" (click)="loginWithGoogle()" [disabled]="!!socialLoadingProvider">
+          Google
+        </button>
+        <button type="button" class="social-button" (click)="loginWithMicrosoft()" [disabled]="!!socialLoadingProvider">
+          Microsoft
+        </button>
+      </div>
+      <button type="button" class="configure-password-link" (click)="goToConfigurePassword()">
+        Configurar contraseña
+      </button>
+      <button type="button" class="dismiss-oauth-hint" (click)="dismissOAuthOnlyHint()">Cerrar</button>
+    </div>
+
     <!-- Mensaje de error -->
     <div *ngIf="errorMessage" class="error-message">
       {{ errorMessage }}
+      <button
+        *ngIf="showResendHint"
+        type="button"
+        class="resend-hint-link"
+        (click)="goToResendVerification()">
+        Reenviar correo de verificación
+      </button>
     </div>
 
     <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
@@ -86,11 +112,50 @@
         <span *ngIf="isLoading">Iniciando sesión...</span>
       </button>
 
-      <a href="#" class="forgot-password">¿Olvidaste tu contraseña?</a>
+      <a routerLink="/forgot-password" class="forgot-password">¿Olvidaste tu contraseña?</a>
     </form>
 
-    <div class="separador-login"></div>
+    <section class="auth-social">
+      <div class="auth-divider auth-divider--labeled" aria-hidden="true">
+        <span>O inicia sesión con</span>
+      </div>
 
-    <p class="signup-link">¿No tienes una cuenta? <a routerLink="/register">Registrarse</a></p>
+      <div class="social-buttons">
+      <button
+        type="button"
+        class="social-button"
+        (click)="loginWithGoogle()"
+        [disabled]="isLoading || !!socialLoadingProvider"
+        aria-label="Iniciar sesión con Google">
+        <svg class="social-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        <span>{{ socialLoadingProvider === 'google' ? 'Conectando...' : 'Google' }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="social-button"
+        (click)="loginWithMicrosoft()"
+        [disabled]="isLoading || !!socialLoadingProvider"
+        aria-label="Iniciar sesión con Microsoft">
+        <svg class="social-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#F25022" d="M1 1h10v10H1z"/>
+          <path fill="#7FBA00" d="M13 1h10v10H13z"/>
+          <path fill="#00A4EF" d="M1 13h10v10H1z"/>
+          <path fill="#FFB900" d="M13 13h10v10H13z"/>
+        </svg>
+        <span>{{ socialLoadingProvider === 'microsoft' ? 'Conectando...' : 'Microsoft' }}</span>
+      </button>
+    </div>
+    </section>
+
+    <footer class="auth-footer">
+      <div class="auth-divider"></div>
+      <p class="signup-link">¿No tienes una cuenta? <a routerLink="/register">Registrarse</a></p>
+    </footer>
   </div>
 </div>

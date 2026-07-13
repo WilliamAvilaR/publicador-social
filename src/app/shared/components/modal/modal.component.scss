@@ -32,6 +32,11 @@
   width: 100%;
   animation: slideUp 0.3s ease-out;
   overflow: hidden;
+  position: relative;
+}
+
+.modal-container--headless .modal-body--flush {
+  padding-top: 2.75rem;
 }
 
 @keyframes slideUp {
@@ -67,6 +72,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 20px 24px;
   border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
@@ -92,6 +98,7 @@
   transition: all 0.2s;
   width: 32px;
   height: 32px;
+  flex-shrink: 0;
 
   svg {
     width: 20px;
@@ -108,10 +115,21 @@
   }
 }
 
+.modal-close-btn--floating {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+}
+
 .modal-body {
   padding: 24px;
   overflow-y: auto;
   flex: 1;
+}
+
+.modal-body--flush {
+  padding: 1.5rem;
 }
 
 // Responsive

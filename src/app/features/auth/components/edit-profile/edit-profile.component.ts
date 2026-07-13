@@ -10,7 +10,8 @@ import { TenantEntitlementsResponse } from '../../../../core/models/tenant.model
 import { TenantEntitlementsService } from '../../../../core/services/tenant-entitlements.service';
 import { canUseLimit, getLimitValue, isFeatureEnabled } from '../../../../core/utils/entitlements.utils';
 import { markFormGroupTouched, isFieldInvalid } from '../../../../shared/utils/form.utils';
-import { extractErrorMessage } from '../../../../shared/utils/error.utils';
+import { extractErrorMessage, extractApiErrorCode } from '../../../../shared/utils/error.utils';
+import { getAccountSecurityErrorMessage } from '../../../../shared/utils/account-security.errors';
 import { getFieldError, validateAvatarUrl } from '../../../../shared/utils/validation.utils';
 import { ImageCroppedEvent, ImageCropperComponent } from 'ngx-image-cropper';
 
@@ -280,7 +281,12 @@ export class EditProfileComponent implements OnInit, OnDestroy {
         saveAvatarChanges();
       },
       error: (error: HttpErrorResponse) => {
-        this.finishProfileSaveError(error);
+        const code = extractApiErrorCode(error);
+        if (code === 'primary_email_change_required') {
+          this.errorMessage = getAccountSecurityErrorMessage(code);
+        } else {
+          this.finishProfileSaveError(error);
+        }
       }
     });
 

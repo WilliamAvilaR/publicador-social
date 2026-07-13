@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { tenantSetupGuard, onboardingGuard } from './core/guards/tenant-setup.guard';
 
 export const routes: Routes = [
   {
@@ -16,9 +17,34 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/components/register.component').then(m => m.RegisterComponent)
   },
   {
+    path: 'register/check-email',
+    loadComponent: () => import('./features/auth/components/register-check-email.component').then(m => m.RegisterCheckEmailComponent)
+  },
+  {
+    path: 'verify-email',
+    loadComponent: () => import('./features/auth/components/verify-email.component').then(m => m.VerifyEmailComponent)
+  },
+  {
+    path: 'forgot-password',
+    loadComponent: () => import('./features/auth/components/forgot-password.component').then(m => m.ForgotPasswordComponent)
+  },
+  {
+    path: 'reset-password',
+    loadComponent: () => import('./features/auth/components/reset-password.component').then(m => m.ResetPasswordComponent)
+  },
+  {
+    path: 'auth/callback',
+    loadComponent: () => import('./features/auth/components/auth-callback.component').then(m => m.AuthCallbackComponent)
+  },
+  {
+    path: 'onboarding',
+    loadComponent: () => import('./features/auth/components/onboarding.component').then(m => m.OnboardingComponent),
+    canActivate: [onboardingGuard]
+  },
+  {
     path: 'dashboard',
     loadComponent: () => import('./features/dashboard/components/dashboard/dashboard.component').then(m => m.DashboardComponent),
-    canActivate: [authGuard],
+    canActivate: [authGuard, tenantSetupGuard],
     children: [
       {
         path: '',
@@ -137,5 +163,33 @@ export const routes: Routes = [
   {
     path: 'accept-invitation',
     loadComponent: () => import('./features/auth/components/accept-invitation.component').then(m => m.AcceptInvitationComponent)
+  },
+  {
+    path: 'invite',
+    redirectTo: 'accept-invitation'
+  },
+  {
+    path: 'account/security',
+    loadComponent: () =>
+      import('./features/account/components/account-security-redirect/account-security-redirect.component').then(
+        m => m.AccountSecurityRedirectComponent
+      ),
+    canActivate: [authGuard, tenantSetupGuard]
+  },
+  {
+    path: 'account/security/link-review',
+    loadComponent: () =>
+      import('./features/account/components/account-security-redirect/account-security-redirect.component').then(
+        m => m.AccountSecurityRedirectComponent
+      ),
+    canActivate: [authGuard, tenantSetupGuard]
+  },
+  {
+    path: 'account/security/link-challenge',
+    loadComponent: () => import('./features/account/components/link-challenge/link-challenge.component').then(m => m.LinkChallengeComponent)
+  },
+  {
+    path: 'account/email/confirm',
+    loadComponent: () => import('./features/account/components/email-confirm/email-confirm.component').then(m => m.EmailConfirmComponent)
   }
 ];

@@ -1,0 +1,176 @@
+@if (stepUpService.showModal$ | async) {
+  <div
+    class="step-up-overlay"
+    role="presentation"
+    (click)="onBackdropClick($event)">
+    <div
+      class="step-up-panel"
+      [class.step-up-panel--link]="isLinkStepUp"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="step-up-title"
+      (click)="$event.stopPropagation()">
+      <button
+        type="button"
+        class="step-up-close-btn"
+        (click)="onCancel()"
+        aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      @if (isLinkStepUp && linkTargetProvider; as provider) {
+        <h2 id="step-up-title">Confirma tu identidad</h2>
+
+        <p class="step-up-subtitle">
+          Por seguridad, introduce tu contraseña antes de vincular tu cuenta de {{ providerLabel(provider) }}:
+        </p>
+
+        <div class="provider-card">
+          <span
+            class="provider-card-icon"
+            [class.provider-card-icon--google]="provider === 'google'"
+            [class.provider-card-icon--microsoft]="provider === 'microsoft'"
+            aria-hidden="true">
+            @if (provider === 'google') {
+              <svg viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+            } @else {
+              <svg viewBox="0 0 24 24">
+                <path fill="#F25022" d="M1 1h10v10H1z"/>
+                <path fill="#7FBA00" d="M13 1h10v10H13z"/>
+                <path fill="#00A4EF" d="M1 13h10v10H1z"/>
+                <path fill="#FFB900" d="M13 13h10v10H13z"/>
+              </svg>
+            }
+          </span>
+          <div class="provider-card-content">
+            <span class="provider-card-name">{{ providerLabel(provider) }}</span>
+            <span class="provider-card-meta">Nuevo método de acceso</span>
+          </div>
+        </div>
+
+        @if (stepUpService.modalUi$ | async; as ui) {
+          @if (ui.errorMessage) {
+            <div class="error-message">{{ ui.errorMessage }}</div>
+          }
+
+          @if (ui.loadingMethods) {
+            <p class="loading">Actualizando métodos...</p>
+          }
+
+          @if (ui.canStepUpWithPassword) {
+            <form [formGroup]="form" (ngSubmit)="onSubmitPassword()" class="step-up-form step-up-form--link">
+              <label for="stepUpPassword" class="field-label">Contraseña</label>
+              <div class="password-input-wrap">
+                <input
+                  id="stepUpPassword"
+                  [type]="showPassword ? 'text' : 'password'"
+                  formControlName="password"
+                  autocomplete="current-password"
+                  placeholder="Tu contraseña"
+                  class="password-input"
+                />
+                <button
+                  type="button"
+                  class="toggle-password"
+                  (click)="togglePasswordVisibility()"
+                  aria-label="Mostrar u ocultar contraseña">
+                  @if (!showPassword) {
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 12S5 4 12 4S23 12 23 12S19 20 12 20S1 12 1 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  } @else {
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C7 20 2.73 16.39 1 12C2.73 7.61 7 4 12 4C16.39 4 20.73 7.61 22 12C21.27 14.39 19.94 16.39 17.94 17.94Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M1 1L23 23" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  }
+                </button>
+              </div>
+
+              <div class="step-up-actions">
+                <button type="button" class="btn-secondary" (click)="onCancel()">Cancelar</button>
+                <button type="submit" class="btn-primary" [disabled]="submitting">
+                  {{ submitting ? 'Verificando...' : 'Confirmar y continuar' }}
+                </button>
+              </div>
+            </form>
+          } @else if (!ui.loadingMethods) {
+            <div class="step-up-actions step-up-actions--single">
+              <button type="button" class="btn-secondary" (click)="onCancel()">Cancelar</button>
+            </div>
+          }
+        }
+      } @else {
+        <h2 id="step-up-title">Confirma tu identidad</h2>
+
+        @if (stepUpService.modalUi$ | async; as ui) {
+          <p class="step-up-subtitle">
+            @if (ui.passwordOnlyStepUp) {
+              Confirma tu contraseña para desvincular el proveedor.
+            } @else {
+              Por seguridad, verifica tu identidad antes de continuar.
+            }
+          </p>
+
+          @if (ui.errorMessage) {
+            <div class="error-message">{{ ui.errorMessage }}</div>
+          }
+
+          @if (ui.loadingMethods) {
+            <p class="loading">Actualizando métodos...</p>
+          }
+
+          @if (ui.canStepUpWithPassword) {
+            <form [formGroup]="form" (ngSubmit)="onSubmitPassword()" class="step-up-form">
+              <label for="stepUpPasswordLegacy">Contraseña</label>
+              <div class="password-row">
+                <input
+                  id="stepUpPasswordLegacy"
+                  [type]="showPassword ? 'text' : 'password'"
+                  formControlName="password"
+                  autocomplete="current-password"
+                  placeholder="Tu contraseña"
+                />
+                <button type="button" class="toggle-btn" (click)="togglePasswordVisibility()">
+                  {{ showPassword ? 'Ocultar' : 'Mostrar' }}
+                </button>
+              </div>
+              <button type="submit" class="primary-btn" [disabled]="submitting">
+                {{ submitting ? 'Verificando...' : 'Confirmar con contraseña' }}
+              </button>
+            </form>
+          }
+
+          @if (ui.canStepUpWithPassword && ui.linkedOAuthProviders.length) {
+            <div class="divider">o</div>
+          }
+
+          @if (ui.linkedOAuthProviders.length) {
+            <div class="oauth-buttons">
+              @for (provider of ui.linkedOAuthProviders; track provider) {
+                <button
+                  type="button"
+                  class="oauth-btn"
+                  (click)="startOAuthStepUp(provider)"
+                  [disabled]="!!oauthLoading || submitting">
+                  {{ oauthLoading === provider ? 'Redirigiendo...' : ('Continuar con ' + providerLabel(provider)) }}
+                </button>
+              }
+            </div>
+          }
+        }
+
+        <button type="button" class="cancel-btn" (click)="onCancel()">Cancelar</button>
+      }
+    </div>
+  </div>
+}
