@@ -22,7 +22,9 @@ const PUBLIC_API_ROUTES = [
   '/api/Account/forgot-password',
   '/api/Account/reset-password',
   '/api/invitations/',
-  '/api/account/email/confirm'
+  '/api/account/email/confirm',
+  '/api/account/email/confirm/preview',
+  '/api/catalogs/phone-countries'
 ];
 
 const EXTERNAL_AUTH_PUBLIC_PATTERNS = [

@@ -55,7 +55,8 @@ export interface RegisterRequest {
   lastName: string;
   email: string;
   password: string;
-  telephone: string;
+  telephone: string | null;
+  telephoneCountry?: string | null;
   rol: string;
   tenantName?: string;
 }
@@ -137,7 +138,8 @@ export interface UpdateProfileRequest {
   firstName: string;
   lastName: string;
   email: string;
-  telephone: string;
+  telephone: string | null;
+  telephoneCountry?: string | null;
   dateBird: string; // Formato: YYYY-MM-DD
 }
 
@@ -150,9 +152,12 @@ export interface UpdateProfileResponse {
     firstName: string;
     lastName: string;
     telephone: string;
+    telephoneCountry?: string | null;
     dateBird: string;
     isActive: boolean;
     avatarUrl: string;
+    publicId?: string | null;
+    createdAt?: string | null;
     hasLocalPassword?: boolean;
     authTime?: number | null;
     requiresStepUp?: boolean;
@@ -178,9 +183,12 @@ export interface UserProfileData {
   firstName?: string;
   lastName?: string;
   telephone?: string;
+  telephoneCountry?: string | null;
   dateBird?: string;
   isActive?: boolean;
   avatarUrl?: string;
+  publicId?: string | null;
+  createdAt?: string | null;
 }
 
 export interface UploadAvatarResponse {

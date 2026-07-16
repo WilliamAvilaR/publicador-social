@@ -115,7 +115,7 @@
         @if (stepUpService.modalUi$ | async; as ui) {
           <p class="step-up-subtitle">
             @if (ui.passwordOnlyStepUp) {
-              Confirma tu contraseña para desvincular el proveedor.
+              {{ passwordOnlySubtitle }}
             } @else {
               Por seguridad, verifica tu identidad antes de continuar.
             }

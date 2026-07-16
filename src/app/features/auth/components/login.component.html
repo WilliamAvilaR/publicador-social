@@ -30,20 +30,8 @@
     <div *ngIf="showOAuthOnlyHint" class="oauth-only-panel">
       <h3 class="oauth-only-title">Esta cuenta usa inicio de sesión externo</h3>
       <p class="oauth-only-text">
-        Continúa con Google o Microsoft, o configura una contraseña para poder iniciar sesión con email.
+        Continúa con Google o Microsoft y configura una contraseña para poder iniciar sesión con email.
       </p>
-      <div class="oauth-only-actions">
-        <button type="button" class="social-button" (click)="loginWithGoogle()" [disabled]="!!socialLoadingProvider">
-          Google
-        </button>
-        <button type="button" class="social-button" (click)="loginWithMicrosoft()" [disabled]="!!socialLoadingProvider">
-          Microsoft
-        </button>
-      </div>
-      <button type="button" class="configure-password-link" (click)="goToConfigurePassword()">
-        Configurar contraseña
-      </button>
-      <button type="button" class="dismiss-oauth-hint" (click)="dismissOAuthOnlyHint()">Cerrar</button>
     </div>
 
     <!-- Mensaje de error -->

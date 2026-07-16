@@ -1,34 +1,111 @@
 <section class="security-card email-change">
   <h3 class="card-title">Correo principal</h3>
 
-  <div class="current-email-block">
-    <span class="field-label">Correo actual</span>
-    <p class="current-email">{{ currentEmail || '—' }}</p>
-  </div>
+  <div *ngIf="pendingLoading" class="email-change-loading">Cargando estado del correo...</div>
 
-  <form [formGroup]="form" (ngSubmit)="onSubmit()" class="email-form">
-    <label for="newEmail" class="field-label">Nuevo correo electrónico</label>
-    <div class="input-with-icon">
-      <span class="input-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M4 6h16v12H4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-          <path d="M4 7l8 6 8-6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-        </svg>
-      </span>
-      <input
-        id="newEmail"
-        type="email"
-        formControlName="newEmail"
-        autocomplete="email"
-        placeholder="Introduce tu nuevo correo electrónico"
-      />
+  <ng-container *ngIf="!pendingLoading">
+    <div class="current-email-block">
+      <span class="field-label">Correo actual</span>
+      <p class="current-email">{{ currentEmail || '—' }}</p>
     </div>
 
-    <div class="form-footer">
-      <p class="form-hint">Te enviaremos un enlace de verificación al nuevo correo.</p>
-      <button type="submit" class="btn-primary" [disabled]="submitting">
-        {{ submitting ? 'Enviando...' : 'Enviar enlace de verificación' }}
+    <div *ngIf="hasPendingChange && pending as p" class="pending-change-block">
+      <div class="pending-change-header">
+        <span class="field-label">Cambio pendiente</span>
+        <span class="pending-badge">Pendiente</span>
+      </div>
+      <p class="pending-email">{{ p.pendingNewEmail }}</p>
+      <p class="pending-hint">
+        Enviamos un enlace de verificación al nuevo correo.
+        Tu correo actual seguirá activo hasta completar la verificación.
+      </p>
+      <div class="pending-actions">
+        <button
+          type="button"
+          class="btn-outline"
+          [disabled]="isResendDisabled"
+          (click)="onResend()">
+          <span *ngIf="resendLoading">Enviando...</span>
+          <span *ngIf="!resendLoading && resendCooldown.isActive">
+            Reenviar en {{ resendCooldown.secondsRemaining }} s
+          </span>
+          <span *ngIf="!resendLoading && !resendCooldown.isActive">Reenviar enlace</span>
+        </button>
+        <button
+          type="button"
+          class="btn-danger-text"
+          [disabled]="cancelLoading || resendLoading"
+          (click)="openCancelModal()">
+          Cancelar solicitud
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="ready && !canChangeEmail && !hasPendingChange" class="email-change-notice" role="note">
+      <p class="email-change-notice-text">{{ passwordRequiredMessage }}</p>
+      <button
+        *ngIf="canConfigurePassword"
+        type="button"
+        class="btn-outline"
+        (click)="onConfigurePassword()">
+        Crear contraseña
       </button>
     </div>
-  </form>
+
+    <form
+      *ngIf="ready && canChangeEmail && !hasPendingChange"
+      [formGroup]="form"
+      (ngSubmit)="onSubmit()"
+      class="email-form">
+      <label for="newEmail" class="field-label">Nuevo correo electrónico</label>
+      <div class="input-with-icon">
+        <span class="input-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M4 6h16v12H4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M4 7l8 6 8-6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <input
+          id="newEmail"
+          type="email"
+          formControlName="newEmail"
+          autocomplete="email"
+          placeholder="Introduce tu nuevo correo electrónico"
+          [disabled]="!ready || submitting"
+          [class.invalid]="isFieldInvalid('newEmail')"
+        />
+      </div>
+      <div *ngIf="isFieldInvalid('newEmail')" class="field-error">
+        {{ getFieldError('newEmail') }}
+      </div>
+
+      <div class="form-footer">
+        <p class="form-hint">Te enviaremos un enlace de verificación al nuevo correo.</p>
+        <button type="submit" class="btn-primary" [disabled]="isSubmitDisabled">
+          {{ submitting ? 'Enviando...' : 'Enviar enlace de verificación' }}
+        </button>
+      </div>
+    </form>
+  </ng-container>
 </section>
+
+<app-modal
+  [show]="cancelModalOpen"
+  title="Cancelar cambio de correo"
+  size="small"
+  [zIndex]="1100"
+  [allowBackdropClose]="!cancelLoading"
+  (close)="closeCancelModal()">
+  <p class="cancel-modal-text" *ngIf="pending as p">
+    Se cancelará la solicitud para cambiar tu correo a
+    <strong>{{ p.pendingNewEmail }}</strong>.
+  </p>
+  <div class="cancel-modal-actions">
+    <button type="button" class="btn-secondary" [disabled]="cancelLoading" (click)="closeCancelModal()">
+      Volver
+    </button>
+    <button type="button" class="btn-danger" [disabled]="cancelLoading" (click)="confirmCancel()">
+      {{ cancelLoading ? 'Cancelando...' : 'Cancelar solicitud' }}
+    </button>
+  </div>
+</app-modal>

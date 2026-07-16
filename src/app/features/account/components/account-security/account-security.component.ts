@@ -66,6 +66,7 @@ export class AccountSecurityComponent implements OnInit, OnDestroy {
   passwordModalDirty = false;
 
   @ViewChild('linkReviewModal') linkReviewModal?: LinkReviewComponent;
+  @ViewChild(EmailChangeComponent) emailChangePanel?: EmailChangeComponent;
 
   private subscriptions = new Subscription();
 
@@ -86,6 +87,16 @@ export class AccountSecurityComponent implements OnInit, OnDestroy {
       if (params['linked'] === '1') {
         this.securityToast.showSuccess('Proveedor vinculado correctamente.');
         this.linkReviewModalOpen = false;
+      }
+      if (params['emailUpdated'] === '1') {
+        this.securityToast.showSuccess('Correo principal actualizado correctamente.');
+        this.emailChangePanel?.loadPending();
+        this.router.navigate([], {
+          relativeTo: queryRoute,
+          queryParams: { emailUpdated: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true
+        });
       }
       if (params['linkReview'] === '1') {
         this.openLinkReviewModal();
@@ -110,6 +121,14 @@ export class AccountSecurityComponent implements OnInit, OnDestroy {
     return this.methods.filter(method => method.type !== 'local');
   }
 
+  get canChangeEmail(): boolean {
+    return this.hasLocalPassword || (this.passwordCapabilities?.configured ?? false);
+  }
+
+  get canConfigurePasswordForEmailChange(): boolean {
+    return this.passwordCapabilities?.canSet ?? this.passwordMethod?.canConfigure ?? false;
+  }
+
   loadMethods(): void {
     this.loading = true;
     const sub = this.accountSecurity.getAuthenticationMethods().subscribe({
@@ -128,6 +147,10 @@ export class AccountSecurityComponent implements OnInit, OnDestroy {
       }
     });
     this.subscriptions.add(sub);
+  }
+
+  onEmailChangeUpdated(): void {
+    this.loadMethods();
   }
 
   methodLabel(method: AuthenticationMethodDto): string {

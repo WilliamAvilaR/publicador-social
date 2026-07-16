@@ -17,38 +17,101 @@
     </div>
 
     <div class="session-actions">
-      <button type="button" class="btn-outline" (click)="toggleSessionsList()" [disabled]="loading">
-        {{ sessionsListOpen ? 'Ocultar sesiones' : 'Ver sesiones' }}
-      </button>
-      <button type="button" class="btn-outline" (click)="revokeOthers()" [disabled]="!!actionLoading || loading || sessionCount === 0">
-        Cerrar sesiones en otros dispositivos
-      </button>
-      <button type="button" class="btn-danger-outline" (click)="revokeAll()" [disabled]="!!actionLoading || loading || sessionCount === 0">
-        Cerrar todas las sesiones
-      </button>
-    </div>
-  </div>
-
-  <div class="sessions-list" *ngIf="sessionsListOpen && !loading">
-    <div class="session-card" *ngFor="let session of sessions">
-      <div>
-        <strong>{{ session.deviceLabel }}</strong>
-        <span *ngIf="session.isCurrent" class="badge current">Sesión actual</span>
-        <div class="meta">
-          <span *ngIf="session.ipAddress">IP: {{ session.ipAddress }}</span>
-          <span>Última actividad: {{ session.lastSeenAt | date:'short' }}</span>
-        </div>
-      </div>
       <button
-        *ngIf="session.isCurrent"
         type="button"
-        class="btn-outline btn-outline--small"
-        (click)="revokeCurrent(session)"
-        [disabled]="!!actionLoading">
-        Cerrar esta sesión
+        class="btn-outline"
+        (click)="openManageModal()"
+        [disabled]="loading"
+        aria-haspopup="dialog">
+        Administrar sesiones
       </button>
     </div>
-
-    <p *ngIf="sessions.length === 0" class="empty-state">No hay sesiones activas para mostrar.</p>
   </div>
 </section>
+
+<app-modal
+  [show]="manageOpen"
+  title="Administrar sesiones"
+  size="medium"
+  [zIndex]="1100"
+  [allowBackdropClose]="!actionLoading"
+  [closable]="!actionLoading"
+  (close)="closeManageModal()">
+  <div class="sessions-manage">
+    <p class="manage-intro">
+      Aquí puedes revisar la sesión de este dispositivo, ver otras sesiones activas y cerrarlas.
+    </p>
+
+    <div *ngIf="loading" class="manage-loading">Cargando sesiones...</div>
+
+    <ng-container *ngIf="!loading">
+      <section class="manage-section" *ngIf="currentSession as current">
+        <h4 class="manage-section-title">Sesión actual</h4>
+        <div class="session-card session-card--current">
+          <div class="session-card-body">
+            <div class="session-card-heading">
+              <strong>{{ current.deviceLabel }}</strong>
+              <span class="badge current">Este dispositivo</span>
+            </div>
+            <div class="meta">
+              <span *ngIf="current.ipAddress">IP: {{ current.ipAddress }}</span>
+              <span>Última actividad: {{ current.lastSeenAt | date:'short' }}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="btn-outline btn-outline--small"
+            (click)="revokeCurrent(current)"
+            [disabled]="!!actionLoading">
+            Cerrar esta sesión
+          </button>
+        </div>
+      </section>
+
+      <section class="manage-section">
+        <h4 class="manage-section-title">Otras sesiones</h4>
+
+        <div *ngIf="otherSessions.length === 0" class="empty-state">
+          No hay sesiones en otros dispositivos.
+        </div>
+
+        <div class="session-card" *ngFor="let session of otherSessions">
+          <div class="session-card-body">
+            <div class="session-card-heading">
+              <strong>{{ session.deviceLabel }}</strong>
+            </div>
+            <div class="meta">
+              <span *ngIf="session.ipAddress">IP: {{ session.ipAddress }}</span>
+              <span>Última actividad: {{ session.lastSeenAt | date:'short' }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="manage-actions" *ngIf="sessionCount > 0">
+        <h4 class="manage-section-title">Acciones</h4>
+        <p class="manage-actions-hint">
+          Usa estas opciones para cerrar varias sesiones a la vez. Algunas pueden pedir confirmar tu identidad.
+        </p>
+
+        <button
+          type="button"
+          class="btn-outline manage-action-btn"
+          (click)="revokeOthers()"
+          [disabled]="!!actionLoading || otherSessions.length === 0">
+          Cerrar las demás sesiones
+        </button>
+
+        <button
+          type="button"
+          class="btn-danger-outline manage-action-btn"
+          (click)="revokeAll()"
+          [disabled]="!!actionLoading">
+          Cerrar todas las sesiones, incluida la actual
+        </button>
+      </section>
+
+      <p *ngIf="sessionCount === 0" class="empty-state">No hay sesiones activas para mostrar.</p>
+    </ng-container>
+  </div>
+</app-modal>

@@ -4,27 +4,145 @@
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
+  background: #f8fafc;
 }
 
 .email-confirm-panel {
   width: 100%;
-  max-width: 440px;
+  max-width: 480px;
   padding: 2rem;
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
 }
 
-.success-message {
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.logo-text {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #101828;
+}
+
+.separador-login {
+  height: 1px;
+  background: #eaecf0;
+  margin-bottom: 1.5rem;
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  font-size: 1.35rem;
+  color: #101828;
+}
+
+.subtitle {
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #667085;
+}
+
+.hint {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+  color: #667085;
+}
+
+.loading-state {
+  text-align: center;
+}
+
+.status-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.status-icon--success {
   color: #027a48;
+  background: #ecfdf3;
 }
 
-.error-message {
-  color: #b42318;
+.status-icon svg {
+  width: 28px;
+  height: 28px;
 }
 
-.back-link {
-  display: inline-block;
-  margin-top: 1rem;
-  color: #2563eb;
+.email-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.email-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #667085;
+}
+
+.value,
+.highlight-email {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #101828;
+  word-break: break-all;
+}
+
+.highlight-email {
+  margin: 0 0 0.5rem;
+}
+
+.primary-btn,
+.secondary-btn {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-btn {
+  border: none;
+  background: #2563eb;
+  color: #fff;
+}
+
+.secondary-btn {
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #344054;
+}
+
+.action-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }

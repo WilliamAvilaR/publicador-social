@@ -33,7 +33,7 @@
     "SELECT_FORMAT": "Seleccionar formato",
     "SELECT_THEME": "Seleccionar tema",
     "LOADING_PREFERENCES": "Cargando preferencias...",
-    "SAVE_PREFERENCES": "Guardar Preferencias",
+    "SAVE_PREFERENCES": "Guardar preferencias",
     "UPDATED_SUCCESS": "Preferencias actualizadas exitosamente",
     "LANGUAGES": {
       "ES": "Español",
@@ -75,10 +75,21 @@
     "SECURITY": "Seguridad",
     "NOTIFICATIONS": "Notificaciones",
     "PREFERENCES": "Preferencias",
-    "PROFILE_INFO": "Mi Perfil",
+    "PROFILE_INFO": "Perfil",
+    "PROFILE_DESCRIPTION": "Administra tu información personal y la forma en que apareces en la plataforma.",
     "SECURITY_TITLE": "Seguridad",
+    "SECURITY_DESCRIPTION": "Administra tus métodos de inicio de sesión, sesiones activas y opciones de protección de la cuenta.",
     "NOTIFICATIONS_TITLE": "Notificaciones",
     "PREFERENCES_TITLE": "Preferencias",
     "NOTIFICATIONS_COMING_SOON": "Las preferencias de notificaciones estarán disponibles próximamente."
+  },
+  "PHONE_FIELD": {
+    "LABEL": "Teléfono",
+    "COUNTRY_ARIA_LABEL": "País del teléfono",
+    "NUMBER_ARIA_LABEL": "Número de teléfono",
+    "SEARCH_PLACEHOLDER": "Buscar país, código o indicativo",
+    "NO_RESULTS": "No se encontraron países",
+    "REQUIRED": "Este campo es obligatorio",
+    "INVALID": "Introduce un número de teléfono válido para el país seleccionado."
   }
 }

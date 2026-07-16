@@ -11,18 +11,19 @@ import { UserSessionDto } from '../../../../core/models/account-security.model';
 import { extractApiErrorCode } from '../../../../shared/utils/error.utils';
 import { getAccountSecurityErrorMessage } from '../../../../shared/utils/account-security.errors';
 import { SecurityToastService } from '../../services/security-toast.service';
+import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 
 @Component({
   selector: 'app-connected-sessions',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ModalComponent],
   templateUrl: './connected-sessions.component.html',
   styleUrl: './connected-sessions.component.scss'
 })
 export class ConnectedSessionsComponent implements OnInit, OnDestroy {
   sessions: UserSessionDto[] = [];
   loading = true;
-  sessionsListOpen = false;
+  manageOpen = false;
   actionLoading: string | null = null;
 
   private subscriptions = new Subscription();
@@ -51,6 +52,14 @@ export class ConnectedSessionsComponent implements OnInit, OnDestroy {
     return new Set((this.sessions ?? []).map(session => session.deviceLabel)).size;
   }
 
+  get currentSession(): UserSessionDto | undefined {
+    return this.sessions.find(session => session.isCurrent);
+  }
+
+  get otherSessions(): UserSessionDto[] {
+    return this.sessions.filter(session => !session.isCurrent);
+  }
+
   get sessionSummary(): string {
     if (this.loading) {
       return 'Cargando sesiones activas...';
@@ -59,6 +68,18 @@ export class ConnectedSessionsComponent implements OnInit, OnDestroy {
       return 'No tienes sesiones activas';
     }
     return `Tienes ${this.sessionCount} sesiones activas en ${this.deviceCount} dispositivos`;
+  }
+
+  openManageModal(): void {
+    this.manageOpen = true;
+    this.loadSessions();
+  }
+
+  closeManageModal(): void {
+    if (this.actionLoading) {
+      return;
+    }
+    this.manageOpen = false;
   }
 
   loadSessions(): void {
@@ -74,10 +95,6 @@ export class ConnectedSessionsComponent implements OnInit, OnDestroy {
       }
     });
     this.subscriptions.add(sub);
-  }
-
-  toggleSessionsList(): void {
-    this.sessionsListOpen = !this.sessionsListOpen;
   }
 
   revokeCurrent(session: UserSessionDto): void {

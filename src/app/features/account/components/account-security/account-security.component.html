@@ -1,10 +1,10 @@
 <div class="account-security" [class.embedded]="embedded">
   <app-security-toast></app-security-toast>
 
-  <div *ngIf="loading" class="loading">Cargando métodos de acceso...</div>
+  <div *ngIf="loading" class="loading">Cargando métodos de inicio de sesión...</div>
 
   <section *ngIf="!loading" class="security-card methods-card">
-    <h3 class="card-title">Métodos de acceso</h3>
+    <h3 class="card-title">Métodos de inicio de sesión</h3>
     <p *ngIf="requiresStepUp" class="card-hint">Algunas acciones requieren confirmar tu identidad.</p>
 
     <div class="method-list">
@@ -37,7 +37,7 @@
               [disabled]="!!actionLoading"
               (click)="openPasswordModal()"
               aria-haspopup="dialog">
-              Configurar contraseña
+              Crear contraseña
             </button>
             <button
               *ngIf="pwd.linked"
@@ -104,7 +104,13 @@
 
   <app-connected-sessions></app-connected-sessions>
 
-  <app-email-change (emailChangeRequested)="loadMethods()"></app-email-change>
+  <app-email-change
+    [ready]="!loading"
+    [canChangeEmail]="canChangeEmail"
+    [canConfigurePassword]="canConfigurePasswordForEmailChange"
+    (emailChangeRequested)="onEmailChangeUpdated()"
+    (configurePasswordRequested)="openPasswordModal()">
+  </app-email-change>
 
   <app-modal
     [show]="securityErrorModalOpen"

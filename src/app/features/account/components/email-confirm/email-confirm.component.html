@@ -1,11 +1,98 @@
 <div class="email-confirm-container">
   <div class="email-confirm-panel">
-    <h1>Confirmar cambio de correo</h1>
+    <div class="logo-container">
+      <img src="assets/logoSocial.png" alt="Social Automate Logo" class="logo-icon" />
+      <h1 class="logo-text">Social Automate</h1>
+    </div>
 
-    <div *ngIf="processing" class="loading">Verificando enlace...</div>
-    <div *ngIf="successMessage" class="success-message">{{ successMessage }}</div>
-    <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
+    <div class="separador-login"></div>
 
-    <a *ngIf="!processing" routerLink="/login" class="back-link">Ir al inicio de sesión</a>
+    <div *ngIf="view === 'loading' || view === 'confirming'" class="loading-state">
+      <h2>{{ view === 'confirming' ? 'Confirmando cambio...' : 'Verificando enlace...' }}</h2>
+      <p class="subtitle">Espera un momento.</p>
+    </div>
+
+    <ng-container *ngIf="view === 'ready'">
+      <h2 class="title">Confirmar nuevo correo</h2>
+      <p class="subtitle">
+        Estás a punto de cambiar el correo principal de tu cuenta.
+      </p>
+      <div class="email-summary">
+        <div *ngIf="preview?.currentEmail" class="email-row">
+          <span class="label">Correo actual</span>
+          <span class="value">{{ preview?.currentEmail }}</span>
+        </div>
+        <div class="email-row">
+          <span class="label">Nuevo correo</span>
+          <span class="value">{{ preview?.pendingNewEmail || preview?.newEmail }}</span>
+        </div>
+      </div>
+      <button type="button" class="primary-btn" (click)="confirm()">
+        Confirmar nuevo correo
+      </button>
+    </ng-container>
+
+    <ng-container *ngIf="view === 'success'">
+      <div class="status-icon status-icon--success" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2"/>
+          <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2"/>
+        </svg>
+      </div>
+      <h2 class="title">Correo actualizado</h2>
+      <p class="subtitle">Tu correo principal ahora es:</p>
+      <p class="highlight-email">{{ successEmail }}</p>
+      <p class="hint">Ya puedes usarlo para iniciar sesión.</p>
+      <button type="button" class="primary-btn" (click)="goToSecurity()">
+        Ir a Seguridad
+      </button>
+    </ng-container>
+
+    <ng-container *ngIf="view === 'expired'">
+      <h2 class="title">El enlace venció</h2>
+      <p class="subtitle">{{ message }}</p>
+      <button type="button" class="primary-btn" (click)="goToSecurity()">
+        Volver a Seguridad
+      </button>
+    </ng-container>
+
+    <ng-container *ngIf="view === 'used'">
+      <h2 class="title">Este enlace ya fue utilizado</h2>
+      <p class="subtitle">{{ message }}</p>
+      <button type="button" class="primary-btn" (click)="goToSecurity()">
+        Ir a Seguridad
+      </button>
+    </ng-container>
+
+    <ng-container *ngIf="view === 'cancelled'">
+      <h2 class="title">Esta solicitud fue cancelada</h2>
+      <p class="subtitle">{{ message }}</p>
+      <button type="button" class="primary-btn" (click)="goToSecurity()">
+        Ir a Seguridad
+      </button>
+    </ng-container>
+
+    <ng-container *ngIf="view === 'conflict'">
+      <h2 class="title">No se pudo cambiar el correo</h2>
+      <p class="subtitle">
+        <strong>{{ conflictEmail }}</strong> ya pertenece a otra cuenta de Social Automate.
+      </p>
+      <div class="action-row">
+        <button type="button" class="secondary-btn" (click)="useAnotherEmail()">
+          Usar otro correo
+        </button>
+        <button type="button" class="primary-btn" (click)="goToLogin()">
+          Iniciar sesión con esa cuenta
+        </button>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="view === 'invalid'">
+      <h2 class="title">Enlace no válido</h2>
+      <p class="subtitle">{{ message }}</p>
+      <button type="button" class="primary-btn" (click)="goToSecurity()">
+        Volver a Seguridad
+      </button>
+    </ng-container>
   </div>
 </div>

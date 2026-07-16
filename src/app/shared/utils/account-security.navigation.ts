@@ -6,6 +6,7 @@ export const ACCOUNT_SECURITY_PATH = '/dashboard/configuracion';
 export interface NavigateToAccountSecurityOptions {
   linked?: boolean;
   linkReview?: boolean;
+  emailUpdated?: boolean;
   replaceUrl?: boolean;
 }
 
@@ -18,6 +19,9 @@ export function buildAccountSecurityQueryParams(
   }
   if (options?.linkReview) {
     queryParams['linkReview'] = '1';
+  }
+  if (options?.emailUpdated) {
+    queryParams['emailUpdated'] = '1';
   }
   return queryParams;
 }

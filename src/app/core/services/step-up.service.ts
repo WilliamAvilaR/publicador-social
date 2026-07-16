@@ -35,6 +35,9 @@ const EMPTY_MODAL_UI: StepUpModalUiState = {
 export const UNLINK_PASSWORD_REQUIRED_MESSAGE =
   'Para desvincular un proveedor debes configurar una contraseña en tu cuenta.';
 
+export const EMAIL_CHANGE_PASSWORD_REQUIRED_MESSAGE =
+  'Para cambiar tu correo principal debes configurar una contraseña en tu cuenta.';
+
 @Injectable({ providedIn: 'root' })
 export class StepUpService {
   private readonly modalOpenSubject = new BehaviorSubject(false);
@@ -103,6 +106,22 @@ export class StepUpService {
       .map(method => method.type as ExternalAuthProvider);
   }
 
+  static hasLocalPasswordConfigured(data: AuthMethodsSnapshot | null | undefined): boolean {
+    if (!data) {
+      return false;
+    }
+    return data.hasLocalPassword === true || data.password?.configured === true;
+  }
+
+  static isPasswordOnlyOperation(
+    operation: PendingSecurityOperation | null | undefined
+  ): boolean {
+    return (
+      StepUpService.isUnlinkOperation(operation) ||
+      operation === 'email_change'
+    );
+  }
+
   static isUnlinkOperation(
     operation: PendingSecurityOperation | null | undefined
   ): operation is 'unlink_google' | 'unlink_microsoft' {
@@ -114,8 +133,8 @@ export class StepUpService {
     loadingMethods: boolean
   ): StepUpModalUiState {
     const operation = this.flowState.pendingOperation;
-    const passwordOnlyStepUp = StepUpService.isUnlinkOperation(operation);
-    const canStepUpWithPassword = StepUpService.canUsePasswordStepUp(data);
+    const passwordOnlyStepUp = StepUpService.isPasswordOnlyOperation(operation);
+    const canStepUpWithPassword = StepUpService.hasLocalPasswordConfigured(data);
     const linkedOAuthProviders = passwordOnlyStepUp
       ? []
       : StepUpService.linkedOAuthProviders(data);
@@ -123,7 +142,10 @@ export class StepUpService {
     let errorMessage = '';
     if (!loadingMethods) {
       if (passwordOnlyStepUp && !canStepUpWithPassword) {
-        errorMessage = UNLINK_PASSWORD_REQUIRED_MESSAGE;
+        errorMessage =
+          operation === 'email_change'
+            ? EMAIL_CHANGE_PASSWORD_REQUIRED_MESSAGE
+            : UNLINK_PASSWORD_REQUIRED_MESSAGE;
       } else if (!canStepUpWithPassword && linkedOAuthProviders.length === 0) {
         errorMessage = 'No hay métodos de verificación disponibles en tu cuenta.';
       }
@@ -133,7 +155,7 @@ export class StepUpService {
       loadingMethods,
       canStepUpWithPassword: passwordOnlyStepUp
         ? !!data && canStepUpWithPassword
-        : canStepUpWithPassword || this.authService.isAuthenticated(),
+        : StepUpService.canUsePasswordStepUp(data) || this.authService.isAuthenticated(),
       linkedOAuthProviders,
       errorMessage,
       passwordOnlyStepUp
@@ -216,7 +238,7 @@ export class StepUpService {
     if (this.authMethodsSnapshot) {
       return;
     }
-    if (StepUpService.isUnlinkOperation(this.flowState.pendingOperation)) {
+    if (StepUpService.isPasswordOnlyOperation(this.flowState.pendingOperation)) {
       return;
     }
     const token = this.authService.getToken();

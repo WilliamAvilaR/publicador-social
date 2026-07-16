@@ -1,0 +1,72 @@
+<div class="phone-field" [formGroup]="formGroup">
+  <label *ngIf="showLabel" [attr.for]="nationalControlName" class="phone-field-label">
+    {{ labelKey | translate }}
+  </label>
+
+  <div class="phone-row" [class.loading]="loading">
+    <div class="phone-country-picker">
+      <button
+        type="button"
+        class="phone-country-trigger"
+        [attr.aria-expanded]="countryOpen"
+        [attr.aria-label]="'PHONE_FIELD.COUNTRY_ARIA_LABEL' | translate"
+        aria-haspopup="listbox"
+        [disabled]="loading"
+        (click)="toggleCountryList()">
+        <span class="phone-country-trigger-content" *ngIf="selectedCountry as country">
+          <app-phone-country-flag [country]="country" [useSvgFlags]="useSvgFlags" />
+          <span class="phone-country-trigger-code">{{ country.callingCode }}</span>
+        </span>
+        <span *ngIf="!selectedCountry" class="phone-country-trigger-placeholder">—</span>
+        <svg class="phone-country-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <div *ngIf="countryOpen" class="phone-country-dropdown">
+        <div class="phone-country-search-wrap">
+          <input
+            type="search"
+            class="phone-country-search"
+            [placeholder]="'PHONE_FIELD.SEARCH_PLACEHOLDER' | translate"
+            [value]="countrySearch"
+            (input)="onCountrySearchInput($event)"
+            (click)="$event.stopPropagation()"
+          />
+        </div>
+
+        <ul
+          class="phone-country-list"
+          role="listbox"
+          [attr.aria-label]="'PHONE_FIELD.COUNTRY_ARIA_LABEL' | translate">
+          <li *ngFor="let country of filteredCountries" role="option" [attr.aria-selected]="country.isoCode === selectedIsoCode">
+            <button
+              type="button"
+              class="phone-country-option"
+              [class.selected]="country.isoCode === selectedIsoCode"
+              (click)="selectCountry(country.isoCode)">
+              <app-phone-country-flag [country]="country" [useSvgFlags]="useSvgFlags" />
+              <span class="phone-country-option-name">{{ country.name }}</span>
+              <span class="phone-country-option-code">{{ country.callingCode }}</span>
+            </button>
+          </li>
+          <li *ngIf="filteredCountries.length === 0" class="phone-country-empty">
+            {{ 'PHONE_FIELD.NO_RESULTS' | translate }}
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <input
+      class="phone-national-input"
+      type="tel"
+      [id]="nationalControlName"
+      [formControlName]="nationalControlName"
+      [placeholder]="placeholder"
+      [attr.aria-label]="'PHONE_FIELD.NUMBER_ARIA_LABEL' | translate"
+      autocomplete="tel-national"
+      (input)="onNationalInput($event)"
+      (paste)="onNationalPaste($event)"
+    />
+  </div>
+</div>

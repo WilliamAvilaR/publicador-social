@@ -1,29 +1,58 @@
 import { Component, OnInit, OnDestroy, Output, EventEmitter, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  FormGroup,
+  ValidationErrors,
+  Validators,
+  ReactiveFormsModule
+} from '@angular/forms';
 import { Router } from '@angular/router';
+import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../../core/services/auth.service';
 import { UpdateProfileRequest, UserProfileData } from '../../../../core/models/auth.model';
 import { TenantEntitlementsResponse } from '../../../../core/models/tenant.model';
 import { TenantEntitlementsService } from '../../../../core/services/tenant-entitlements.service';
+import { PhoneCatalogService } from '../../../../core/services/phone-catalog.service';
 import { canUseLimit, getLimitValue, isFeatureEnabled } from '../../../../core/utils/entitlements.utils';
 import { markFormGroupTouched, isFieldInvalid } from '../../../../shared/utils/form.utils';
-import { extractErrorMessage, extractApiErrorCode } from '../../../../shared/utils/error.utils';
-import { getAccountSecurityErrorMessage } from '../../../../shared/utils/account-security.errors';
+import { extractErrorMessage } from '../../../../shared/utils/error.utils';
+import { navigateToAccountSecurity } from '../../../../shared/utils/account-security.navigation';
 import { getFieldError, validateAvatarUrl } from '../../../../shared/utils/validation.utils';
+import {
+  buildPhonePayload,
+  DEFAULT_PHONE_COUNTRY,
+  hydrateFromProfile,
+  isPhoneValidForCountry
+} from '../../../../shared/utils/phone.utils';
+import { PhoneFieldComponent } from '../../../../shared/components/phone-field/phone-field.component';
 import { ImageCroppedEvent, ImageCropperComponent } from 'ngx-image-cropper';
+
+function optionalInternationalPhoneValidator(group: AbstractControl): ValidationErrors | null {
+  const national = String(group.get('phoneNational')?.value || '');
+  const country = String(group.get('telephoneCountry')?.value || '');
+  const digits = national.replace(/[^\d]/g, '');
+  if (!digits) {
+    return null;
+  }
+  if (!isPhoneValidForCountry(national, country)) {
+    return { invalidPhone: true };
+  }
+  return null;
+}
 
 @Component({
   selector: 'app-edit-profile',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ImageCropperComponent],
+  imports: [CommonModule, ReactiveFormsModule, TranslateModule, ImageCropperComponent, PhoneFieldComponent],
   templateUrl: './edit-profile.component.html',
   styleUrl: './edit-profile.component.scss'
 })
 export class EditProfileComponent implements OnInit, OnDestroy {
-  @Input() embedded: boolean = false; // Si está embebido en configuración
+  @Input() embedded: boolean = false;
   @Output() profileUpdated = new EventEmitter<void>();
 
   profileForm!: FormGroup;
@@ -44,22 +73,28 @@ export class EditProfileComponent implements OnInit, OnDestroy {
   imageChangedEvent: any = '';
   imageFileForCropper: File | undefined = undefined;
   croppedImage: string | null = null;
-  currentAvatarUrl: string | null = null; // URL con cache buster para usar en el template
+  currentAvatarUrl: string | null = null;
   pendingAvatarDelete = false;
-  private readonly MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-  private readonly ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+  currentEmail = '';
+  supportPublicId: string | null = null;
+  createdAt: string | null = null;
+  supportIdCopied = false;
+
+  private readonly MAX_FILE_SIZE = 5 * 1024 * 1024;
+  private readonly ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
   private subscriptions = new Subscription();
   private successToastTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private supportIdCopyTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
     private router: Router,
-    private tenantEntitlements: TenantEntitlementsService
+    private tenantEntitlements: TenantEntitlementsService,
+    private phoneCatalog: PhoneCatalogService
   ) {}
 
   ngOnInit() {
-    // Solo verificar autenticación si no está embebido (el padre ya lo hace)
     if (!this.embedded && !this.authService.isAuthenticated()) {
       this.router.navigate(['/login']);
       return;
@@ -72,6 +107,9 @@ export class EditProfileComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.clearSuccessToastTimeout();
+    if (this.supportIdCopyTimeoutId) {
+      clearTimeout(this.supportIdCopyTimeoutId);
+    }
     this.subscriptions.unsubscribe();
   }
 
@@ -124,62 +162,69 @@ export class EditProfileComponent implements OnInit, OnDestroy {
   }
 
   initForm() {
-    this.profileForm = this.fb.group({
-      firstName: ['', [Validators.required, Validators.minLength(2)]],
-      lastName: ['', [Validators.required, Validators.minLength(2)]],
-      email: ['', [Validators.required, Validators.email]],
-      telephone: ['', [Validators.required]],
-      dateBird: ['']
-    });
+    this.profileForm = this.fb.group(
+      {
+        firstName: ['', [Validators.required, Validators.minLength(2)]],
+        lastName: ['', [Validators.required, Validators.minLength(2)]],
+        telephoneCountry: [DEFAULT_PHONE_COUNTRY],
+        phoneNational: [''],
+        dateBird: ['']
+      },
+      { validators: optionalInternationalPhoneValidator }
+    );
   }
 
   loadUserData() {
-    // Cargar desde localStorage primero para mostrar datos rápidamente
-    const user = this.authService.getUser();
-    if (user) {
-      const userProfile = user as UserProfileData;
-      this.profileForm.patchValue({
-        firstName: userProfile.firstName || '',
-        lastName: userProfile.lastName || '',
-        email: userProfile.email || '',
-        telephone: userProfile.telephone || '',
-        dateBird: userProfile.dateBird || ''
-      });
-      this.profileForm.markAsPristine();
-      // Validar avatarUrl antes de asignarlo
-      this.avatarUrl = validateAvatarUrl(userProfile.avatarUrl);
-      this.resetPendingAvatarChanges();
-      this.updateCurrentAvatarUrl();
-    }
-
-    // Obtener datos frescos del servidor
-    const profileSubscription = this.authService.getProfile().subscribe({
-      next: (response) => {
-        const profileData = response.data;
-        this.profileForm.patchValue({
-          firstName: profileData.firstName || '',
-          lastName: profileData.lastName || '',
-          email: profileData.email || '',
-          telephone: profileData.telephone || '',
-          dateBird: profileData.dateBird || ''
-        });
-        this.profileForm.markAsPristine();
-
-        // Validar avatarUrl antes de asignarlo
-        this.avatarUrl = validateAvatarUrl(profileData.avatarUrl);
+    const countriesSub = this.phoneCatalog.getPhoneCountries().subscribe(countries => {
+      const user = this.authService.getUser();
+      if (user) {
+        const userProfile = user as UserProfileData;
+        this.currentEmail = userProfile.email || '';
+        this.applyAccountMeta(userProfile);
+        this.patchPersonalFields(userProfile, countries);
+        this.avatarUrl = validateAvatarUrl(userProfile.avatarUrl);
         this.resetPendingAvatarChanges();
         this.updateCurrentAvatarUrl();
-
-        // Actualizar localStorage con datos validados
-        this.authService.updateUserData(profileData);
-      },
-      error: (error: HttpErrorResponse) => {
-        console.error('Error al cargar perfil:', error);
-        // Si falla, mantener datos de localStorage (ya cargados arriba)
       }
-    });
 
-    this.subscriptions.add(profileSubscription);
+      const profileSub = this.authService.getProfile().subscribe({
+        next: (response) => {
+          const profileData = response.data;
+          this.currentEmail = profileData.email || '';
+          this.applyAccountMeta(profileData);
+          this.patchPersonalFields(profileData, countries);
+          this.avatarUrl = validateAvatarUrl(profileData.avatarUrl);
+          this.resetPendingAvatarChanges();
+          this.updateCurrentAvatarUrl();
+          this.authService.updateUserData(profileData);
+        },
+        error: (error: HttpErrorResponse) => {
+          console.error('Error al cargar perfil:', error);
+        }
+      });
+      this.subscriptions.add(profileSub);
+    });
+    this.subscriptions.add(countriesSub);
+  }
+
+  get currentEmailLabel(): string {
+    return this.currentEmail?.trim() || '—';
+  }
+
+  get supportPublicIdLabel(): string {
+    const publicId = this.supportPublicId?.trim();
+    if (!publicId) {
+      return '—';
+    }
+
+    const visibleLength = 18;
+    return publicId.length > visibleLength
+      ? `${publicId.slice(0, visibleLength)}…`
+      : publicId;
+  }
+
+  get createdAtLabel(): string {
+    return this.formatCreatedAt(this.createdAt);
   }
 
   isFieldInvalid(fieldName: string): boolean {
@@ -188,6 +233,10 @@ export class EditProfileComponent implements OnInit, OnDestroy {
 
   getFieldError(fieldName: string): string {
     return getFieldError(this.profileForm, fieldName);
+  }
+
+  isPhoneInvalid(): boolean {
+    return !!this.profileForm?.hasError('invalidPhone') && !!this.profileForm?.get('phoneNational')?.touched;
   }
 
   get hasPendingChanges(): boolean {
@@ -203,9 +252,93 @@ export class EditProfileComponent implements OnInit, OnDestroy {
     this.successMessage = '';
   }
 
+  goToSecurityEmailChange(): void {
+    navigateToAccountSecurity(this.router);
+  }
+
+  async copySupportId(): Promise<void> {
+    const value = this.supportPublicId?.trim();
+    if (!value) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      this.supportIdCopied = true;
+      if (this.supportIdCopyTimeoutId) {
+        clearTimeout(this.supportIdCopyTimeoutId);
+      }
+      this.supportIdCopyTimeoutId = setTimeout(() => {
+        this.supportIdCopied = false;
+        this.supportIdCopyTimeoutId = null;
+      }, 2000);
+    } catch {
+      this.errorMessage = 'No se pudo copiar el ID de soporte.';
+    }
+  }
+
+  private patchPersonalFields(
+    profile: {
+      firstName?: string;
+      lastName?: string;
+      telephone?: string;
+      telephoneCountry?: string | null;
+      dateBird?: string;
+    },
+    countries = this.phoneCatalog.getCachedCountries()
+  ): void {
+    const parsed = hydrateFromProfile(profile.telephone, profile.telephoneCountry, countries);
+    this.profileForm.patchValue({
+      firstName: profile.firstName || '',
+      lastName: profile.lastName || '',
+      telephoneCountry: parsed.isoCode,
+      phoneNational: parsed.nationalDisplay,
+      dateBird: profile.dateBird || ''
+    });
+    this.profileForm.markAsPristine();
+  }
+
+  private applyAccountMeta(profile: {
+    publicId?: string | null;
+    createdAt?: string | null;
+    creationDate?: string | null;
+    registeredAt?: string | null;
+  }): void {
+    const rawPublicId = profile.publicId?.trim();
+    this.supportPublicId = rawPublicId || null;
+    const rawCreatedAt = profile.createdAt || profile.creationDate || profile.registeredAt || null;
+    this.createdAt = typeof rawCreatedAt === 'string' && rawCreatedAt.trim() ? rawCreatedAt.trim() : null;
+  }
+
+  private formatCreatedAt(value: string | null): string {
+    if (!value) {
+      return '—';
+    }
+
+    const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+    if (dateOnly) {
+      const date = new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+      return new Intl.DateTimeFormat('es', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      }).format(date);
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '—';
+    }
+    return new Intl.DateTimeFormat('es', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    }).format(date);
+  }
+
   onSubmit() {
     if (this.profileForm.invalid) {
       markFormGroupTouched(this.profileForm);
+      this.profileForm.get('phoneNational')?.markAsTouched();
       return;
     }
 
@@ -233,11 +366,17 @@ export class EditProfileComponent implements OnInit, OnDestroy {
     this.avatarError = '';
 
     const formValue = this.profileForm.value;
+    const phone = buildPhonePayload(
+      formValue.phoneNational,
+      formValue.telephoneCountry,
+      this.phoneCatalog.getCachedCountries()
+    );
     const request: UpdateProfileRequest = {
       firstName: formValue.firstName,
       lastName: formValue.lastName,
-      email: formValue.email,
-      telephone: formValue.telephone,
+      email: this.currentEmail,
+      telephone: phone.telephone,
+      telephoneCountry: phone.telephoneCountry,
       dateBird: formValue.dateBird || ''
     };
 
@@ -269,7 +408,14 @@ export class EditProfileComponent implements OnInit, OnDestroy {
         };
 
         // Actualizar los datos del usuario en localStorage
-        this.authService.updateUserData(validatedData);
+        this.authService.updateUserData({
+          ...validatedData,
+          createdAt: validatedData.createdAt ?? this.createdAt
+        });
+        this.applyAccountMeta({
+          publicId: validatedData.publicId,
+          createdAt: validatedData.createdAt ?? this.createdAt
+        });
         this.profileForm.markAsPristine();
 
         // Actualizar avatarUrl solo si no hay una operación de avatar pendiente.
@@ -281,12 +427,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
         saveAvatarChanges();
       },
       error: (error: HttpErrorResponse) => {
-        const code = extractApiErrorCode(error);
-        if (code === 'primary_email_change_required') {
-          this.errorMessage = getAccountSecurityErrorMessage(code);
-        } else {
-          this.finishProfileSaveError(error);
-        }
+        this.finishProfileSaveError(error);
       }
     });
 
@@ -296,12 +437,12 @@ export class EditProfileComponent implements OnInit, OnDestroy {
   onCancel() {
     if (!this.embedded) {
       this.router.navigate(['/dashboard']);
-    } else {
-      this.loadUserData(); // Recargar datos originales
-      this.errorMessage = '';
-      this.successMessage = '';
-      this.cancelAvatarSelection();
+      return;
     }
+    this.loadUserData();
+    this.errorMessage = '';
+    this.successMessage = '';
+    this.cancelAvatarSelection();
   }
 
   // ========== Funcionalidad de Avatar ==========
@@ -313,7 +454,7 @@ export class EditProfileComponent implements OnInit, OnDestroy {
 
       // Validar antes de mostrar crop
       if (!this.ALLOWED_TYPES.includes(file.type)) {
-        this.avatarError = 'Formato no válido. Solo se permiten: JPG, PNG, GIF, WEBP';
+        this.avatarError = 'Formato no válido. Solo se permiten: JPG, PNG o WebP.';
         return;
       }
 

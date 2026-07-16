@@ -1,20 +1,49 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  FormGroup,
+  ValidationErrors,
+  Validators,
+  ReactiveFormsModule
+} from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
+import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
+import { PhoneCatalogService } from '../../../core/services/phone-catalog.service';
 import { RegisterRequest } from '../../../core/models/auth.model';
 import { markFormGroupTouched, isFieldInvalid } from '../../../shared/utils/form.utils';
 import { extractErrorMessage } from '../../../shared/utils/error.utils';
 import { getFieldError } from '../../../shared/utils/validation.utils';
 import { getRetryAfterSeconds } from '../../../shared/utils/rate-limit.utils';
+import {
+  buildPhonePayload,
+  DEFAULT_PHONE_COUNTRY,
+  isPhoneValidForCountry,
+  resolveInitialPhoneCountry
+} from '../../../shared/utils/phone.utils';
+import { PhoneFieldComponent } from '../../../shared/components/phone-field/phone-field.component';
+
+function requiredInternationalPhoneValidator(group: AbstractControl): ValidationErrors | null {
+  const national = String(group.get('phoneNational')?.value || '');
+  const country = String(group.get('telephoneCountry')?.value || '');
+  const digits = national.replace(/[^\d]/g, '');
+  if (!digits) {
+    return { phoneRequired: true };
+  }
+  if (!isPhoneValidForCountry(national, country)) {
+    return { invalidPhone: true };
+  }
+  return null;
+}
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule, TranslateModule, PhoneFieldComponent],
   templateUrl: './register.component.html',
   styleUrl: './register.component.scss'
 })
@@ -33,11 +62,20 @@ export class RegisterComponent implements OnInit, OnDestroy {
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private phoneCatalog: PhoneCatalogService
   ) {}
 
   ngOnInit() {
     this.initForm();
+    this.subscriptions.add(
+      this.phoneCatalog.getPhoneCountries().subscribe(countries => {
+        const control = this.registerForm.get('telephoneCountry');
+        if (control && !control.dirty) {
+          control.setValue(resolveInitialPhoneCountry(null, countries), { emitEvent: false });
+        }
+      })
+    );
   }
 
   initForm() {
@@ -47,9 +85,10 @@ export class RegisterComponent implements OnInit, OnDestroy {
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['', [Validators.required]],
-      telephone: ['', [Validators.required]]
+      telephoneCountry: [DEFAULT_PHONE_COUNTRY],
+      phoneNational: ['', [Validators.required]]
     }, {
-      validators: this.passwordMatchValidator
+      validators: [this.passwordMatchValidator, requiredInternationalPhoneValidator]
     });
   }
 
@@ -86,7 +125,7 @@ export class RegisterComponent implements OnInit, OnDestroy {
   }
 
   getStep1Fields() {
-    return ['firstName', 'lastName', 'email', 'telephone'];
+    return ['firstName', 'lastName', 'email', 'phoneNational', 'telephoneCountry'];
   }
 
   getStep2Fields() {
@@ -106,6 +145,15 @@ export class RegisterComponent implements OnInit, OnDestroy {
         }
       }
     });
+
+    this.registerForm.updateValueAndValidity();
+
+    if (this.currentStep === 1) {
+      if (this.registerForm.hasError('phoneRequired') || this.registerForm.hasError('invalidPhone')) {
+        this.registerForm.get('phoneNational')?.markAsTouched();
+        isValid = false;
+      }
+    }
 
     // Validar match de contraseñas en paso 2
     if (this.currentStep === 2) {
@@ -180,13 +228,19 @@ export class RegisterComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
 
     const formValue = this.registerForm.value;
+    const phone = buildPhonePayload(
+      formValue.phoneNational,
+      formValue.telephoneCountry,
+      this.phoneCatalog.getCachedCountries()
+    );
     // El nombre de organización se pide después, en /onboarding (complete-workspace-setup)
     const registerData: RegisterRequest = {
       firstName: formValue.firstName.trim(),
       lastName: formValue.lastName.trim(),
       email: formValue.email.trim(),
       password: formValue.password,
-      telephone: formValue.telephone.trim(),
+      telephone: phone.telephone,
+      telephoneCountry: phone.telephoneCountry,
       rol: this.DEFAULT_ROLE
     };
 
@@ -222,6 +276,14 @@ export class RegisterComponent implements OnInit, OnDestroy {
 
   getFieldError(fieldName: string): string {
     return getFieldError(this.registerForm, fieldName);
+  }
+
+  isPhoneInvalid(): boolean {
+    const touched = !!this.registerForm.get('phoneNational')?.touched;
+    return (
+      touched &&
+      (this.registerForm.hasError('phoneRequired') || this.registerForm.hasError('invalidPhone'))
+    );
   }
 
   isFieldInvalid(fieldName: string): boolean {

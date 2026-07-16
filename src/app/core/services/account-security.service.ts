@@ -4,8 +4,14 @@ import { Observable, map, tap } from 'rxjs';
 import {
   AuthenticationMethodDto,
   AuthenticationMethodsResponse,
+  EmailChangeMutationResponse,
+  EmailChangePendingDto,
+  EmailChangePendingResponse,
   EmailChangeRequest,
   EmailChangeRequestResponse,
+  EmailConfirmPreview,
+  EmailConfirmPreviewResponse,
+  EmailConfirmPreviewStatus,
   EmailConfirmRequest,
   EmailConfirmResponse,
   LinkCompleteRequest,
@@ -288,11 +294,155 @@ export class AccountSecurityService {
   }
 
   requestEmailChange(request: EmailChangeRequest): Observable<EmailChangeRequestResponse> {
-    return this.http.post<EmailChangeRequestResponse>(`${this.accountUrl}/email/change-request`, request);
+    return this.http
+      .post<EmailChangeMutationResponse>(`${this.accountUrl}/email/change-request`, request)
+      .pipe(map(response => this.normalizeEmailChangeMutation(response)));
+  }
+
+  getEmailChangePending(): Observable<EmailChangePendingDto | null> {
+    return this.http
+      .get<EmailChangePendingResponse>(`${this.accountUrl}/email/pending`)
+      .pipe(map(response => this.extractEmailChangePending(response)));
+  }
+
+  resendEmailChange(): Observable<EmailChangeMutationResponse> {
+    return this.http
+      .post<EmailChangeMutationResponse>(`${this.accountUrl}/email/resend`, {})
+      .pipe(map(response => this.normalizeEmailChangeMutation(response)));
+  }
+
+  cancelEmailChange(): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.accountUrl}/email/cancel`, {});
+  }
+
+  previewEmailChangeConfirm(token: string): Observable<EmailConfirmPreview> {
+    return this.http
+      .get<EmailConfirmPreviewResponse>(`${this.accountUrl}/email/confirm/preview`, {
+        params: { token }
+      })
+      .pipe(map(response => this.normalizeEmailConfirmPreview(response)));
   }
 
   confirmEmailChange(request: EmailConfirmRequest): Observable<EmailConfirmResponse> {
     return this.http.post<EmailConfirmResponse>(`${this.accountUrl}/email/confirm`, request);
+  }
+
+  private normalizeEmailChangeMutation(response: EmailChangeMutationResponse): EmailChangeMutationResponse {
+    const pending = this.extractEmailChangePending(response);
+    return {
+      ...response,
+      message: response.message ?? 'Enlace de verificación enviado al nuevo correo.',
+      pending
+    };
+  }
+
+  private extractEmailChangePending(
+    response: EmailChangePendingResponse | EmailChangeMutationResponse | null | undefined
+  ): EmailChangePendingDto | null {
+    if (!response) {
+      return null;
+    }
+
+    const raw =
+      response.pending ??
+      response.data?.pending ??
+      (this.isFlatPendingPayload(response.data) ? response.data : null) ??
+      (this.isFlatPendingPayload(response) ? response : null);
+
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const pendingNewEmail =
+      typeof raw.pendingNewEmail === 'string' ? raw.pendingNewEmail.trim() : '';
+    if (!pendingNewEmail) {
+      return null;
+    }
+
+    return {
+      currentEmail: typeof raw.currentEmail === 'string' ? raw.currentEmail : '',
+      pendingNewEmail,
+      requestedAt: raw.requestedAt ?? null,
+      expiresAt: raw.expiresAt ?? null,
+      resendAvailableInSeconds: Math.max(0, Number(raw.resendAvailableInSeconds) || 0)
+    };
+  }
+
+  private isFlatPendingPayload(value: unknown): value is EmailChangePendingDto {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+    const candidate = value as EmailChangePendingDto;
+    return typeof candidate.pendingNewEmail === 'string' && candidate.pendingNewEmail.trim().length > 0;
+  }
+
+  private normalizeEmailConfirmPreview(response: EmailConfirmPreviewResponse): EmailConfirmPreview {
+    const payload = response.data ?? response;
+    const code = this.normalizePreviewCode(payload.code);
+    const status = this.mapEmailConfirmPreviewStatus(payload.status, code);
+
+    return {
+      status,
+      currentEmail: payload.currentEmail ?? null,
+      pendingNewEmail: payload.pendingNewEmail ?? null,
+      newEmail: payload.newEmail ?? payload.pendingNewEmail ?? null,
+      message: payload.message ?? null,
+      code: code ?? null
+    };
+  }
+
+  private normalizePreviewCode(code: string | null | undefined): string | null {
+    if (typeof code !== 'string' || !code.trim()) {
+      return null;
+    }
+    return code.trim().toLowerCase().replace(/-/g, '_');
+  }
+
+  private mapEmailConfirmPreviewStatus(
+    rawStatus: string | null | undefined,
+    code: string | null
+  ): EmailConfirmPreviewStatus {
+    const status = typeof rawStatus === 'string' ? rawStatus.trim().toLowerCase() : '';
+
+    if (status === 'ready' || status === 'valid' || status === 'pending') {
+      return 'ready';
+    }
+    if (status === 'expired') {
+      return 'expired';
+    }
+    if (status === 'used') {
+      return 'used';
+    }
+    if (status === 'revoked') {
+      return 'revoked';
+    }
+    if (status === 'cancelled' || status === 'canceled') {
+      return 'cancelled';
+    }
+    if (status === 'conflict') {
+      return 'conflict';
+    }
+    if (status === 'invalid') {
+      return 'invalid';
+    }
+
+    switch (code) {
+      case 'token_expired':
+        return 'expired';
+      case 'token_used':
+        return 'used';
+      case 'token_revoked':
+        return 'revoked';
+      case 'primary_email_change_no_pending':
+        return 'cancelled';
+      case 'primary_email_already_registered':
+      case 'email_already_registered':
+      case 'email_already_exists':
+      case 'primary_email_already_exists':
+        return 'conflict';
+      default:
+        return status ? 'invalid' : 'ready';
+    }
   }
 
   startOAuthLogin(provider: ExternalAuthProvider, body?: ExternalAuthStartRequest): Observable<ExternalAuthStartResponse> {

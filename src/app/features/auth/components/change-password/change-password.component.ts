@@ -76,11 +76,11 @@ export class ChangePasswordComponent implements OnInit, OnDestroy {
   }
 
   get submitLabel(): string {
-    return this.isSetPasswordMode ? 'Establecer contraseña' : 'Cambiar contraseña';
+    return this.isSetPasswordMode ? 'Crear contraseña' : 'Cambiar contraseña';
   }
 
   get panelTitle(): string {
-    return this.isSetPasswordMode ? 'Configurar contraseña' : 'Cambiar contraseña';
+    return this.isSetPasswordMode ? 'Crear contraseña' : 'Cambiar contraseña';
   }
 
   get loadingMessage(): string {

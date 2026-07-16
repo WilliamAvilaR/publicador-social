@@ -49,7 +49,16 @@ const ACCOUNT_SECURITY_ERROR_CODES = new Set([
   'external_auth_provider_not_linked',
   'external_auth_flow_invalid',
   'session_revoked',
-  'session_revoked_provider_unlinked'
+  'session_revoked_provider_unlinked',
+  'email_already_exists',
+  'email_already_registered',
+  'primary_email_already_exists',
+  'primary_email_same_as_current',
+  'primary_email_already_registered',
+  'primary_email_change_no_pending',
+  'token_expired',
+  'token_used',
+  'token_revoked'
 ]);
 
 export function normalizeAccountSecurityErrorCode(code: string | null | undefined): string | null {
@@ -201,6 +210,21 @@ export function getAccountSecurityErrorMessage(
       return 'Tu sesión ya no es válida. Inicia sesión de nuevo.';
     case 'session_revoked_provider_unlinked':
       return 'Desvinculaste este método; inicia sesión con otro.';
+    case 'email_already_exists':
+    case 'email_already_registered':
+    case 'primary_email_already_exists':
+    case 'primary_email_already_registered':
+      return 'Ese correo ya está registrado en otra cuenta. Usa otro correo o inicia sesión con esa cuenta.';
+    case 'primary_email_same_as_current':
+      return 'El nuevo correo debe ser diferente al correo actual.';
+    case 'primary_email_change_no_pending':
+      return 'No hay una solicitud de cambio de correo activa.';
+    case 'token_expired':
+      return 'El enlace venció. Solicita un nuevo enlace desde la configuración de seguridad.';
+    case 'token_used':
+      return 'Este enlace ya fue utilizado. Tu correo ya fue verificado o la solicitud dejó de estar activa.';
+    case 'token_revoked':
+      return 'Esta solicitud fue cancelada. No se realizó ningún cambio en tu cuenta.';
     default:
       return 'No pudimos completar la operación. Inténtalo más tarde.';
   }
@@ -224,6 +248,22 @@ export function resolveAccountSecurityErrorMessage(
     return payload.message.trim();
   }
   return extractErrorMessage(error, fallback);
+}
+
+/** Errores de `POST /api/account/email/change-request`. */
+export function resolveEmailChangeErrorMessage(error: HttpErrorResponse): string {
+  const payload = extractApiErrorPayload(error.error);
+  const code = normalizeAccountSecurityErrorCode(payload.code ?? extractApiErrorCode(error));
+  if (code && ACCOUNT_SECURITY_ERROR_CODES.has(code)) {
+    return getAccountSecurityErrorMessage(code, payload.provider);
+  }
+  if (payload.message?.trim()) {
+    return payload.message.trim();
+  }
+  return extractErrorMessage(
+    error,
+    'No pudimos solicitar el cambio de correo. Inténtalo más tarde.'
+  );
 }
 
 /** Mensaje para fallos HTTP de `POST /api/auth/external/flow/resolve`. */

@@ -314,26 +314,7 @@
 }
 
 .oauth-only-text {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-size: 0.9rem;
   color: #4c1d95;
-}
-
-.oauth-only-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.configure-password-link,
-.dismiss-oauth-hint {
-  display: block;
-  width: 100%;
-  margin-top: 0.35rem;
-  background: none;
-  border: none;
-  color: #7B2CBF;
-  cursor: pointer;
-  font-size: 0.9rem;
 }

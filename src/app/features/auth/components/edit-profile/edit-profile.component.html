@@ -1,8 +1,8 @@
 <div class="edit-profile-wrapper" [class.embedded]="embedded">
   <div class="edit-profile-panel" [class.embedded-panel]="embedded">
     <div class="header" *ngIf="!embedded">
-      <h2 class="title">Editar Perfil</h2>
-      <p class="subtitle">Actualiza tu información personal</p>
+      <h2 class="title">Perfil</h2>
+      <p class="subtitle">Administra tu información personal y la forma en que apareces en la plataforma.</p>
     </div>
 
     <div *ngIf="successMessage" class="profile-toast" role="status" aria-live="polite">
@@ -14,15 +14,13 @@
       <button type="button" class="profile-toast-close" (click)="clearSuccessToast()" aria-label="Cerrar mensaje">×</button>
     </div>
 
-    <!-- Mensaje de error -->
     <div *ngIf="errorMessage" class="error-message">
       {{ errorMessage }}
     </div>
 
-    <!-- Sección de Avatar -->
+    <!-- Foto de perfil -->
     <div class="avatar-section">
-      <h3 class="avatar-title">Foto de Perfil</h3>
-      <div class="avatar-container">
+      <div class="avatar-layout">
         <div class="avatar-preview">
           <img
             *ngIf="getCurrentAvatarUrl()"
@@ -36,47 +34,46 @@
             </svg>
           </div>
         </div>
-        <div class="avatar-actions">
-          <label
-            *ngIf="!pendingAvatarDelete"
-            class="avatar-upload-btn"
-            [class.uploading]="isSaving">
-            <input
-              type="file"
-              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-              (change)="onFileSelected($event)"
-              [disabled]="isSaving"
-              style="display: none;"
-            />
-            <span *ngIf="!uploadingAvatar">{{ selectedFile || hasSavedAvatar() ? 'Cambiar Foto' : 'Subir Foto' }}</span>
-            <span *ngIf="uploadingAvatar">Guardando...</span>
-          </label>
-          <button
-            *ngIf="hasSavedAvatar() && !selectedFile"
-            type="button"
-            class="avatar-delete-btn"
-            (click)="markAvatarForDeletion()"
-            [disabled]="isSaving">
-            Eliminar
-          </button>
-          <button
-            *ngIf="(selectedFile || pendingAvatarDelete) && !isSaving"
-            type="button"
-            class="avatar-cancel-btn"
-            (click)="cancelAvatarSelection()">
-            Cancelar
-          </button>
-          <!-- Ícono de información con tooltip -->
-          <div class="avatar-info-tooltip">
-            <svg class="info-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-              <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            <span class="tooltip-text">Formatos permitidos: JPG, PNG, GIF, WEBP. Tamaño máximo: 5MB</span>
+
+        <div class="avatar-copy">
+          <p class="avatar-lead">Cambia la imagen que se muestra en tu perfil.</p>
+          <p class="avatar-specs">JPG, PNG o WebP. Máximo 5 MB. Tamaño recomendado: 400 × 400 px.</p>
+
+          <div class="avatar-actions">
+            <label
+              *ngIf="!pendingAvatarDelete"
+              class="avatar-upload-btn"
+              [class.uploading]="isSaving">
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                (change)="onFileSelected($event)"
+                [disabled]="isSaving"
+                style="display: none;"
+              />
+              <span *ngIf="!uploadingAvatar">Cambiar foto</span>
+              <span *ngIf="uploadingAvatar">Guardando...</span>
+            </label>
+            <button
+              *ngIf="hasSavedAvatar() || selectedFile"
+              type="button"
+              class="avatar-delete-btn"
+              (click)="markAvatarForDeletion()"
+              [disabled]="isSaving || pendingAvatarDelete">
+              Eliminar foto
+            </button>
+            <button
+              *ngIf="(selectedFile || pendingAvatarDelete) && !isSaving"
+              type="button"
+              class="avatar-cancel-btn"
+              (click)="cancelAvatarSelection()">
+              Cancelar
+            </button>
           </div>
-        </div>
-        <div *ngIf="avatarError || avatarUploadGateError" class="avatar-error">
-          {{ avatarError || avatarUploadGateError }}
+
+          <div *ngIf="avatarError || avatarUploadGateError" class="avatar-error">
+            {{ avatarError || avatarUploadGateError }}
+          </div>
         </div>
       </div>
     </div>
@@ -85,7 +82,7 @@
     <div class="crop-modal" *ngIf="showCropModal" (click)="cancelCrop()">
       <div class="crop-modal-content" (click)="$event.stopPropagation()">
         <div class="crop-modal-header">
-          <h3>Recortar Imagen</h3>
+          <h3>Recortar imagen</h3>
           <button type="button" class="close-btn" (click)="cancelCrop()" aria-label="Cerrar">×</button>
         </div>
 
@@ -114,96 +111,132 @@
             Cancelar
           </button>
           <button type="button" class="apply-btn" (click)="applyCrop()" [disabled]="!croppedImage">
-            Aplicar Recorte
+            Aplicar recorte
           </button>
         </div>
       </div>
     </div>
 
     <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="edit-profile-form">
-      <!-- Nombre -->
-      <div class="input-group">
-        <label for="firstName" class="input-label">Nombre</label>
-        <svg class="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12h4m-2 2v-4M4 18v-1a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Zm8-10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
-        </svg>
-        <input
-          id="firstName"
-          type="text"
-          formControlName="firstName"
-          placeholder="Nombre"
-          class="input-field"
-          [class.invalid]="isFieldInvalid('firstName')"
-        />
-        <div *ngIf="isFieldInvalid('firstName')" class="field-error">
-          {{ getFieldError('firstName') }}
-        </div>
-      </div>
+      <section class="form-section" aria-labelledby="personal-info-title">
+        <h3 id="personal-info-title" class="form-section-title">Información personal</h3>
 
-      <!-- Apellido -->
-      <div class="input-group">
-        <label for="lastName" class="input-label">Apellido</label>
-        <svg class="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12h4m-2 2v-4M4 18v-1a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Zm8-10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
-        </svg>
-        <input
-          id="lastName"
-          type="text"
-          formControlName="lastName"
-          placeholder="Apellido"
-          class="input-field"
-          [class.invalid]="isFieldInvalid('lastName')"
-        />
-        <div *ngIf="isFieldInvalid('lastName')" class="field-error">
-          {{ getFieldError('lastName') }}
-        </div>
-      </div>
+        <div class="form-grid">
+          <div class="input-group">
+            <label for="firstName" class="input-label">Nombre</label>
+            <div class="input-with-icon">
+              <span class="input-icon-box" aria-hidden="true">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <input
+                id="firstName"
+                type="text"
+                formControlName="firstName"
+                placeholder="Nombre"
+                class="input-field input-field--icon-box"
+                [class.invalid]="isFieldInvalid('firstName')"
+              />
+            </div>
+            <div *ngIf="isFieldInvalid('firstName')" class="field-error">
+              {{ getFieldError('firstName') }}
+            </div>
+          </div>
 
-      <!-- Email -->
-      <div class="input-group">
-        <label for="email" class="input-label">Correo electrónico</label>
-        <svg class="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M22 6L12 13L2 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <input
-          id="email"
-          type="email"
-          formControlName="email"
-          placeholder="Correo electrónico"
-          class="input-field"
-          [class.invalid]="isFieldInvalid('email')"
-        />
-        <div *ngIf="isFieldInvalid('email')" class="field-error">
-          {{ getFieldError('email') }}
-        </div>
-      </div>
+          <div class="input-group">
+            <label for="lastName" class="input-label">Apellido</label>
+            <div class="input-with-icon">
+              <span class="input-icon-box" aria-hidden="true">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <input
+                id="lastName"
+                type="text"
+                formControlName="lastName"
+                placeholder="Apellido"
+                class="input-field input-field--icon-box"
+                [class.invalid]="isFieldInvalid('lastName')"
+              />
+            </div>
+            <div *ngIf="isFieldInvalid('lastName')" class="field-error">
+              {{ getFieldError('lastName') }}
+            </div>
+          </div>
 
-      <!-- Teléfono -->
-      <div class="input-group">
-        <label for="telephone" class="input-label">Teléfono</label>
-        <svg class="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 0 1 2-2h3.28a1 1 0 0 1 .948.684l1.498 4.493a1 1 0 0 1-.502 1.21l-2.257 1.13a11.042 11.042 0 0 0 5.516 5.516l1.13-2.257a1 1 0 0 1 1.21-.502l4.493 1.498a1 1 0 0 1 .684.949V19a2 2 0 0 1-2 2h-1C9.716 21 3 14.284 3 6V5Z"/>
-        </svg>
-        <input
-          id="telephone"
-          type="tel"
-          formControlName="telephone"
-          placeholder="Teléfono"
-          class="input-field"
-          [class.invalid]="isFieldInvalid('telephone')"
-        />
-        <div *ngIf="isFieldInvalid('telephone')" class="field-error">
-          {{ getFieldError('telephone') }}
+          <div class="input-group input-group--phone">
+            <app-phone-field [formGroup]="profileForm"></app-phone-field>
+            <div *ngIf="isPhoneInvalid()" class="field-error">
+              {{ 'PHONE_FIELD.INVALID' | translate }}
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <hr class="section-divider" />
+
+      <section class="form-section" aria-labelledby="account-info-title">
+        <h3 id="account-info-title" class="form-section-title">Información de la cuenta</h3>
+
+        <div class="account-cards">
+          <div class="account-card">
+            <span class="account-card-label">Correo principal</span>
+            <span class="account-card-value">{{ currentEmailLabel }}</span>
+            <button
+              type="button"
+              class="account-card-link"
+              (click)="goToSecurityEmailChange()"
+              aria-label="Administrar correo en la sección de Seguridad">
+              <span>Administrar en Seguridad</span>
+              <svg class="account-card-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M15 3h6v6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M10 14 21 3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="account-card">
+            <span class="account-card-label">Fecha de creación</span>
+            <span class="account-card-value">{{ createdAtLabel }}</span>
+          </div>
+
+          <div class="account-card account-card--with-action">
+            <div class="account-card-content">
+              <span class="account-card-label">ID de soporte</span>
+              <span class="account-card-value account-card-value--public-id">{{ supportPublicIdLabel }}</span>
+              <span *ngIf="supportIdCopied" class="copy-feedback">Copiado</span>
+            </div>
+            <div class="account-card-action">
+              <button
+                type="button"
+                class="copy-id-btn"
+                (click)="copySupportId()"
+                [disabled]="!supportPublicId"
+                [attr.aria-label]="supportIdCopied ? 'ID copiado' : 'Copiar ID de soporte'">
+                <svg *ngIf="!supportIdCopied" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.8"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <svg *ngIf="supportIdCopied" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div class="form-actions">
-        <button *ngIf="!embedded" type="button" class="cancel-button" (click)="onCancel()" [disabled]="isLoading">
+        <button type="button" class="cancel-button" (click)="onCancel()" [disabled]="isSaving">
           Cancelar
         </button>
         <button type="submit" class="submit-button" [disabled]="isSaving || !hasPendingChanges || !canUploadAvatar">
-          <span *ngIf="!isLoading">Guardar Cambios</span>
+          <span *ngIf="!isLoading">Guardar cambios</span>
           <span *ngIf="isLoading">Guardando...</span>
         </button>
       </div>

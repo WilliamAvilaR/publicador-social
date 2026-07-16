@@ -46,6 +46,14 @@ export function getFieldError(formGroup: FormGroup, fieldName: string): string {
     return 'La nueva contraseña debe ser diferente a la actual';
   }
 
+  if (field.hasError('sameAsCurrentEmail')) {
+    return 'El nuevo correo debe ser diferente al correo actual.';
+  }
+
+  if (field.hasError('whitespace')) {
+    return 'El correo no puede contener espacios.';
+  }
+
   // Validación: patrón (regex)
   if (field.hasError('pattern')) {
     return 'El formato no es válido';

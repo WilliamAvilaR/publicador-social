@@ -26,7 +26,6 @@ export class LoginComponent implements OnInit, OnDestroy {
   showSuccessMessage = false;
   showResendHint = false;
   showOAuthOnlyHint = false;
-  oauthOnlyEmail = '';
   isLoading = false;
   socialLoadingProvider: 'google' | 'microsoft' | null = null;
   errorMessage = '';
@@ -126,19 +125,6 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.subscriptions.add(sub);
   }
 
-  goToConfigurePassword(): void {
-    const email = this.oauthOnlyEmail || this.loginForm.value.email?.trim();
-    if (email) {
-      this.router.navigate(['/forgot-password'], { queryParams: { email } });
-      return;
-    }
-    this.router.navigate(['/forgot-password']);
-  }
-
-  dismissOAuthOnlyHint(): void {
-    this.showOAuthOnlyHint = false;
-  }
-
   goToResendVerification(): void {
     const email = this.loginForm.value.email?.trim();
     if (email) {
@@ -198,7 +184,6 @@ export class LoginComponent implements OnInit, OnDestroy {
         }
         if (code === 'password_login_not_available') {
           this.showOAuthOnlyHint = true;
-          this.oauthOnlyEmail = this.loginForm.value.email?.trim() ?? '';
           this.errorMessage = '';
           return;
         }

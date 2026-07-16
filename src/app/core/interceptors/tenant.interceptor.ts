@@ -28,6 +28,8 @@ export const tenantInterceptor: HttpInterceptorFn = (req, next) => {
     req.url.includes('/api/Account/forgot-password') ||
     req.url.includes('/api/Account/reset-password') ||
     req.url.includes('/api/account/email/confirm') ||
+    req.url.includes('/api/account/email/confirm/preview') ||
+    req.url.includes('/api/catalogs/phone-countries') ||
     req.url.includes('/api/auth/external/exchange') ||
     req.url.includes('/api/auth/external/link/context') ||
     req.url.includes('/api/auth/external/link/confirm') ||

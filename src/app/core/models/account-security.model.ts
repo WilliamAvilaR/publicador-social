@@ -158,12 +158,61 @@ export interface SessionsListResponse {
   };
 }
 
+export interface EmailChangePendingDto {
+  currentEmail: string;
+  pendingNewEmail: string;
+  requestedAt?: string | null;
+  expiresAt?: string | null;
+  resendAvailableInSeconds: number;
+}
+
+export interface EmailChangePendingResponse {
+  data?: {
+    pending?: EmailChangePendingDto | null;
+  };
+  pending?: EmailChangePendingDto | null;
+}
+
 export interface EmailChangeRequest {
   newEmail: string;
 }
 
-export interface EmailChangeRequestResponse {
+export interface EmailChangeMutationResponse {
   message: string;
+  data?: {
+    pending?: EmailChangePendingDto | null;
+  };
+  pending?: EmailChangePendingDto | null;
+}
+
+export type EmailChangeRequestResponse = EmailChangeMutationResponse;
+
+export type EmailConfirmPreviewStatus =
+  | 'ready'
+  | 'expired'
+  | 'used'
+  | 'revoked'
+  | 'cancelled'
+  | 'conflict'
+  | 'invalid';
+
+export interface EmailConfirmPreview {
+  status: EmailConfirmPreviewStatus;
+  currentEmail?: string | null;
+  pendingNewEmail?: string | null;
+  newEmail?: string | null;
+  message?: string | null;
+  code?: string | null;
+}
+
+export interface EmailConfirmPreviewResponse {
+  data?: EmailConfirmPreview;
+  status?: EmailConfirmPreviewStatus;
+  currentEmail?: string | null;
+  pendingNewEmail?: string | null;
+  newEmail?: string | null;
+  message?: string | null;
+  code?: string | null;
 }
 
 export interface EmailConfirmRequest {
@@ -172,6 +221,15 @@ export interface EmailConfirmRequest {
 
 export interface EmailConfirmResponse {
   message: string;
+  data?: {
+    token?: string;
+    idUsuario?: number;
+    email?: string;
+    rol?: string;
+    fullName?: string;
+    newEmail?: string;
+  };
+  newEmail?: string;
 }
 
 export interface ResetPasswordRequest {

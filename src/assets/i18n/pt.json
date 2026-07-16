@@ -75,10 +75,21 @@
     "SECURITY": "Segurança",
     "NOTIFICATIONS": "Notificações",
     "PREFERENCES": "Preferências",
-    "PROFILE_INFO": "Informações do Perfil",
+    "PROFILE_INFO": "Perfil",
+    "PROFILE_DESCRIPTION": "Gerencie suas informações pessoais e como você aparece na plataforma.",
     "SECURITY_TITLE": "Segurança",
+    "SECURITY_DESCRIPTION": "Gerencie seus métodos de login, sessões ativas e opções de proteção da conta.",
     "NOTIFICATIONS_TITLE": "Notificações",
     "PREFERENCES_TITLE": "Preferências",
     "NOTIFICATIONS_COMING_SOON": "As preferências de notificações estarão disponíveis em breve."
+  },
+  "PHONE_FIELD": {
+    "LABEL": "Telefone",
+    "COUNTRY_ARIA_LABEL": "País do telefone",
+    "NUMBER_ARIA_LABEL": "Número de telefone",
+    "SEARCH_PLACEHOLDER": "Buscar país, código ou indicativo",
+    "NO_RESULTS": "Nenhum país encontrado",
+    "REQUIRED": "Este campo é obrigatório",
+    "INVALID": "Introduza um número de telefone válido para o país selecionado."
   }
 }

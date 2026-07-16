@@ -177,4 +177,11 @@ export class StepUpComponent implements OnInit, OnDestroy {
   providerLabel(provider: ExternalAuthProvider): string {
     return provider === 'google' ? 'Google' : 'Microsoft';
   }
+
+  get passwordOnlySubtitle(): string {
+    if (this.flowState.pendingOperation === 'email_change') {
+      return 'Por seguridad, introduce tu contraseña antes de solicitar el cambio de correo.';
+    }
+    return 'Confirma tu contraseña para desvincular el proveedor.';
+  }
 }

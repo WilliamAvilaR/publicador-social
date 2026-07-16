@@ -1,0 +1,186 @@
+.phone-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.phone-field-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.phone-row {
+  display: grid;
+  grid-template-columns: minmax(118px, 150px) 1fr;
+  gap: 0.75rem;
+
+  &.loading {
+    opacity: 0.7;
+  }
+}
+
+.phone-country-picker {
+  position: relative;
+}
+
+.phone-country-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 0.65rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: #101828;
+
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.phone-country-trigger-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.phone-country-trigger-code {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.phone-country-trigger-placeholder {
+  color: #98a2b3;
+}
+
+.phone-country-chevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #667085;
+}
+
+.phone-country-dropdown {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 280px;
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+  overflow: hidden;
+}
+
+.phone-country-search-wrap {
+  padding: 0.5rem;
+  border-bottom: 1px solid #f2f4f7;
+}
+
+.phone-country-search {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 0.65rem;
+  border: 1px solid #e4e7ec;
+  border-radius: 8px;
+  font-size: 0.875rem;
+
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  }
+}
+
+.phone-country-list {
+  max-height: 220px;
+  margin: 0;
+  padding: 0.35rem 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.phone-country-option {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 0.9rem;
+  color: #101828;
+  cursor: pointer;
+
+  &:hover,
+  &.selected {
+    background: #f2f4f7;
+  }
+}
+
+.phone-country-option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-country-option-code {
+  color: #667085;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.phone-country-empty {
+  padding: 0.75rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #667085;
+}
+
+.phone-national-input {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 0.95rem;
+
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  }
+
+  &.ng-invalid.ng-touched {
+    border-color: #f04438;
+  }
+}
+
+@media (max-width: 640px) {
+  .phone-row {
+    grid-template-columns: 1fr;
+  }
+
+  .phone-country-dropdown {
+    min-width: 100%;
+  }
+}
